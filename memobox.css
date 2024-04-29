@@ -96,7 +96,9 @@ hr {
     padding: 1em;
     margin: auto;
     margin-top: 2em;
-    align-self: auto;
+    /* align-self: auto; */
+    align-self: flex-end;
+    
 }
 
 #question_to_ai{

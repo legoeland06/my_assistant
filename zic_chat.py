@@ -482,8 +482,6 @@ def traitement_rapide(texte: str, model_to_use, client, talking: bool, moteur_di
     if talking:
         moteur_diction(readable_ai_response)
 
-    # creer_fenetre(readable_ai_response,moteur_de_diction=moteur_diction)
-
 
 def traitement_requete(
     texte: str, file_to_append: str, moteur_diction, model_to_use, client
@@ -496,7 +494,6 @@ def traitement_requete(
     moteur_diction(REPONSE_TROUVEE, True)
     print(readable_ai_response)
     return readable_ai_response
-    # creer_fenetre(readable_ai_response,moteur_de_diction=moteur_diction)
 
 
 class fenetre_entree:
@@ -583,8 +580,6 @@ class fenetre_entree:
 
         # Affichage de la fenêtre
         fenetre.mainloop()
-        # c'est ici que l'on retourne la valeur de self.content
-        # return self.get_submission()
 
 
 def check_email(username, password):
@@ -603,12 +598,13 @@ def main(prompt=False, talking=False):
         lecteur.runAndWait()
         lecteur.stop()
 
-    def say_txt(alire: str, stop_ecoute: bool):
-        if stop_ecoute:
-            arret_ecoute()
-        lecteur.say(alire)
-        lecteur.runAndWait()
-        lecteur.stop()
+    def say_txt(alire: str, stop_ecoute: bool, stop_talking: bool = talking):
+        if not stop_talking:
+            if stop_ecoute:
+                arret_ecoute()
+            lecteur.say(alire)
+            lecteur.runAndWait()
+            lecteur.stop()
 
     if prompt:
         model_used = init_model(LLAMA3, prompted=True)
@@ -726,21 +722,49 @@ def main(prompt=False, talking=False):
                 # la sortie du mode tchat permet de passer aussi des commandes,
                 # qui peuvent aussi se faire à la voix
                 # exemple : on peut dire < effacer le terminal > ou l'écrire dans le mode tchat
-                if (
+                mode_chat_lance = (
                     "activez le mode tchat" == recognized_text.lower()
                     or "l'écriture" == recognized_text.lower()
                     or "écriture" == recognized_text.lower()
                     or "mode d'écriture" == recognized_text.lower()
-                ):
+                )
+
+                effaccer_terminal = (
+                    "effacer le terminal" == recognized_text.lower()
+                    or "effacez le terminal" == recognized_text.lower()
+                )
+
+                changer_de_role = (
+                    "change le rôle" == recognized_text.lower()
+                    or "change de rôle" == recognized_text.lower()
+                )
+
+                call_preprompts = (
+                    "pré prompte" == recognized_text.lower()
+                    or "charger des promptes" == recognized_text.lower()
+                )
+
+                watch_target_file = (
+                    (
+                        "lire une page web" in recognized_text.lower()
+                        or "lire un texte" in recognized_text.lower()
+                    )
+                    or ("décrire une image" in recognized_text.lower())
+                    or ("charger un fichier texte" in recognized_text.lower())
+                    or ("téléchargez un texte" in recognized_text.lower())
+                    or ("téléchargez un fichier texte" in recognized_text.lower())
+                )
+
+                ne_pas_deranger = "ne pas déranger" in recognized_text.lower()
+                activer_parlote = "activer la voix" in recognized_text.lower()
+
+                if mode_chat_lance:
                     multiline_string, _lire_rep = traitement_chat(say_txt)
                     asked_task += "\n" + multiline_string
                     compteur, _ = debut_ecoute()
                     recognized_text = multiline_string
 
-                if (
-                    "effacer le terminal" == recognized_text.lower()
-                    or "effacez le terminal" == recognized_text.lower()
-                ):
+                if effaccer_terminal:
                     os.system("clear")
                     say_txt(TERMINAL_CLEAR, stop_ecoute=True)
                     affiche_menu_pricipale()
@@ -748,10 +772,15 @@ def main(prompt=False, talking=False):
 
                     compteur, recognized_text = debut_ecoute()
 
-                if (
-                    "change le rôle" == recognized_text.lower()
-                    or "change de rôle" == recognized_text.lower()
-                ):
+                if ne_pas_deranger:
+                    say_txt("ok plus de bruit")
+                    talking=False
+
+                if activer_parlote:
+                    talking=True
+                    say_txt("ok me re voilà")
+
+                if changer_de_role:
                     print(ASK_FOR_NEW_ROLE)
                     ROLE_TYPE = make_choice(
                         moteur_de_diction=say_txt, iterable=ROLE_TYPES
@@ -760,10 +789,7 @@ def main(prompt=False, talking=False):
                     client.chat(model=model_used, messages=[])
                     compteur, recognized_text = debut_ecoute()
 
-                if (
-                    "pré prompte" == recognized_text.lower()
-                    or "charger des promptes" == recognized_text.lower()
-                ):
+                if call_preprompts:
                     my_dico_prompts = PROMPTS_SYSTEMIQUES
                     the_choice, detail_choice = make_choice_dict(
                         moteur_de_diction=say_txt,
@@ -844,10 +870,6 @@ def main(prompt=False, talking=False):
                         resume_web_page + ".html", "r", encoding="utf-8"
                     ) as file_to_read:
                         conversation_hystory = file_to_read.read()
-                        # lisible_conversation=supprime_horodatage(conversation_hystory)
-                        # transformed_lines:str=""
-                        # for line in conversation_hystory:
-                        #     transformed_lines+=line.split("::")[2]+"\n"
 
                     result = (
                         CONVERSATIONS_HISTORY
@@ -859,17 +881,12 @@ def main(prompt=False, talking=False):
                     # Appel de la fonction pour créer la fenêtre
                     say_txt(CONVERSATIONS_HISTORY, stop_ecoute=False)
                     call_editor_talker(client, say_txt, model_used, text_init=result)
-                    # fenetre_historique = fenetre_entree()
-                    # fenetre_historique.creer_fenetre(
-                    #     "Historique des conversations",
-                    #     result,
-                    #     moteur_de_diction=say_txt,
-                    # )
+
                     compteur, recognized_text = debut_ecoute("je vous écoute")
 
                 # ici appel générique OUVRIR ou OUVREZ + MOTCLE
                 for lien in LIENS_CHROME:
-                    if (
+                    links_chrome = (
                         ("ouvrir " + lien in recognized_text.lower())
                         or (
                             recognized_text.lower() in lien
@@ -880,7 +897,8 @@ def main(prompt=False, talking=False):
                             recognized_text.lower() in lien
                             and "ouvrez" in recognized_text_before
                         )
-                    ):
+                    )
+                    if links_chrome:
                         say_txt("ouverture de " + lien, stop_ecoute=False)
                         chrome_pid = lancer_chrome(url=LIENS_CHROME[lien]).pid
                         compteur, recognized_text = debut_ecoute(
@@ -916,16 +934,7 @@ def main(prompt=False, talking=False):
                     compteur, recognized_text = debut_ecoute()
                     recognized_text_before = recognized_text
 
-                if (
-                    (
-                        "lire une page web" in recognized_text.lower()
-                        or "lire un texte" in recognized_text.lower()
-                    )
-                    or ("décrire une image" in recognized_text.lower())
-                    or ("charger un fichier texte" in recognized_text.lower())
-                    or ("téléchargez un texte" in recognized_text.lower())
-                    or ("téléchargez un fichier texte" in recognized_text.lower())
-                ):
+                if watch_target_file:
                     link_url: str = ""
 
                     def enter_url() -> str:
@@ -982,23 +991,11 @@ def main(prompt=False, talking=False):
                     print(
                         "---------------------------------------------\nOk. Traitement..."
                     )
-
-                    # On pose la question à lAi Ollama
-                    # print("Question à l'Ia::" + asked_task)
                     print("Question en traitement, un instant...")
-                    # asked_task = LANGFR + "\n" + asked_task
-                    # traitement_requete(
-                    #     asked_task,
-                    #     resume_web_page,
-                    #     say_txt,
-                    #     model_used,
-                    #     client=client,
-                    # )
-
                     update_task = traite_pre_prompt(
                         client, say_txt, model_used, response_file_path, asked_task
                     )
-                    actualise_index_html(texte=update_task, question=instructs)
+                    actualise_index_html(texte=update_task, question=asked_task)
 
                     # asked_task=""
                     compteur, recognized_text = debut_ecoute("je vous écoute")
@@ -1060,9 +1057,6 @@ def traite_pre_prompt(client, say_txt, model_used, response_file_path, instructs
 
 
 def actualise_index_html(texte: str, question: str):
-    # with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
-    #     file_to_update.write(texte)
-
     with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
         markdown_response = markdown.markdown(texte, output_format="xhtml")
         markdown_question = markdown.markdown(question, output_format="xhtml")
