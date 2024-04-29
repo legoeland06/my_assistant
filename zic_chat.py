@@ -41,6 +41,8 @@ ROLE_TYPES = [
 ROLE_TYPE = ROLE_TYPES[0]
 
 
+FICHE_DE_POSTE="fiche_de_poste"
+SCRAP_CONTENT="content_scrapped"
 BROWSE_WITH_BING="browse"
 SCRUM_PROMPT="prompt_scrum"
 CORRECTEUR="prompt_a_corriger"
@@ -125,7 +127,16 @@ PROMPTS_SYSTEMIQUES = {
     DEBATEUR: "Je veux que tu agisses en tant que débatteur professionnel. Tu pourras t’appuyer sur ta culture générale immense et tes compétences en rhétorique. Ta tâche consiste pour chaque sujet que je vais te transmettre à présenter des arguments valables pour chaque côté du débat, réfuter les points de vue opposés dans un tableau contenant 3 colonnes : une pour le chiffre, une avec l’emoji 🔥 pour l’argument et une avec l’emoji ❄️ pour la réfutation. Pour chaque argument et réfutation tu me donneras une phrase explicative complète et a minima une preuve pour la valider. L’objectif est de m’aider à mieux comprendre le sujet en question et à le connaitre plus en profondeur.  C’est pour quoi tu me feras une synthèse objective juste après ton tableau. Mon premier sujet est : [ subject_to_mind ]",
     PRODUCT_OWNER: "Tu es un expert en management de projet. Tu peux t’appuyer sur tes compétences en planification, en conduite du changement et en gestion de la motivation. Pour chaque objectif que je te soumettrai ici, je souhaite que tu me donnes toutes les étapes à suivre pour l’atteindre. Ta réponse doit être formatée dans un tableau en 4 colonnes : une pour la date, une pour l’étape concernée, une pour la description de cette étape et une pour une phrase de motivation relative à l’étape. Utilise les Emojis appropriés pour chaque colonne afin de rendre le tableau agréable à lire et motivant. Réponds uniquement par OK si c’est bon pour toi.",
     SCRUM_PROMPT:"""Tu es un expert en gestion de projet, en management et en productivité. Je souhaite être plus efficace et productif dans mon travail. Pour ça, tu vas m’aider à mieux m’organiser et planifier mes tâches.  Pour ça, tu vas t’appuyer sur la méthode SCRUM pour créer une Todo List pertinente et un plan de sprint. La ToDo List devrait inclure toutes les tâches nécessaires pour atteindre l'objectif, et le plan de sprint devrait diviser ces tâches en sprints de deux semaines, avec des objectifs spécifiques pour chaque sprint.  Utilise le Markdown pour mettre en page ta réponse. Mon objectif est le suivant : [ prompt_scrum ]""",
-    BROWSE_WITH_BING:"""Tu es un expert en recherche sur Internet et tu maitrises toutes les techniques pour trouver des informations fiables. Tu sais identifier des sources, les évaluer, les recouper et les synthétiser pour les communiquer de manière optimale. Ton rôle est d’aider l’utilisateur à faire une recherche approfondie sur Internet pour {SUJET}. Pour ça, tu vas suivre les étapes suivantes : 
+    FICHE_DE_POSTE:"""Tu es un expert en recrutement avec une spécialité dans *[METTRE SPÉCIALITÉ DOMAINE]*. Tu maitrises toutes les techniques pour identifier précisément les besoins en recrutement et travailler la fiche de poste optimale. Tu as une approche moderne du recrutement et tes actions sont guidées par les concepts de marque employeur et Employee Advocacy. Je souhaite recruter un *[METTRE POSTE]*. Les missions et caractéristiques du poste sont les suivantes : *[LISTER LES POINTS CLÉS DE L’OFFRE]* Pour rédiger la meilleure fiche de poste possible, tu vas suivre les instructions suivantes : 
+Étape 1 : Lister toutes les informations manquantes pour travailler la fiche de poste parfaite et y répondre toi-même en faisant tes meilleures préconisations selon tes compétences et mon contexte. Étape 2 : rédiger un premier jet de la fiche de poste. Étape 3 : faire une critique de cette fiche de poste en lui attribuant une note sur 5 étoiles et en listant les améliorations à lui apporter pour obtenir 5 étoiles sur 5 (la perfection). Étape 4 : améliorer la fiche de poste en fonction de ta critique. 
+Point important :
+Pour chaque étape, tu attendras ma réponse avant de démarrer la suivante.""",
+    SCRAP_CONTENT:"""Je suis en train de faire ma veille d’actualité sur [content_scrapped]. Je souhaite que tu m’aides à la réaliser et pour ça, tu vas endosser le rôle d’un expert en curation de contenu. Tu maitrises toutes les techniques pour identifier les meilleures informations, les évaluer et les synthétiser. Voici tes instructions : 
+1. Identifie les actualités les plus importantes à retenir aujourd’hui sur [content_scrapped]
+2. Présente-les sous forme de tableau avec le titre de l’actualité, la source et un résumé simple des idées clés à retenir
+3. Fais une synthèse globale des actus en 100 mots maximum.
+4. Convertis cette synthèse dans une vidéo de 60 secondes environ.""",
+    BROWSE_WITH_BING:"""Tu es un expert en recherche sur Internet et tu maitrises toutes les techniques pour trouver des informations fiables. Tu sais identifier des sources, les évaluer, les recouper et les synthétiser pour les communiquer de manière optimale. Ton rôle est d’aider l’utilisateur à faire une recherche approfondie sur Internet pour [ browse ]. Pour ça, tu vas suivre les étapes suivantes : 
 1. Effectue une recherche d’information sur Internet.
 2. Présente le lien des sources retenues et fais un résumé pour chacune.
 3. Effectue une recherche de sources primaires
@@ -284,24 +295,6 @@ def affiche_fille():
                                     8:::::::8:::::::::::::d'
                                     8::::::;8:::::::::::::8
                                     8::::::dP::::::::::::;P
-                                    8:::::;P:::::::::::::d'
-                                   ,P:::::d::::::::::::::8
-                                   d:::::;P::::::::::::::8
-                                  ,P:::::d:::::::::::::::8
-                                  d:::::;P:::::::::::::::8
-                                 d::::::d::::::::::::::::8
-                                d:::::::8::::::::::::::::Y,
-                               ,P::::::;P:::::::::::::::::b
-                              ,P:::::::d::::::::::::::::::8
-                             ,d::::::::8::::::::::::::::::8
-                            ,d::::::::;P::::::::::::::::::8
-                            d:::::::::d:::::::::::::::::::8
-                            8:::::::::8:::::::::::::::::::8
-                           ,P:::::::::8:::::::::::::::::::8
-                           d::::::::::8:::::::::::::::::::8
-                           8::::::::::8:::::::::::::::::::8
-                          ,P::::::::::8:::::::::::::::::::8
-                          d:::::::::::8:::::::::::::::::::8          
 '''
     )
     print()
@@ -335,7 +328,7 @@ def make_choice(moteur_de_diction, iterable: iter):
     for question in iterable:
         print(str(iterable.index(question)) + ". " + question)
     choix = input(STARS * WIDTH_TERM + "\nVotre choix: ")
-    if choix.isnumeric and len(choix) == 1:
+    if choix.isnumeric and len(choix) <= 2:
         moteur_de_diction(iterable[int(choix)], True)
         return iterable[int(choix)]
     elif choix.isalpha and len(choix) > 2:
@@ -365,7 +358,7 @@ def make_choice_dict(moteur_de_diction, dicto: dict):
 
     choix_ecrit = input(STARS * WIDTH_TERM + "\nVotre choix_ecrit: ")
 
-    if choix_ecrit.isnumeric and len(choix_ecrit) == 1:
+    if choix_ecrit.isnumeric and len(choix_ecrit) <= 2:
         choix_reel = list(dicto.items())[int(choix_ecrit)]
         choix_detail = choix_reel[1]
         choix_intitule = choix_reel[0]
