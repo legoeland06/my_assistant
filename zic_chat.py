@@ -41,11 +41,11 @@ ROLE_TYPES = [
 ROLE_TYPE = ROLE_TYPES[0]
 
 
-FICHE_DE_POSTE="fiche_de_poste"
-SCRAP_CONTENT="content_scrapped"
-BROWSE_WITH_BING="browse"
-SCRUM_PROMPT="prompt_scrum"
-CORRECTEUR="prompt_a_corriger"
+FICHE_DE_POSTE = "fiche_de_poste"
+SCRAP_CONTENT = "content_scrapped"
+BROWSE_WITH_BING = "browse"
+SCRUM_PROMPT = "prompt_scrum"
+CORRECTEUR = "prompt_a_corriger"
 SPECIALITY = "speciality"
 PROMPTOR = "prompt_to_workd"
 DEBATEUR = "subject_to_mind"
@@ -126,23 +126,23 @@ PROMPTS_SYSTEMIQUES = {
     FORMATEUR: "[Formate ta réponse en utilisant le markdown. Utilise des titres, des sous-titres, des puces et du gras pour organiser tes informations et les rendre plus lisibles. Pour les titres et les sous-titres, prends soin de les rédiger pour qu’ils soient accrocheurs et donnent envie de lire la suite] [ sujet_à_traiter ]",
     DEBATEUR: "Je veux que tu agisses en tant que débatteur professionnel. Tu pourras t’appuyer sur ta culture générale immense et tes compétences en rhétorique. Ta tâche consiste pour chaque sujet que je vais te transmettre à présenter des arguments valables pour chaque côté du débat, réfuter les points de vue opposés dans un tableau contenant 3 colonnes : une pour le chiffre, une avec l’emoji 🔥 pour l’argument et une avec l’emoji ❄️ pour la réfutation. Pour chaque argument et réfutation tu me donneras une phrase explicative complète et a minima une preuve pour la valider. L’objectif est de m’aider à mieux comprendre le sujet en question et à le connaitre plus en profondeur.  C’est pour quoi tu me feras une synthèse objective juste après ton tableau. Mon premier sujet est : [ subject_to_mind ]",
     PRODUCT_OWNER: "Tu es un expert en management de projet. Tu peux t’appuyer sur tes compétences en planification, en conduite du changement et en gestion de la motivation. Pour chaque objectif que je te soumettrai ici, je souhaite que tu me donnes toutes les étapes à suivre pour l’atteindre. Ta réponse doit être formatée dans un tableau en 4 colonnes : une pour la date, une pour l’étape concernée, une pour la description de cette étape et une pour une phrase de motivation relative à l’étape. Utilise les Emojis appropriés pour chaque colonne afin de rendre le tableau agréable à lire et motivant. Réponds uniquement par OK si c’est bon pour toi.",
-    SCRUM_PROMPT:"""Tu es un expert en gestion de projet, en management et en productivité. Je souhaite être plus efficace et productif dans mon travail. Pour ça, tu vas m’aider à mieux m’organiser et planifier mes tâches.  Pour ça, tu vas t’appuyer sur la méthode SCRUM pour créer une Todo List pertinente et un plan de sprint. La ToDo List devrait inclure toutes les tâches nécessaires pour atteindre l'objectif, et le plan de sprint devrait diviser ces tâches en sprints de deux semaines, avec des objectifs spécifiques pour chaque sprint.  Utilise le Markdown pour mettre en page ta réponse. Mon objectif est le suivant : [ prompt_scrum ]""",
-    FICHE_DE_POSTE:"""Tu es un expert en recrutement avec une spécialité dans *[METTRE SPÉCIALITÉ DOMAINE]*. Tu maitrises toutes les techniques pour identifier précisément les besoins en recrutement et travailler la fiche de poste optimale. Tu as une approche moderne du recrutement et tes actions sont guidées par les concepts de marque employeur et Employee Advocacy. Je souhaite recruter un *[METTRE POSTE]*. Les missions et caractéristiques du poste sont les suivantes : *[LISTER LES POINTS CLÉS DE L’OFFRE]* Pour rédiger la meilleure fiche de poste possible, tu vas suivre les instructions suivantes : 
+    SCRUM_PROMPT: """Tu es un expert en gestion de projet, en management et en productivité. Je souhaite être plus efficace et productif dans mon travail. Pour ça, tu vas m’aider à mieux m’organiser et planifier mes tâches.  Pour ça, tu vas t’appuyer sur la méthode SCRUM pour créer une Todo List pertinente et un plan de sprint. La ToDo List devrait inclure toutes les tâches nécessaires pour atteindre l'objectif, et le plan de sprint devrait diviser ces tâches en sprints de deux semaines, avec des objectifs spécifiques pour chaque sprint.  Utilise le Markdown pour mettre en page ta réponse. Mon objectif est le suivant : [ prompt_scrum ]""",
+    FICHE_DE_POSTE: """Tu es un expert en recrutement avec une spécialité dans *[METTRE SPÉCIALITÉ DOMAINE]*. Tu maitrises toutes les techniques pour identifier précisément les besoins en recrutement et travailler la fiche de poste optimale. Tu as une approche moderne du recrutement et tes actions sont guidées par les concepts de marque employeur et Employee Advocacy. Je souhaite recruter un *[METTRE POSTE]*. Les missions et caractéristiques du poste sont les suivantes : *[LISTER LES POINTS CLÉS DE L’OFFRE]* Pour rédiger la meilleure fiche de poste possible, tu vas suivre les instructions suivantes : 
 Étape 1 : Lister toutes les informations manquantes pour travailler la fiche de poste parfaite et y répondre toi-même en faisant tes meilleures préconisations selon tes compétences et mon contexte. Étape 2 : rédiger un premier jet de la fiche de poste. Étape 3 : faire une critique de cette fiche de poste en lui attribuant une note sur 5 étoiles et en listant les améliorations à lui apporter pour obtenir 5 étoiles sur 5 (la perfection). Étape 4 : améliorer la fiche de poste en fonction de ta critique. 
 Point important :
 Pour chaque étape, tu attendras ma réponse avant de démarrer la suivante.""",
-    SCRAP_CONTENT:"""Je suis en train de faire ma veille d’actualité sur [content_scrapped]. Je souhaite que tu m’aides à la réaliser et pour ça, tu vas endosser le rôle d’un expert en curation de contenu. Tu maitrises toutes les techniques pour identifier les meilleures informations, les évaluer et les synthétiser. Voici tes instructions : 
+    SCRAP_CONTENT: """Je suis en train de faire ma veille d’actualité sur [content_scrapped]. Je souhaite que tu m’aides à la réaliser et pour ça, tu vas endosser le rôle d’un expert en curation de contenu. Tu maitrises toutes les techniques pour identifier les meilleures informations, les évaluer et les synthétiser. Voici tes instructions : 
 1. Identifie les actualités les plus importantes à retenir aujourd’hui sur [content_scrapped]
 2. Présente-les sous forme de tableau avec le titre de l’actualité, la source et un résumé simple des idées clés à retenir
 3. Fais une synthèse globale des actus en 100 mots maximum.
 4. Convertis cette synthèse dans une vidéo de 60 secondes environ.""",
-    BROWSE_WITH_BING:"""Tu es un expert en recherche sur Internet et tu maitrises toutes les techniques pour trouver des informations fiables. Tu sais identifier des sources, les évaluer, les recouper et les synthétiser pour les communiquer de manière optimale. Ton rôle est d’aider l’utilisateur à faire une recherche approfondie sur Internet pour [ browse ]. Pour ça, tu vas suivre les étapes suivantes : 
+    BROWSE_WITH_BING: """Tu es un expert en recherche sur Internet et tu maitrises toutes les techniques pour trouver des informations fiables. Tu sais identifier des sources, les évaluer, les recouper et les synthétiser pour les communiquer de manière optimale. Ton rôle est d’aider l’utilisateur à faire une recherche approfondie sur Internet pour [ browse ]. Pour ça, tu vas suivre les étapes suivantes : 
 1. Effectue une recherche d’information sur Internet.
 2. Présente le lien des sources retenues et fais un résumé pour chacune.
 3. Effectue une recherche de sources primaires
 4. Présente le lien des sources primaires retenues et fais un résumé pour chacune.
 5. Fais une synthèse globale des information et attribue un pourcentage de confiance à ta synthèse.""",
-    CORRECTEUR:"""[INSTRUCTION]
+    CORRECTEUR: """[INSTRUCTION]
 J’ai un document que je souhaite optimiser pour le web.
 Crée un tableau avec 5 à 10 suggestions d’amélioration en mettant dans la colonne de gauche le numéro de la suggestion pour que je puisse les sélectionner. Après le tableau, pose-moi la question « Quelles améliorations souhaites-tu apporter à ton texte ? Choisis-en une ou plusieurs dans le tableau ci-dessus. ». Voici le document : [ prompt_a_corriger ] 
 """,
@@ -431,19 +431,14 @@ def append_response_to_file(file_to_append, readable_ai_response):
         markdown_content = markdown.markdown(
             readable_ai_response, output_format="xhtml"
         )
-
-        target_file.write(
-            "::"
-            + datetime.datetime.now().isoformat()
-            + "::\n"
-            + markdown_content
-            + "\n"
-        )
+        target_file.write(markdown_content + "\n")
     with open(file_to_append + ".md", "a", encoding="utf-8") as target_file:
         markdown_content = markdown.markdown(
             readable_ai_response, output_format="xhtml"
         )
-
+        target_file.write(markdown_content + "\n")
+    with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
+        markdown_content = readable_ai_response
         target_file.write(
             "::"
             + datetime.datetime.now().isoformat()
@@ -476,7 +471,7 @@ def ask_to_ai(texte, model_to_use, client: ollama.Client):
     return ai_response
 
 
-def traitement_rapide(texte: str, model_to_use, client, talking, moteur_diction):
+def traitement_rapide(texte: str, model_to_use, client, talking: bool, moteur_diction):
     ai_response = ask_to_ai(texte, model_to_use=model_to_use, client=client)
     readable_ai_response = ai_response["message"]["content"]
 
@@ -504,59 +499,92 @@ def traitement_requete(
     # creer_fenetre(readable_ai_response,moteur_de_diction=moteur_diction)
 
 
-# open a windows
-def creer_fenetre(msg_to_write, moteur_de_diction):
-    # Création de la fenêtre principale
-    fenetre = tk.Tk()
-    fenetre.title("Ma fenêtre")
+class fenetre_entree:
+    content: str
+    title: str
+    submission: str
 
-    # Création d'un champ de saisie de l'utilisateur
-    entree1 = tk.Text(fenetre)
-    entree1.insert(tk.END, msg_to_write)
+    def __init__(self):
+        self.title = "ZicChatBot"
+        self.content = ""
+        self.submission = ""
 
-    entree1.pack(fill="both", expand=True)
+    def set(self, content: str):
+        self.content = content
 
-    def soumettre():
-        # Afficher une boîte de message de confirmation
-        reponse = messagebox.askyesno(
-            "Confirmation", "Êtes-vous sûr de vouloir soumetre ?"
+    def get(self) -> str:
+        return self.content
+
+    def set_submission(self, content: str):
+        self.submission = content
+
+    def get_submission(self) -> str:
+        return self.submission
+
+    # open a windows
+    def creer_fenetre(self, title, msg_to_write, moteur_de_diction):
+        # Création de la fenêtre principale
+        fenetre = tk.Tk()
+        fenetre.title(self.title + " - " + title)
+
+        # Création d'un champ de saisie de l'utilisateur
+        entree1 = tk.Text(fenetre)
+        entree1.insert(tk.END, msg_to_write)
+
+        entree1.pack(fill="both", expand=True)
+
+        def soumettre() -> str:
+            # Afficher une boîte de message de confirmation
+            reponse = messagebox.askyesno(
+                "Confirmation", "Êtes-vous sûr de vouloir soumetre ?"
+            )
+            if reponse:
+                # set asked_task
+                # ici on set l'attribut de la classe fenetre_entree
+                # avec la valeur du contenu de la cellule entree1
+                self.set_submission(entree1.get("1.0", "end"))
+
+                # et on ferme la fenetre
+                fenetre.destroy()
+            else:
+                print("L'utilisateur a annulé.")
+
+        def quitter():
+            # Afficher une boîte de message de confirmation
+            reponse = messagebox.askyesno(
+                "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
+            )
+            if reponse:
+                fenetre.destroy()
+            else:
+                print("L'utilisateur a annulé.")
+
+        def lire_texte():
+            moteur_de_diction(entree1.get("1.0", "end"), True)
+
+        def lire_sel_texte():
+            moteur_de_diction(entree1.selection_get(), True)
+
+        # Création d'un bouton pour Lire
+        bouton_lire = tk.Button(
+            fenetre, text="Lire la sélection", command=lire_sel_texte
         )
-        if reponse:
-            # set asked_task
-            return "str(entree1.get)"
-        else:
-            print("L'utilisateur a annulé.")
+        bouton_lire.pack()
+        bouton_lire = tk.Button(fenetre, text="Lire", command=lire_texte)
+        bouton_lire.pack()
 
-    def quitter():
-        # Afficher une boîte de message de confirmation
-        reponse = messagebox.askyesno(
-            "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
-        )
-        if reponse:
-            fenetre.destroy()
-        else:
-            print("L'utilisateur a annulé.")
+        # Création d'un bouton pour soumetre
+        bouton_soumetre = tk.Button(fenetre, text="Soumettre", command=soumettre)
+        bouton_soumetre.pack()
 
-    def lire_texte():
-        if entree1.selection_get() != "":
-            moteur_de_diction(str(entree1.selection_get()), True)
-        else:
-            moteur_de_diction("veuillez sélectionner le texte à lire", True)
+        # Création d'un bouton pour quitter
+        bouton_quitter = tk.Button(fenetre, text="Quitter", command=quitter)
+        bouton_quitter.pack()
 
-    # Création d'un bouton pour Lire
-    bouton_lire = tk.Button(fenetre, text="Lire la sélection", command=lire_texte)
-    bouton_lire.pack()
-
-    # Création d'un bouton pour soumetre
-    bouton_soumetre = tk.Button(fenetre, text="Soumettre", command=soumettre)
-    bouton_soumetre.pack()
-
-    # Création d'un bouton pour quitter
-    bouton_quitter = tk.Button(fenetre, text="Quitter", command=quitter)
-    bouton_quitter.pack()
-
-    # Affichage de la fenêtre
-    fenetre.mainloop()
+        # Affichage de la fenêtre
+        fenetre.mainloop()
+        # c'est ici que l'on retourne la valeur de self.content
+        # return self.get_submission()
 
 
 def check_email(username, password):
@@ -761,9 +789,11 @@ def main(prompt=False, talking=False):
                         rubrique=element,
                         prompt_name=value_prompt_name,
                     )
+
                     asked_task = traite_pre_prompt(
                         client, say_txt, model_used, response_file_path, instructs
                     )
+                    actualise_index_html(texte=asked_task, question=instructs)
 
                     compteur, recognized_text = debut_ecoute()
 
@@ -810,8 +840,14 @@ def main(prompt=False, talking=False):
                     in recognized_text.lower()
                 ):
                     say_txt("d'accord...", stop_ecoute=True)
-                    with open(output_file_path, "r", encoding="utf-8") as file_to_read:
+                    with open(
+                        resume_web_page + ".html", "r", encoding="utf-8"
+                    ) as file_to_read:
                         conversation_hystory = file_to_read.read()
+                        # lisible_conversation=supprime_horodatage(conversation_hystory)
+                        # transformed_lines:str=""
+                        # for line in conversation_hystory:
+                        #     transformed_lines+=line.split("::")[2]+"\n"
 
                     result = (
                         CONVERSATIONS_HISTORY
@@ -822,7 +858,13 @@ def main(prompt=False, talking=False):
                     )
                     # Appel de la fonction pour créer la fenêtre
                     say_txt(CONVERSATIONS_HISTORY, stop_ecoute=False)
-                    creer_fenetre(result, moteur_de_diction=say_txt)
+                    call_editor_talker(client, say_txt, model_used, text_init=result)
+                    # fenetre_historique = fenetre_entree()
+                    # fenetre_historique.creer_fenetre(
+                    #     "Historique des conversations",
+                    #     result,
+                    #     moteur_de_diction=say_txt,
+                    # )
                     compteur, recognized_text = debut_ecoute("je vous écoute")
 
                 # ici appel générique OUVRIR ou OUVREZ + MOTCLE
@@ -847,21 +889,18 @@ def main(prompt=False, talking=False):
                         recognized_text_before = recognized_text
                         break
 
-                if "lire à haute voix" in recognized_text.lower():
-                    say_txt(
-                        "D'acord, passage en mode tchat pour copier/coller le texte à lire",
-                        stop_ecoute=False,
-                    )
-                    multiline_string, _lire_rep = mode_Super_chat(say_txt)
-                    say_txt(
-                        multiline_string + "\n... fin de la lecture", stop_ecoute=True
-                    )
-
-                    compteur, recognized_text = debut_ecoute("je vous écoute")
+                if (
+                    "lire à haute voix" in recognized_text.lower()
+                    or "editeur" == recognized_text.lower()
+                ):
+                    asked_task = call_editor_talker(client, say_txt, model_used)
+                    compteur, _ = debut_ecoute("je vous écoute")
 
                 if "sauvegarder vers audio" in recognized_text.lower():
-                    multiline_string, _lire_rep = mode_Super_chat(say_txt)
-                    text_to_mp3(multiline_string, lecteur=lecteur)
+                    # multiline_string, _lire_rep = mode_Super_chat(say_txt)
+                    text_to_mp3(
+                        call_editor_talker(client, say_txt, model_used), lecteur=lecteur
+                    )
                     compteur, recognized_text = debut_ecoute("sauvegarde effectuée")
 
                 if "fermer chrome" in recognized_text:
@@ -938,15 +977,6 @@ def main(prompt=False, talking=False):
 
                 # TODO : AJOUTER UN PREPROMPT DE SYSTEM POUR AFFINER
 
-                if "editeur" == recognized_text.lower():
-                    suzy_retour = creer_fenetre(
-                        "Ecrivez ou collez directement votre texte à lire ici",
-                        moteur_de_diction=say_txt,
-                    )
-                    if suzy_retour != "":
-                        asked_task += "\n" + suzy_retour
-                    compteur, recognized_text = debut_ecoute()
-
                 # Check for the termination keyword
                 if "terminé" in recognized_text.lower() and asked_task != "":
                     print(
@@ -956,14 +986,19 @@ def main(prompt=False, talking=False):
                     # On pose la question à lAi Ollama
                     # print("Question à l'Ia::" + asked_task)
                     print("Question en traitement, un instant...")
-                    asked_task = LANGFR + "\n" + asked_task
-                    traitement_requete(
-                        asked_task,
-                        response_file_path,
-                        say_txt,
-                        model_used,
-                        client=client,
+                    # asked_task = LANGFR + "\n" + asked_task
+                    # traitement_requete(
+                    #     asked_task,
+                    #     resume_web_page,
+                    #     say_txt,
+                    #     model_used,
+                    #     client=client,
+                    # )
+
+                    update_task = traite_pre_prompt(
+                        client, say_txt, model_used, response_file_path, asked_task
                     )
+                    actualise_index_html(texte=update_task, question=instructs)
 
                     # asked_task=""
                     compteur, recognized_text = debut_ecoute("je vous écoute")
@@ -986,6 +1021,34 @@ def main(prompt=False, talking=False):
                     )
 
 
+def call_editor_talker(client, say_txt, model_used, text_init="") -> str:
+    say_txt("D'accord !", stop_ecoute=True)
+    # init de la classe fenetre_entree()
+    fenetre_de_lecture = fenetre_entree()
+    # récupération de la sortie de cette classe
+    if text_init != "":
+        msg = text_init
+    else:
+        msg = "Coller ici le texte à lire à haute voix, puis cliquez sur <lire>"
+    fenetre_de_lecture.creer_fenetre(
+        title="Lecteur de texte",
+        msg_to_write=msg,
+        moteur_de_diction=say_txt,
+    )
+    if input("Voulez-vous soummetre votre texte à l'IA (o/n)?") == "o":
+        texte_lu = fenetre_de_lecture.get_submission()
+        print(texte_lu)
+        say_txt("requette soumise à l'IA... Veuillez patienter", stop_ecoute=True)
+        traitement_rapide(
+            texte=texte_lu,
+            model_to_use=model_used,
+            client=client,
+            talking=False,
+            moteur_diction=say_txt,
+        )
+    return fenetre_de_lecture.get_submission()
+
+
 def traite_pre_prompt(client, say_txt, model_used, response_file_path, instructs):
     return traitement_requete(
         instructs,
@@ -994,6 +1057,26 @@ def traite_pre_prompt(client, say_txt, model_used, response_file_path, instructs
         model_used,
         client=client,
     )
+
+
+def actualise_index_html(texte: str, question: str):
+    # with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
+    #     file_to_update.write(texte)
+
+    with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
+        markdown_response = markdown.markdown(texte, output_format="xhtml")
+        markdown_question = markdown.markdown(question, output_format="xhtml")
+        file_to_update.write(
+            "<div id='response_ai'>"
+            + "<div id=question_to_ai>"
+            + "<h3>Prompt</h3>"
+            + markdown_question
+            + "\n"
+            + "</div>"
+            + markdown_response
+            + "\n"
+            + "</div>"
+        )
 
 
 def return_result(say_txt, result_):
