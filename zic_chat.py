@@ -12,22 +12,19 @@ import ollama
 import markdown
 import imageio.v3 as iio
 import subprocess
-from http.server import HTTPServer,BaseHTTPRequestHandler,SimpleHTTPRequestHandler
-from http.client import HTTPResponse,HTTPException,responses,HTTPMessage
-import wasm3, base64
 
-# WebAssembly binary
-WASM = base64.b64decode("AGFzbQEAAAABBgFgAX4"
-    "BfgMCAQAHBwEDZmliAAAKHwEdACAAQgJUBEAgAA"
-    "8LIABCAn0QACAAQgF9EAB8Dws=")
+# # WebAssembly binary
+# WASM = base64.b64decode("AGFzbQEAAAABBgFgAX4"
+#     "BfgMCAQAHBwEDZmliAAAKHwEdACAAQgJUBEAgAA"
+#     "8LIABCAn0QACAAQgF9EAB8Dws=")
 
-env = wasm3.Environment()
-rt  = env.new_runtime(1024)
-mod = env.parse_module(WASM)
-rt.load(mod)
-wasm_fib = rt.find_function("fib")
-result = wasm_fib(24)
-print(result) 
+# env = wasm3.Environment()
+# rt  = env.new_runtime(1024)
+# mod = env.parse_module(WASM)
+# rt.load(mod)
+# wasm_fib = rt.find_function("fib")
+# result = wasm_fib(24)
+# print(result) 
 
 
 # Liste des models déjà téléchargés
@@ -619,8 +616,6 @@ def main(prompt=False, stop_talking=False):
             moteur_diction=say_tt,
         )
     
-    init_server()
-
     model_used = init_model(LLAMA3, prompted=False)
 
     say_txt("IA initialisée ! ", stop_ecoute=False)
@@ -1064,17 +1059,6 @@ def main(prompt=False, stop_talking=False):
                     merci_au_revoir(
                         say_txt, stream_to_stop=stream, pulse_audio_to_stop=p
                     )
-def create_http_response()->HTTPResponse:
-    int_response= HTTPResponse()
-    int_response.write("<div>Salut</div>")
-    return int_response
-
-
-def init_server():
-    addr = ('127.0.0.1', 8080)
-    server = HTTPServer(addr, RequestHandlerClass=BaseHTTPRequestHandler.handle_one_request)
-    server.serve_forever()
-
 
 def call_editor_talker(client, say_txt, model_used, text_init="") -> str:
     say_txt("D'accord !", stop_ecoute=True)
