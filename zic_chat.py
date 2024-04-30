@@ -12,6 +12,23 @@ import ollama
 import markdown
 import imageio.v3 as iio
 import subprocess
+from http.server import HTTPServer,BaseHTTPRequestHandler,SimpleHTTPRequestHandler
+from http.client import HTTPResponse,HTTPException,responses,HTTPMessage
+import wasm3, base64
+
+# WebAssembly binary
+WASM = base64.b64decode("AGFzbQEAAAABBgFgAX4"
+    "BfgMCAQAHBwEDZmliAAAKHwEdACAAQgJUBEAgAA"
+    "8LIABCAn0QACAAQgF9EAB8Dws=")
+
+env = wasm3.Environment()
+rt  = env.new_runtime(1024)
+mod = env.parse_module(WASM)
+rt.load(mod)
+wasm_fib = rt.find_function("fib")
+result = wasm_fib(24)
+print(result) 
+
 
 # Liste des models déjà téléchargés
 
@@ -181,10 +198,12 @@ def affiche_preprompts():
 
 def engine_lecteur_init():
     lecteur = pyttsx3.init()
-    voice = lecteur.getProperty("voices")[0]  # the french voice
-    lecteur.setProperty(voice, "male")
+    # voice = lecteur.getProperty("voices")[0]  # the french voice
+    # lecteur.setProperty(voice, "male")
     lecteur.setProperty("lang", "french")
     lecteur.setProperty("rate", RAPIDITE_VOIX)
+
+    pyttsx3.speak("kiki")
     return lecteur
 
 
@@ -244,19 +263,6 @@ def affiche_fille():
     print()
     print(
         '''
-       `8b,             `""Ya,    ,da8888888888888888bbbaaaaaaadP"'
-         "Y8a,              `"Ya,,d88888888888888888888888888b
-            `"Ya,._            `Y888888888888888888888888888888,
-                `""Yba,_       ,d8888888888888888888888888888888b
-                     `""YYaa,,,d8888888888888888888888888888888888,
-                           `"d8888888888888888888888888888888888888b
-                           ,d8888888888888888888888888888888888888888,
-                          a8888888888888888888888888888888888888888888b
-                        ,d8888888888888888888888PP"":::::::::::""Y888888,
-                       ,d8888888888888888PP""::::::::::::::::::::::888888b,
-                      d888888888888P"":::::::::::::::::::::::::::::Y8888888b
-                     d888888888P:;P:::::::::::::::::::::::::::::::::88888888b
-                   ,88888888P"::;P::::::::::::::::::::::::::::::::::888888888,
                  ,d8888888P:::::d:::::::::::::::::::::::::::::::::::888888888b
                 a8888888P:::::::8:::::::::::::::Normand:::::::::::::I888888888
               ,d8888888"::::::::8:::::::::::::::Veilleux::::::::::::I888888888
@@ -282,19 +288,6 @@ def affiche_fille():
                               8:::::::::::8:::::::::::::::::::::;P
                               Y;::::::::::8:::::::::::::::::::::d'
                               `b::::::::::Y;::::::::::::::::::::8
-                               `b::::::::::b:::::::::::::::::::;P
-                                Y;:::::::::8:::::::::::::::::::d'
-                                `b:::::::::8:::::::::::::::::::8
-                                 Y;::::::::Y;:::::::::::::::::;P
-                                 `b:::::::::b::::::::::::::::;d'
-                                  Y;::::::::8:::::::::::::::;d'
-                                  `b::::::::8:::::::::::::::d'
-                                   Y;:::::::8::::::::::::::;P
-                                   `b:::::::8::::::::::::::d'
-                                    8:::::::8:::::::::::::;P
-                                    8:::::::8:::::::::::::d'
-                                    8::::::;8:::::::::::::8
-                                    8::::::dP::::::::::::;P
 '''
     )
     print()
@@ -589,16 +582,26 @@ def check_email(username, password):
 lecteur = engine_lecteur_init()
 
 
-def main(prompt=False, talking=False):
+def main(prompt=False, stop_talking=False):
 
     client: ollama.Client = ollama.Client(host="http://localhost:11434")
+
+    def inc_lecteur():
+        lecteur.setProperty(
+            name="rate", value=int(lecteur.getProperty(name="rate")) + 20
+        )
+
+    def dec_lecteur():
+        lecteur.setProperty(
+            name="rate", value=int(lecteur.getProperty(name="rate")) - 20
+        )
 
     def say_tt(alire: str):
         lecteur.say(alire)
         lecteur.runAndWait()
         lecteur.stop()
 
-    def say_txt(alire: str, stop_ecoute: bool, stop_talking: bool = talking):
+    def say_txt(alire: str, stop_ecoute: bool):
         if not stop_talking:
             if stop_ecoute:
                 arret_ecoute()
@@ -612,9 +615,11 @@ def main(prompt=False, talking=False):
             prompt,
             model_to_use=model_used,
             client=client,
-            talking=talking,
+            talking=stop_talking,
             moteur_diction=say_tt,
         )
+    
+    init_server()
 
     model_used = init_model(LLAMA3, prompted=False)
 
@@ -718,25 +723,28 @@ def main(prompt=False, talking=False):
                 result = json.loads(rec.Result())
                 recognized_text = result["text"]
 
+                # IMPORTANT !!!
                 # Parce qu'il est positionné en haut de toutes les conditions,
                 # la sortie du mode tchat permet de passer aussi des commandes,
                 # qui peuvent aussi se faire à la voix
                 # exemple : on peut dire < effacer le terminal > ou l'écrire dans le mode tchat
                 mode_chat_lance = (
-                    "activez le mode tchat" == recognized_text.lower()
-                    or "l'écriture" == recognized_text.lower()
+                    "activer le mode d'écriture" in recognized_text.lower()
+                    or "activer l'écriture" in recognized_text.lower()
                     or "écriture" == recognized_text.lower()
-                    or "mode d'écriture" == recognized_text.lower()
+                    or "passer en mode d'écriture" in recognized_text.lower()
                 )
+                if mode_chat_lance:
+                    multiline_string, _lire_rep = traitement_chat(say_txt)
+                    asked_task += "\n" + multiline_string
+                    compteur, _ = debut_ecoute()
+                    recognized_text = multiline_string
 
-                effaccer_terminal = (
-                    "effacer le terminal" == recognized_text.lower()
-                    or "effacez le terminal" == recognized_text.lower()
-                )
+                effaccer_terminal = "effacer le terminal" in recognized_text.lower()
 
                 changer_de_role = (
-                    "change le rôle" == recognized_text.lower()
-                    or "change de rôle" == recognized_text.lower()
+                    "changer le rôle" == recognized_text.lower()
+                    or "changer de rôle" == recognized_text.lower()
                 )
 
                 call_preprompts = (
@@ -757,12 +765,27 @@ def main(prompt=False, talking=False):
 
                 ne_pas_deranger = "ne pas déranger" in recognized_text.lower()
                 activer_parlote = "activer la voix" in recognized_text.lower()
+                incremente_lecteur = (
+                    "la voie soit plus rapide" in recognized_text.lower()
+                )
+                decremente_lecteur = (
+                    "la voie soit moins rapide" in recognized_text.lower()
+                )
 
-                if mode_chat_lance:
-                    multiline_string, _lire_rep = traitement_chat(say_txt)
-                    asked_task += "\n" + multiline_string
-                    compteur, _ = debut_ecoute()
-                    recognized_text = multiline_string
+                if incremente_lecteur:
+                    inc_lecteur()
+                    say_txt("voix plus rapide", stop_ecoute=False)
+                if decremente_lecteur:
+                    dec_lecteur()
+                    say_txt("voix plus lente", stop_ecoute=False)
+
+                if ne_pas_deranger:
+                    say_txt("ok plus de bruit", stop_ecoute=False)
+                    stop_talking = True
+
+                if activer_parlote:
+                    stop_talking = False
+                    say_txt("ok me re voilà", stop_ecoute=False)
 
                 if effaccer_terminal:
                     os.system("clear")
@@ -771,14 +794,6 @@ def main(prompt=False, talking=False):
                     affiche_preprompts()
 
                     compteur, recognized_text = debut_ecoute()
-
-                if ne_pas_deranger:
-                    say_txt("ok plus de bruit")
-                    talking=False
-
-                if activer_parlote:
-                    talking=True
-                    say_txt("ok me re voilà")
 
                 if changer_de_role:
                     print(ASK_FOR_NEW_ROLE)
@@ -803,7 +818,6 @@ def main(prompt=False, talking=False):
                             the_choice == element
                             and element in my_dico_prompts[element]
                         ):
-                            print("::::::::::::::ELEMENT::::::::::::::::" + element)
                             value_prompt_name = traitement_chat(
                                 moteur_de_diction=say_txt
                             )[0]
@@ -816,8 +830,12 @@ def main(prompt=False, talking=False):
                         prompt_name=value_prompt_name,
                     )
 
-                    asked_task = traite_pre_prompt(
-                        client, say_txt, model_used, response_file_path, instructs
+                    asked_task = traitement_requete(
+                        texte=instructs,
+                        file_to_append=response_file_path,
+                        moteur_diction=say_txt,
+                        model_to_use=model_used,
+                        client=client,
                     )
                     actualise_index_html(texte=asked_task, question=instructs)
 
@@ -833,7 +851,7 @@ def main(prompt=False, talking=False):
                         "il est exactement " + time.strftime("%H:%M:%S")
                     )
 
-                if "est-ce que tu m'écoute" in recognized_text.lower():
+                if "est-ce que tu m'écoutes" in recognized_text.lower():
                     compteur, recognized_text = debut_ecoute(
                         "oui je suis toujours à l'écoute kiki"
                     )
@@ -851,12 +869,21 @@ def main(prompt=False, talking=False):
                     or "affiche l'historique des questions" in recognized_text.lower()
                 ):
 
-                    print(
-                        "\nvoici l'historique :\n"
-                        + STARS * WIDTH_TERM
-                        + "\n"
-                        + asked_task
-                    )
+                    if len(asked_task)>500:
+                        print(
+                            "\nvoici l'historique :\n"
+                            + STARS * WIDTH_TERM
+                            + "\n... "
+                            + asked_task[490:]
+                        )
+                    else :
+                        print(
+                            "\nvoici l'historique :\n"
+                            + STARS * WIDTH_TERM
+                            + "\n "
+                            + asked_task
+                        )
+
                     say_txt("Voici l'historique", stop_ecoute=False)
                     compteur, recognized_text = debut_ecoute("je vous écoute")
 
@@ -912,9 +939,20 @@ def main(prompt=False, talking=False):
                     or "editeur" == recognized_text.lower()
                 ):
                     asked_task = call_editor_talker(client, say_txt, model_used)
+                    actualise_index_html(
+                        texte=traitement_requete(
+                            texte=asked_task,
+                            client=client,
+                            moteur_diction=say_txt,
+                            model_to_use=model_used,
+                            file_to_append=resume_web_page,
+                        ),
+                        question=asked_task,
+                    )
+
                     compteur, _ = debut_ecoute("je vous écoute")
 
-                if "sauvegarder vers audio" in recognized_text.lower():
+                if "sauvegarder vers un fichier audio" in recognized_text.lower():
                     # multiline_string, _lire_rep = mode_Super_chat(say_txt)
                     text_to_mp3(
                         call_editor_talker(client, say_txt, model_used), lecteur=lecteur
@@ -926,11 +964,11 @@ def main(prompt=False, talking=False):
                     compteur, recognized_text = debut_ecoute()
                     recognized_text_before = recognized_text
 
-                if (
-                    "télécharger mes e-mails" in recognized_text
-                    or "télécharger mes e-mails" in recognized_text
-                ):
-                    say_txt("fermer chrome " + NOT_IMPLEMENTED_YET, stop_ecoute=False)
+                if "télécharger mes e-mails" in recognized_text:
+                    say_txt(
+                        "télécharger mes e-mails " + NOT_IMPLEMENTED_YET,
+                        stop_ecoute=False,
+                    )
                     compteur, recognized_text = debut_ecoute()
                     recognized_text_before = recognized_text
 
@@ -968,12 +1006,15 @@ def main(prompt=False, talking=False):
                         if instruction != QUIT_MENU_COMMAND:
                             url_content = link_url
                             asked_task = "\n" + instruction + "\n" + url_content
-                            traitement_requete(
-                                asked_task,
-                                resume_web_page,
-                                moteur_diction=say_txt,
-                                model_to_use=model_used,
-                                client=client,
+                            actualise_index_html(
+                                texte=traitement_requete(
+                                    asked_task,
+                                    resume_web_page,
+                                    moteur_diction=say_txt,
+                                    model_to_use=model_used,
+                                    client=client,
+                                ),
+                                question=asked_task,
                             )
                             compteur = debut_ecoute()
                         else:
@@ -987,22 +1028,29 @@ def main(prompt=False, talking=False):
                 # TODO : AJOUTER UN PREPROMPT DE SYSTEM POUR AFFINER
 
                 # Check for the termination keyword
-                if "terminé" in recognized_text.lower() and asked_task != "":
+                if "terminé" == recognized_text.lower() and asked_task != "":
                     print(
                         "---------------------------------------------\nOk. Traitement..."
                     )
                     print("Question en traitement, un instant...")
-                    update_task = traite_pre_prompt(
-                        client, say_txt, model_used, response_file_path, asked_task
+
+                    actualise_index_html(
+                        texte=traitement_requete(
+                            client=client,
+                            moteur_diction=say_txt,
+                            model_to_use=model_used,
+                            file_to_append=response_file_path,
+                            texte=asked_task,
+                        ),
+                        question=asked_task,
                     )
-                    actualise_index_html(texte=update_task, question=asked_task)
 
                     # asked_task=""
                     compteur, recognized_text = debut_ecoute("je vous écoute")
 
                 # Write recognized text to the file
                 if recognized_text != "":
-                    # print("Prompt::" + recognized_text)
+                    print("Prompt::" + recognized_text)
                     recognized_text_before = recognized_text
                     write_prompt_to_file(recognized_text)
                     asked_task += "\n" + recognized_text + "\n"
@@ -1016,6 +1064,16 @@ def main(prompt=False, talking=False):
                     merci_au_revoir(
                         say_txt, stream_to_stop=stream, pulse_audio_to_stop=p
                     )
+def create_http_response()->HTTPResponse:
+    int_response= HTTPResponse()
+    int_response.write("<div>Salut</div>")
+    return int_response
+
+
+def init_server():
+    addr = ('127.0.0.1', 8080)
+    server = HTTPServer(addr, RequestHandlerClass=BaseHTTPRequestHandler.handle_one_request)
+    server.serve_forever()
 
 
 def call_editor_talker(client, say_txt, model_used, text_init="") -> str:
@@ -1034,29 +1092,24 @@ def call_editor_talker(client, say_txt, model_used, text_init="") -> str:
     )
     if input("Voulez-vous soummetre votre texte à l'IA (o/n)?") == "o":
         texte_lu = fenetre_de_lecture.get_submission()
-        print(texte_lu)
+        if len(texte_lu)>500:
+            print(texte_lu[:499]+"... ")
+        else :
+            print(texte_lu)
         say_txt("requette soumise à l'IA... Veuillez patienter", stop_ecoute=True)
-        traitement_rapide(
-            texte=texte_lu,
-            model_to_use=model_used,
-            client=client,
-            talking=False,
-            moteur_diction=say_txt,
-        )
+        # traitement_rapide(
+        #     texte=texte_lu,
+        #     model_to_use=model_used,
+        #     client=client,
+        #     talking=False,
+        #     moteur_diction=say_txt,
+        # )
     return fenetre_de_lecture.get_submission()
 
 
-def traite_pre_prompt(client, say_txt, model_used, response_file_path, instructs):
-    return traitement_requete(
-        instructs,
-        response_file_path,
-        say_txt,
-        model_used,
-        client=client,
-    )
-
-
 def actualise_index_html(texte: str, question: str):
+    if len(question)>500:
+        question=question[:499]+"..."
     with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
         markdown_response = markdown.markdown(texte, output_format="xhtml")
         markdown_question = markdown.markdown(question, output_format="xhtml")
@@ -1092,4 +1145,4 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    main(prompt=args.prompt, talking=args.talk)
+    main(prompt=args.prompt, stop_talking=args.talk)
