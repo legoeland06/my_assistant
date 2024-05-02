@@ -1,5 +1,6 @@
 # zic_chat.py
 import datetime
+import time
 import tkinter as tk
 from tkinter import PhotoImage, Text, messagebox
 import os
@@ -554,7 +555,7 @@ class Fenetre_entree:
             bouton_lire_contenu = tk.Button(
                 but_frame, text="lire", command=lire_contenu
             )
-            bouton_lire_contenu.pack(side=tk.RIDGE)
+            bouton_lire_contenu.pack(side=tk.RIGHT)
             fenetre_dictee.mainloop()
 
         def motors_init():
@@ -609,20 +610,20 @@ class Fenetre_entree:
         def translate_this_text():
             texte_initial = entree1.get("1.0", tk.END)
 
-            # ICI Tester text < 5000 caractères
+            # ICI Tester text < 500 caractères
             # sinon le couper en plusieurs texte dans une liste
             def decoupe_texte(texte: str) -> list[list[str]]:
 
                 # on découpe le texte par mots
                 liste_of_words = texte.split()
-                if len(liste_of_words) >= 4000:
+                if len(liste_of_words) >= 500:
                     list_of_large_text: list[list[str]] = []
                     new_list: list[str] = []
                     counter = 0
                     for word in liste_of_words:
                         counter += len(word) + 1
                         new_list.append(word)
-                        if counter >= 4000:
+                        if counter >= 500:
                             list_of_large_text.append(new_list)
                             new_list = []
                             counter = 0
@@ -634,6 +635,9 @@ class Fenetre_entree:
                 for element in decoupe_texte(texte_initial):
                     translated_text = str(translate_it(text_to_translate=element))
                     entree2.insert(tk.END, translated_text)
+                    # peut-être ajouter un temporisateur ici
+                    # time.sleep(2.5)
+
             else:
                 translated_text = str(
                     translate_it(text_to_translate=decoupe_texte(texte_initial))
@@ -1287,11 +1291,17 @@ async def async_translate_it(text_to_translate: str):
 
 
 def translate_it(text_to_translate: str) -> str:
+    """ str reçu par maximum de 500 caractères """
     from deep_translator import GoogleTranslator as zic_translator
+
+    if not isinstance(text_to_translate,str):
+        reformat_translated=" ".join(str(x) for x in text_to_translate)
+    else :
+        reformat_translated=text_to_translate
 
     # Use any translator you like, in this example GoogleTranslator
     translated = zic_translator(source="auto", target="fr").translate(
-        text=text_to_translate
+        text=reformat_translated
     )  # output -> Weiter so, du bist großartig
 
     print(translated)
