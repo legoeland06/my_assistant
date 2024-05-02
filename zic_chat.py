@@ -541,14 +541,14 @@ class Fenetre_entree:
             but_frame.pack(fill="x", expand=False)
 
             entree_dictee = tk.Text(fenetre_dictee)
-            entree_dictee.configure(bg="grey", fg="white")
+            entree_dictee.configure(bg="white", fg="red")
 
             entree_dictee.pack(fill="both", expand=True)
 
             bouton_commencer_diction = tk.Button(
                 but_frame, text="commencer la diction", command=lance_ecoute
             )
-            bouton_commencer_diction.configure(bg="grey", fg="white")
+            bouton_commencer_diction.configure(bg="red", fg="white")
 
             bouton_commencer_diction.pack(side=tk.LEFT)
             bouton_lire_contenu = tk.Button(
@@ -612,8 +612,6 @@ class Fenetre_entree:
             entree2.insert(tk.END, translated_text)
             entree2.update()
             # Création d'un bouton pour Lire
-            bouton_lire2 = tk.Button(button_frame, text="Lire", command=lire_texte2)
-            bouton_lire2.configure(bg="green", fg="white")
 
             bouton_lire2.pack(side=tk.RIGHT)
             canvas2.pack(fill="both", expand=True)
@@ -675,10 +673,14 @@ class Fenetre_entree:
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
         bouton_lire1.pack(side=tk.LEFT)
+        bouton_lire1.configure(bg="grey", fg="white")
+
+        bouton_lire2 = tk.Button(button_frame, text="Lire", command=lire_texte2)
+        bouton_lire2.configure(bg="green", fg="white")
 
         # Création d'un bouton pour Dicter
         bouton_dicter = tk.Button(button_frame, text="Mode de diction", command=dicter)
-        bouton_dicter.configure(bg="grey", fg="white")
+        bouton_dicter.configure(bg="red", fg="white")
         bouton_dicter.pack(side=tk.LEFT)
 
         # Création d'un bouton pour traduction
