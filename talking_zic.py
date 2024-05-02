@@ -76,7 +76,9 @@ def create_instance_lecteur():
 
 def ouvrir_app(texte_initial: str):
     fenetre_de_lecture = fenetre_entree()
-    print(fenetre_de_lecture.creer_fenetre("TalkingZicBot", msg_to_write=texte_initial))
+    fenetre_de_lecture.creer_fenetre("TalkingZicBot", msg_to_write=texte_initial)
+
+    print("\n"+"="*100+"\nDernier texte lu:\n"+"="*100+"\n[\n" + fenetre_de_lecture.get_submission() + "\n\t]\n"+"="*100+"\n")
 
 
 def dire(texte_a_lire: str):
