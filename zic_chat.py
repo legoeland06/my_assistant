@@ -1256,10 +1256,7 @@ def main(prompt=False, stop_talking=False):
 
 def call_editor_talker(say_txt, streaming, engine, text_init="") -> str:
     say_txt("D'accord !", stop_ecoute=True)
-    # init de la classe Fenetre_entree()
     fenetre_de_lecture = Fenetre_entree(stream=streaming)
-    # fenetre_de_lecture.streaming = streaming
-    # récupération de la sortie de cette classe
     if text_init != "":
         msg = text_init
     else:
@@ -1291,7 +1288,13 @@ async def async_translate_it(text_to_translate: str):
 
 
 def translate_it(text_to_translate: str) -> str:
-    """ str reçu par maximum de 500 caractères """
+    """
+    traduit le text reçu par maximum de 500 caractères. Si le text est une liste, on la traduit une à une str
+    @param text: desired text to translate, maximum de 500 caractères
+    @return: str: translated text
+    """
+
+    # Use any translator you like, in this example GoogleTranslator
     from deep_translator import GoogleTranslator as zic_translator
 
     if not isinstance(text_to_translate,str):
@@ -1299,7 +1302,6 @@ def translate_it(text_to_translate: str) -> str:
     else :
         reformat_translated=text_to_translate
 
-    # Use any translator you like, in this example GoogleTranslator
     translated = zic_translator(source="auto", target="fr").translate(
         text=reformat_translated
     )  # output -> Weiter so, du bist großartig

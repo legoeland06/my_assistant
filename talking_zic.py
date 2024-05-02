@@ -35,23 +35,23 @@ class fenetre_entree:
         fenetre = tk.Tk()
         fenetre.title(self.title + " - " + title)
 
-        p = pyaudio.PyAudio()
-        stream = p.open(
-            format=pyaudio.paInt16,
-            channels=1,
-            rate=16000,
-            input=True,
-            frames_per_buffer=8192,
-        )
+        # p = pyaudio.PyAudio()
+        # stream = p.open(
+        #     format=pyaudio.paInt16,
+        #     channels=1,
+        #     rate=16000,
+        #     input=True,
+        #     frames_per_buffer=8192,
+        # )
         
-        my_engine_just_load=engine_model
-        rec = vosk.KaldiRecognizer(my_engine_just_load, 16000)
+        # my_engine_just_load=engine_model
+        # rec = vosk.KaldiRecognizer(my_engine_just_load, 16000)
 
-        fenetre_dictee = tk.Tk(
-            screenName="Dictée vocale",
-            baseName="dictee_vocale",
-            className="DicteeVocale",
-        )
+        # fenetre_dictee = tk.Tk(
+        #     screenName="Dictée vocale",
+        #     baseName="dictee_vocale",
+        #     className="DicteeVocale",
+        # )
         
         # Création d'un champ de saisie de l'utilisateur
         entree1 = tk.Text(fenetre)
