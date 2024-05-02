@@ -1,7 +1,7 @@
 # zic_chat.py
 import datetime
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import PhotoImage, Text, messagebox
 import os
 import markdown.util
 import vosk
@@ -12,20 +12,9 @@ import ollama
 import markdown
 import imageio.v3 as iio
 import subprocess
+import asyncio
 
-# # WebAssembly binary
-# WASM = base64.b64decode("AGFzbQEAAAABBgFgAX4"
-#     "BfgMCAQAHBwEDZmliAAAKHwEdACAAQgJUBEAgAA"
-#     "8LIABCAn0QACAAQgF9EAB8Dws=")
-
-# env = wasm3.Environment()
-# rt  = env.new_runtime(1024)
-# mod = env.parse_module(WASM)
-# rt.load(mod)
-# wasm_fib = rt.find_function("fib")
-# result = wasm_fib(24)
-# print(result) 
-
+from PIL import Image, ImageTk
 
 # Liste des models déjà téléchargés
 
@@ -486,15 +475,17 @@ def traitement_requete(
     return readable_ai_response
 
 
-class fenetre_entree:
+class Fenetre_entree:
     content: str
     title: str
     submission: str
+    streaming: pyaudio.Stream
 
-    def __init__(self):
+    def __init__(self, stream):
         self.title = "ZicChatBot"
         self.content = ""
         self.submission = ""
+        self.streaming = stream
 
     def set(self, content: str):
         self.content = content
@@ -509,16 +500,83 @@ class fenetre_entree:
         return self.submission
 
     # open a windows
-    def creer_fenetre(self, title, msg_to_write, moteur_de_diction):
-        # Création de la fenêtre principale
-        fenetre = tk.Tk()
-        fenetre.title(self.title + " - " + title)
+    def creer_fenetre(
+        self, msg_to_write, moteur_de_diction, engine_model, title="Lecteur|traducteur"
+    ):
+        def dicter():
+            stream, rec, fenetre_dictee = motors_init()
 
-        # Création d'un champ de saisie de l'utilisateur
-        entree1 = tk.Text(fenetre)
-        entree1.insert(tk.END, msg_to_write)
+            def lire_contenu():
+                try:
+                    kiki = entree_dictee.selection_get()
+                    moteur_de_diction(kiki, stop_ecoute=False)
+                except:
+                    moteur_de_diction(
+                        entree_dictee.get("1.0", tk.END), stop_ecoute=False
+                    )
 
-        entree1.pack(fill="both", expand=True)
+            def lance_ecoute() -> str:
+                entree_dictee.update()
+                while True:
+                    reco_text = ""
+                    data = stream.read(
+                        num_frames=4096, exception_on_overflow=False
+                    )  # read in chunks of 4096 bytes
+                    if rec.AcceptWaveform(data):  # accept waveform of input voice
+                        # Parse the JSON result and get the recognized text
+                        result = json.loads(rec.Result())
+                        reco_text = result["text"]
+                        if "terminer l'enregistrement" in reco_text.lower():
+                            moteur_de_diction(
+                                "Pause de l'enregistrement. Vous pouvez le reprendre en appuyant sur démarrer la diction.",
+                                stop_ecoute=True,
+                            )
+                            break
+                        elif reco_text != "":
+                            entree_dictee.insert(tk.END, reco_text + "\n")
+                        entree_dictee.update()
+
+            # Création des boutons
+            but_frame = tk.Frame(fenetre_dictee)
+            but_frame.pack(fill="x", expand=False)
+
+            entree_dictee = tk.Text(fenetre_dictee)
+            entree_dictee.configure(bg="grey", fg="white")
+
+            entree_dictee.pack(fill="both", expand=True)
+
+            bouton_commencer_diction = tk.Button(
+                but_frame, text="commencer la diction", command=lance_ecoute
+            )
+            bouton_commencer_diction.configure(bg="grey", fg="white")
+
+            bouton_commencer_diction.pack(side=tk.LEFT)
+            bouton_lire_contenu = tk.Button(
+                but_frame, text="lire", command=lire_contenu
+            )
+            bouton_lire_contenu.pack(side=tk.RIDGE)
+            fenetre_dictee.mainloop()
+
+        def motors_init():
+            p = pyaudio.PyAudio()
+            stream = p.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=16000,
+                input=True,
+                frames_per_buffer=8192,
+            )
+
+            my_engine_just_load = engine_model
+            rec = vosk.KaldiRecognizer(my_engine_just_load, 16000)
+
+            fenetre_dictee = tk.Tk(
+                screenName="Dictée vocale",
+                baseName="dictee_vocale",
+                className="DicteeVocale",
+            )
+
+            return stream, rec, fenetre_dictee
 
         def soumettre() -> str:
             # Afficher une boîte de message de confirmation
@@ -526,60 +584,148 @@ class fenetre_entree:
                 "Confirmation", "Êtes-vous sûr de vouloir soumetre ?"
             )
             if reponse:
-                # set asked_task
-                # ici on set l'attribut de la classe fenetre_entree
-                # avec la valeur du contenu de la cellule entree1
-                self.set_submission(entree1.get("1.0", "end"))
-
-                # et on ferme la fenetre
+                self.set_submission(content=entree1.get("1.0", tk.END))
                 fenetre.destroy()
             else:
                 print("L'utilisateur a annulé.")
 
-        def quitter():
+        def quitter() -> str:
             # Afficher une boîte de message de confirmation
             reponse = messagebox.askyesno(
                 "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
             )
             if reponse:
+                self.set_submission(entree1.get("1.0", tk.END))
                 fenetre.destroy()
             else:
                 print("L'utilisateur a annulé.")
 
-        def lire_texte():
-            moteur_de_diction(entree1.get("1.0", "end"), True)
+        def lire_texte1():
+            moteur_de_diction(entree1.get("1.0", tk.END), True)
 
-        def lire_sel_texte():
-            moteur_de_diction(entree1.selection_get(), True)
+        def lire_texte2():
+            moteur_de_diction(entree2.get("1.0", tk.END), True)
+
+        def translate_this_text():
+            texte_initial = entree1.get("1.0", tk.END)
+            translated_text = str(translate_it(text_to_translate=texte_initial))
+            entree2.insert(tk.END, translated_text)
+            entree2.update()
+            # Création d'un bouton pour Lire
+            bouton_lire2 = tk.Button(button_frame, text="Lire", command=lire_texte2)
+            bouton_lire2.configure(bg="green", fg="white")
+
+            bouton_lire2.pack(side=tk.RIGHT)
+            canvas2.pack(fill="both", expand=True)
+
+        # Création de la fenêtre principale
+        fenetre = tk.Tk()
+        fenetre.title(self.title + " - " + title)
+
+        # ## PRESENTATION DU GOELAND  ####
+        cnvs1 = tk.Frame(fenetre)
+        cnvs1.configure(bg=_from_rgb((69, 122, 188)))
+        cnvs1.pack(fill="x",expand=False)
+        # ################################
+
+        # Create a canvas
+        canva = tk.Canvas(cnvs1,height=100, bg=_from_rgb((69, 122, 188)))
+        # cnvs = tk.Frame(cnvs1)
+        # cnvs.configure(bg=_from_rgb((69, 122, 188)))
+        # cnvs.pack(side="right", expand=False)
+
+        label = tk.Label(
+            cnvs1,
+            text="Jonathan Livingston",
+            font=("Trebuchet", 20),
+            fg=_from_rgb((240, 240, 240)),
+            bg=_from_rgb((69, 122, 188)),
+        )
+
+        label.pack(side=tk.RIGHT,expand=False)
+
+        # Load the image file (replace 'test_image.jpg' with your actual image file)
+        my_image = ImageTk.PhotoImage(Image.open("IMG_20230619_090300.jpg"))
+
+        # Add the image to the canvas, anchored at the top-left (northwest) corner
+        canva.create_image(0, 0, anchor="nw", image=my_image, tags="bg_img")
+        canva.pack(fill="x", expand=True)
+
+        # Création des boutons
+        button_frame = tk.Frame(fenetre)
+        button_frame.pack(fill="x", expand=False)
+
+        canvas1 = tk.Frame(fenetre)
+        canvas1.pack(fill="both", expand=True)
+
+        # Création d'un champ de saisie de l'utilisateur
+        entree1 = tk.Text(canvas1)
+        entree1.configure(bg="grey", fg="white")
+
+        entree1.insert(tk.END, msg_to_write)
+        entree1.pack(fill="both", expand=True)
+
+        canvas2 = tk.Frame(fenetre)
+
+        # Création d'un champ de saisie de l'utilisateur
+        entree2 = tk.Text(canvas2)
+        entree2.configure(bg="green", fg="white")
+        entree2.pack(fill="both", expand=True)
 
         # Création d'un bouton pour Lire
-        bouton_lire = tk.Button(
-            fenetre, text="Lire la sélection", command=lire_sel_texte
+        bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
+        bouton_lire1.pack(side=tk.LEFT)
+
+        # Création d'un bouton pour Dicter
+        bouton_dicter = tk.Button(button_frame, text="Mode de diction", command=dicter)
+        bouton_dicter.configure(bg="grey", fg="white")
+        bouton_dicter.pack(side=tk.LEFT)
+
+        # Création d'un bouton pour traduction
+        bouton_traduire = tk.Button(
+            button_frame, text="Traduire", command=translate_this_text
         )
-        bouton_lire.pack()
-        bouton_lire = tk.Button(fenetre, text="Lire", command=lire_texte)
-        bouton_lire.pack()
+        bouton_traduire.pack(side=tk.LEFT)
 
         # Création d'un bouton pour soumetre
-        bouton_soumetre = tk.Button(fenetre, text="Soumettre", command=soumettre)
-        bouton_soumetre.pack()
+        bouton_soumetre = tk.Button(button_frame, text="Soumettre", command=soumettre)
+        bouton_soumetre.pack(side=tk.LEFT)
 
         # Création d'un bouton pour quitter
-        bouton_quitter = tk.Button(fenetre, text="Quitter", command=quitter)
-        bouton_quitter.pack()
+        bouton_quitter = tk.Button(button_frame, text="Quitter", command=quitter)
+        bouton_quitter.pack(side=tk.RIGHT)
+
+        # scroll_bar = tkinter.Scrollbar(out_frame3)
+        # scroll_bar["bg"] = out_config["bg"]
+
+        # scroll_bar.config(command=out_text.yview)
+        # out_text.config(yscrollcommand=scroll_bar.set)
 
         # Affichage de la fenêtre
         fenetre.mainloop()
 
 
-def check_email(username, password):
-    pass
+def _from_rgb(rgb):
+    """translates an rgb tuple of int to a tkinter friendly color code"""
+    r, g, b = rgb
+    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 lecteur = engine_lecteur_init()
 
 
 def main(prompt=False, stop_talking=False):
+
+    # ##########################################
+    # HACK : Détournement de procédure pour bosser
+    # test=Fenetre_entree(stream=any)
+    # test.creer_fenetre(
+    #     engine_model=any,
+    #     moteur_de_diction=any,
+    #     msg_to_write="TEST"
+    # )
+    # exit()
+    # ##########################################
 
     client: ollama.Client = ollama.Client(host="http://localhost:11434")
 
@@ -615,7 +761,7 @@ def main(prompt=False, stop_talking=False):
             talking=stop_talking,
             moteur_diction=say_tt,
         )
-    
+
     model_used = init_model(LLAMA3, prompted=False)
 
     say_txt("IA initialisée ! ", stop_ecoute=False)
@@ -864,14 +1010,14 @@ def main(prompt=False, stop_talking=False):
                     or "affiche l'historique des questions" in recognized_text.lower()
                 ):
 
-                    if len(asked_task)>500:
+                    if len(asked_task) > 500:
                         print(
                             "\nvoici l'historique :\n"
                             + STARS * WIDTH_TERM
                             + "\n... "
                             + asked_task[490:]
                         )
-                    else :
+                    else:
                         print(
                             "\nvoici l'historique :\n"
                             + STARS * WIDTH_TERM
@@ -902,7 +1048,12 @@ def main(prompt=False, stop_talking=False):
                     )
                     # Appel de la fonction pour créer la fenêtre
                     say_txt(CONVERSATIONS_HISTORY, stop_ecoute=False)
-                    call_editor_talker(client, say_txt, model_used, text_init=result)
+                    call_editor_talker(
+                        say_txt=say_txt,
+                        streaming=stream,
+                        engine=model_ecouteur_micro,
+                        text_init=result,
+                    )
 
                     compteur, recognized_text = debut_ecoute("je vous écoute")
 
@@ -933,7 +1084,10 @@ def main(prompt=False, stop_talking=False):
                     "lire à haute voix" in recognized_text.lower()
                     or "editeur" == recognized_text.lower()
                 ):
-                    asked_task = call_editor_talker(client, say_txt, model_used)
+                    asked_task = call_editor_talker(
+                        say_txt, streaming=stream, engine=model_ecouteur_micro
+                    )
+
                     actualise_index_html(
                         texte=traitement_requete(
                             texte=asked_task,
@@ -950,7 +1104,10 @@ def main(prompt=False, stop_talking=False):
                 if "sauvegarder vers un fichier audio" in recognized_text.lower():
                     # multiline_string, _lire_rep = mode_Super_chat(say_txt)
                     text_to_mp3(
-                        call_editor_talker(client, say_txt, model_used), lecteur=lecteur
+                        call_editor_talker(
+                            say_txt, streaming=stream, engine=model_ecouteur_micro
+                        ),
+                        lecteur=lecteur,
                     )
                     compteur, recognized_text = debut_ecoute("sauvegarde effectuée")
 
@@ -1060,40 +1217,58 @@ def main(prompt=False, stop_talking=False):
                         say_txt, stream_to_stop=stream, pulse_audio_to_stop=p
                     )
 
-def call_editor_talker(client, say_txt, model_used, text_init="") -> str:
+
+def call_editor_talker(say_txt, streaming, engine, text_init="") -> str:
     say_txt("D'accord !", stop_ecoute=True)
-    # init de la classe fenetre_entree()
-    fenetre_de_lecture = fenetre_entree()
+    # init de la classe Fenetre_entree()
+    fenetre_de_lecture = Fenetre_entree(stream=streaming)
+    # fenetre_de_lecture.streaming = streaming
     # récupération de la sortie de cette classe
     if text_init != "":
         msg = text_init
     else:
         msg = "Coller ici le texte à lire à haute voix, puis cliquez sur <lire>"
     fenetre_de_lecture.creer_fenetre(
-        title="Lecteur de texte",
-        msg_to_write=msg,
-        moteur_de_diction=say_txt,
+        msg_to_write=msg, moteur_de_diction=say_txt, engine_model=engine
     )
     if input("Voulez-vous soummetre votre texte à l'IA (o/n)?") == "o":
         texte_lu = fenetre_de_lecture.get_submission()
-        if len(texte_lu)>500:
-            print(texte_lu[:499]+"... ")
-        else :
+        if len(texte_lu) > 500:
+            print(texte_lu[:499] + "... ")
+        else:
             print(texte_lu)
         say_txt("requette soumise à l'IA... Veuillez patienter", stop_ecoute=True)
-        # traitement_rapide(
-        #     texte=texte_lu,
-        #     model_to_use=model_used,
-        #     client=client,
-        #     talking=False,
-        #     moteur_diction=say_txt,
-        # )
+
     return fenetre_de_lecture.get_submission()
 
 
+def run_start_translating(text_to_translate):
+    loop = asyncio.get_event_loop()
+    rs = loop.run_until_complete(
+        async_translate_it(text_to_translate=text_to_translate)
+    )
+    return rs
+
+
+async def async_translate_it(text_to_translate: str):
+    return await translate_it(text_to_translate=text_to_translate)
+
+
+def translate_it(text_to_translate: str) -> str:
+    from deep_translator import GoogleTranslator as zic_translator
+
+    # Use any translator you like, in this example GoogleTranslator
+    translated = zic_translator(source="auto", target="fr").translate(
+        text=text_to_translate
+    )  # output -> Weiter so, du bist großartig
+
+    print(translated)
+    return translated
+
+
 def actualise_index_html(texte: str, question: str):
-    if len(question)>500:
-        question=question[:499]+"..."
+    if len(question) > 500:
+        question = question[:499] + "..."
     with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
         markdown_response = markdown.markdown(texte, output_format="xhtml")
         markdown_question = markdown.markdown(question, output_format="xhtml")
