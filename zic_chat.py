@@ -608,11 +608,41 @@ class Fenetre_entree:
 
         def translate_this_text():
             texte_initial = entree1.get("1.0", tk.END)
-            translated_text = str(translate_it(text_to_translate=texte_initial))
-            entree2.insert(tk.END, translated_text)
-            entree2.update()
-            # Création d'un bouton pour Lire
 
+            # ICI Tester text < 5000 caractères
+            # sinon le couper en plusieurs texte dans une liste
+            def decoupe_texte(texte: str) -> list[list[str]]:
+
+                # on découpe le texte par mots
+                liste_of_words = texte.split()
+                if len(liste_of_words) >= 4000:
+                    list_of_large_text: list[list[str]] = []
+                    new_list: list[str] = []
+                    counter = 0
+                    for word in liste_of_words:
+                        counter += len(word) + 1
+                        new_list.append(word)
+                        if counter >= 4000:
+                            list_of_large_text.append(new_list)
+                            new_list = []
+                            counter = 0
+                    return list_of_large_text
+                else:
+                    return texte
+
+            if isinstance(decoupe_texte(texte_initial), list):
+                for element in decoupe_texte(texte_initial):
+                    translated_text = str(translate_it(text_to_translate=element))
+                    entree2.insert(tk.END, translated_text)
+            else:
+                translated_text = str(
+                    translate_it(text_to_translate=decoupe_texte(texte_initial))
+                )
+                entree2.insert(tk.END, translated_text)
+            entree2.update()
+
+
+            # Création d'un bouton pour Lire
             bouton_lire2.pack(side=tk.RIGHT)
             canvas2.pack(fill="both", expand=True)
 
@@ -623,11 +653,11 @@ class Fenetre_entree:
         # ## PRESENTATION DU GOELAND  ####
         cnvs1 = tk.Frame(fenetre)
         cnvs1.configure(bg=_from_rgb((69, 122, 188)))
-        cnvs1.pack(fill="x",expand=False)
+        cnvs1.pack(fill="x", expand=False)
         # ################################
 
         # Create a canvas
-        canva = tk.Canvas(cnvs1,height=100, bg=_from_rgb((69, 122, 188)))
+        canva = tk.Canvas(cnvs1, height=100, bg=_from_rgb((69, 122, 188)))
         # cnvs = tk.Frame(cnvs1)
         # cnvs.configure(bg=_from_rgb((69, 122, 188)))
         # cnvs.pack(side="right", expand=False)
@@ -640,7 +670,7 @@ class Fenetre_entree:
             bg=_from_rgb((69, 122, 188)),
         )
 
-        label.pack(side=tk.RIGHT,expand=False)
+        label.pack(side=tk.RIGHT, expand=False)
 
         # Load the image file (replace 'test_image.jpg' with your actual image file)
         my_image = ImageTk.PhotoImage(Image.open("IMG_20230619_090300.jpg"))
