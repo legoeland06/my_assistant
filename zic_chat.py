@@ -503,8 +503,17 @@ class Fenetre_entree:
     def creer_fenetre(
         self, msg_to_write, moteur_de_diction, engine_model, title="Lecteur|traducteur"
     ):
-        def dicter():
+        def appel_dicter():
+            dicter(image=ImageTk.PhotoImage(Image.open("IMG_20230619_090300.jpg")))
+
+        def dicter(image):
             stream, rec, fenetre_dictee = motors_init()
+
+            affiche_illustration(
+                image=image,
+                fenetre=fenetre_dictee,
+                message="... Jonathan Livingston dit legoeland",
+            )
 
             def transferer_contenu():
                 try:
@@ -517,7 +526,7 @@ class Fenetre_entree:
             def lance_ecoute() -> str:
                 entree_dictee.configure(bg="black", fg="white")
                 bouton_commencer_diction.flash()
-                entree_dictee.update()
+                # entree_dictee.update()
                 while True:
                     reco_text = ""
                     data = stream.read(
@@ -550,7 +559,7 @@ class Fenetre_entree:
             bouton_commencer_diction = tk.Button(
                 but_frame, text="commencer la diction", command=lance_ecoute
             )
-            bouton_commencer_diction.configure(bg="red", fg="white")
+            bouton_commencer_diction.configure(bg="black", fg="white")
 
             bouton_commencer_diction.pack(side=tk.LEFT)
             bouton_transferer_contenu = tk.Button(
@@ -572,11 +581,7 @@ class Fenetre_entree:
             my_engine_just_load = engine_model
             rec = vosk.KaldiRecognizer(my_engine_just_load, 16000)
 
-            fenetre_dictee = tk.Tk(
-                screenName="Dictée vocale",
-                baseName="dictee_vocale",
-                className="DicteeVocale",
-            )
+            fenetre_dictee = tk.Toplevel()
 
             return stream, rec, fenetre_dictee
 
@@ -656,35 +661,14 @@ class Fenetre_entree:
         # Création de la fenêtre principale
         fenetre = tk.Tk()
         fenetre.title(self.title + " - " + title)
-
-        # ## PRESENTATION DU GOELAND  ####
-        cnvs1 = tk.Frame(fenetre)
-        cnvs1.configure(bg=_from_rgb((69, 122, 188)))
-        cnvs1.pack(fill="x", expand=False)
-        # ################################
-
-        # Create a canvas
-        canva = tk.Canvas(cnvs1, height=100, bg=_from_rgb((69, 122, 188)))
-        # cnvs = tk.Frame(cnvs1)
-        # cnvs.configure(bg=_from_rgb((69, 122, 188)))
-        # cnvs.pack(side="right", expand=False)
-
-        label = tk.Label(
-            cnvs1,
-            text="Jonathan Livingston",
-            font=("Trebuchet", 20),
-            fg=_from_rgb((240, 240, 240)),
-            bg=_from_rgb((69, 122, 188)),
+        fenetre.configure(
+            border=0,
+            borderwidth=0,
+            background="black",
         )
 
-        label.pack(side=tk.RIGHT, expand=False)
-
-        # Load the image file (replace 'test_image.jpg' with your actual image file)
         my_image = ImageTk.PhotoImage(Image.open("IMG_20230619_090300.jpg"))
-
-        # Add the image to the canvas, anchored at the top-left (northwest) corner
-        canva.create_image(0, 0, anchor="nw", image=my_image, tags="bg_img")
-        canva.pack(fill="x", expand=True)
+        affiche_illustration(my_image, fenetre, "... Jonathan Livingston dit legoeland")
 
         # Création des boutons
         button_frame = tk.Frame(fenetre)
@@ -699,6 +683,7 @@ class Fenetre_entree:
 
         entree1.insert(tk.END, msg_to_write)
         entree1.pack(fill="both", expand=True)
+        entree1.focus_set()
 
         canvas2 = tk.Frame(fenetre)
 
@@ -719,8 +704,10 @@ class Fenetre_entree:
         bouton_lire2.configure(bg="green", fg="white")
 
         # Création d'un bouton pour Dicter
-        bouton_dicter = tk.Button(button_frame, text="Mode de diction", command=dicter)
-        bouton_dicter.configure(bg="red", fg="white")
+        bouton_dicter = tk.Button(
+            button_frame, text="Mode de diction", command=appel_dicter
+        )
+        bouton_dicter.configure(bg="black", fg="white")
         bouton_dicter.pack(side=tk.LEFT)
 
         # Création d'un bouton pour traduction
@@ -738,6 +725,34 @@ class Fenetre_entree:
         bouton_quitter.pack(side=tk.RIGHT)
 
         fenetre.mainloop()
+
+
+def affiche_illustration(image, fenetre, message):
+    """affiche l'illustration du goeland ainsi que son slogan"""
+    # ## PRESENTATION DU GOELAND  ####
+    cnvs1 = tk.Frame(fenetre)
+    cnvs1.configure(bg=_from_rgb((69, 122, 188)))
+    cnvs1.pack(fill="x", expand=False)
+    # ################################
+    cnvs2 = tk.Frame(cnvs1)
+    cnvs2.configure(bg="grey")
+    cnvs2.pack(fill="x", expand=False)
+
+    # Create a canvas
+    canva = tk.Canvas(cnvs1, height=100, bg=_from_rgb((69, 122, 188)))
+
+    label = tk.Label(
+        cnvs2,
+        text=message,
+        font=("Trebuchet", 8),
+        fg="white",
+        bg="grey",
+    )
+    label.pack(side=tk.RIGHT, expand=False)
+
+    # Add the image to the canvas, anchored at the top-left (northwest) corner
+    canva.create_image(0, 0, anchor="nw", image=image, tags="bg_img")
+    canva.pack(fill="x", expand=True)
 
 
 def _from_rgb(rgb):
@@ -874,10 +889,11 @@ def main(prompt=False, stop_talking=False):
         time = datetime.datetime.today()
 
         compteur, recognized_text_before = debut_ecoute(
-            "Bonjour Eric. Nous sommes le "
-            + time.strftime("%Y-%m-%d")
-            + ". Il est exactement "
-            + time.strftime("%H:%M:%S")
+            "Bonjour Eric."
+            # + " Nous sommes le "
+            # + time.strftime("%Y-%m-%d")
+            # + ". Il est exactement "
+            # + time.strftime("%H:%M:%S")
         )
         while True:
             compteur += 1
