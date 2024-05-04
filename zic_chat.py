@@ -1,8 +1,8 @@
 # zic_chat.py
 import datetime
-import time
 import tkinter as tk
-from tkinter import PhotoImage, Text, messagebox
+from tkinter import messagebox
+from PIL import Image, ImageTk
 import os
 import markdown.util
 import vosk
@@ -13,7 +13,6 @@ import ollama
 import markdown
 import imageio.v3 as iio
 import subprocess
-import asyncio
 
 from PIL import Image, ImageTk
 
@@ -78,7 +77,7 @@ QUESTION_URL_WEB_TO_SCROLL = "Veuillez entrer le chemin complet "
 WAITING_FOR_INSTRUCTIONS = "Quelles sont vos instructions "
 INFOS_PROMPTS = "Exemples de prompts que vous pouvez demander"
 NOT_IMPLEMENTED_YET = "... Désolé, mais cette commande n'est pas encore implémentée"
-BYEBYE = "d'accord, arrêt de la discussion... Aurevoir Eric, et à bientôt !"
+BYEBYE = "ok..."  #  "d'accord, arrêt de la discussion... Aurevoir Eric, et à bientôt !"
 CONVERSATIONS_HISTORY = "voici l'historique des conversations :"
 STARS = "*"
 LINE = "-"
@@ -190,7 +189,7 @@ def engine_lecteur_init():
     lecteur.setProperty("lang", "french")
     lecteur.setProperty("rate", RAPIDITE_VOIX)
 
-    pyttsx3.speak("kiki")
+    pyttsx3.speak("lancement...")
     return lecteur
 
 
@@ -507,16 +506,17 @@ class Fenetre_entree:
         def dicter():
             stream, rec, fenetre_dictee = motors_init()
 
-            def lire_contenu():
+            def transferer_contenu():
                 try:
-                    kiki = entree_dictee.selection_get()
-                    moteur_de_diction(kiki, stop_ecoute=False)
+                    entree1.insert(tk.END, " " + entree_dictee.selection_get())
                 except:
-                    moteur_de_diction(
-                        entree_dictee.get("1.0", tk.END), stop_ecoute=False
+                    entree1.insert(
+                        tk.END, "\n" + entree_dictee.get("1.0", tk.END) + "\n"
                     )
 
             def lance_ecoute() -> str:
+                entree_dictee.configure(bg="black", fg="white")
+                bouton_commencer_diction.flash()
                 entree_dictee.update()
                 while True:
                     reco_text = ""
@@ -527,22 +527,23 @@ class Fenetre_entree:
                         # Parse the JSON result and get the recognized text
                         result = json.loads(rec.Result())
                         reco_text = result["text"]
-                        if "terminer l'enregistrement" in reco_text.lower():
-                            moteur_de_diction(
-                                "Pause de l'enregistrement. Vous pouvez le reprendre en appuyant sur démarrer la diction.",
-                                stop_ecoute=True,
-                            )
+                        if (
+                            "terminer l'enregistrement" in reco_text.lower()
+                            or "fin de l'enregistrement" in reco_text.lower()
+                            or "arrêter l'enregistrement" in reco_text.lower()
+                        ):
                             break
                         elif reco_text != "":
                             entree_dictee.insert(tk.END, reco_text + "\n")
                         entree_dictee.update()
+                entree_dictee.configure(bg="white", fg="black")
 
             # Création des boutons
             but_frame = tk.Frame(fenetre_dictee)
             but_frame.pack(fill="x", expand=False)
 
             entree_dictee = tk.Text(fenetre_dictee)
-            entree_dictee.configure(bg="white", fg="red")
+            entree_dictee.configure(bg="white", fg="black")
 
             entree_dictee.pack(fill="both", expand=True)
 
@@ -552,10 +553,10 @@ class Fenetre_entree:
             bouton_commencer_diction.configure(bg="red", fg="white")
 
             bouton_commencer_diction.pack(side=tk.LEFT)
-            bouton_lire_contenu = tk.Button(
-                but_frame, text="lire", command=lire_contenu
+            bouton_transferer_contenu = tk.Button(
+                but_frame, text="transférer", command=transferer_contenu
             )
-            bouton_lire_contenu.pack(side=tk.RIGHT)
+            bouton_transferer_contenu.pack(side=tk.RIGHT)
             fenetre_dictee.mainloop()
 
         def motors_init():
@@ -581,31 +582,37 @@ class Fenetre_entree:
 
         def soumettre() -> str:
             # Afficher une boîte de message de confirmation
-            reponse = messagebox.askyesno(
-                "Confirmation", "Êtes-vous sûr de vouloir soumetre ?"
-            )
-            if reponse:
+            try:
+                self.set_submission(content=entree1.selection_get())
+            except:
                 self.set_submission(content=entree1.get("1.0", tk.END))
-                fenetre.destroy()
-            else:
-                print("L'utilisateur a annulé.")
 
         def quitter() -> str:
             # Afficher une boîte de message de confirmation
-            reponse = messagebox.askyesno(
-                "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
-            )
-            if reponse:
-                self.set_submission(entree1.get("1.0", tk.END))
+            if messagebox.askyesno(
+                "Confirmation", "Êtes-vous sûr de vouloir soumetre ?"
+            ):
+                soumettre()
                 fenetre.destroy()
             else:
                 print("L'utilisateur a annulé.")
 
+        def lire_text_from_object(object: tk.Text):
+            texte_to_talk = object.get("1.0", tk.END)
+
+            if texte_to_talk != "":
+                try:
+                    texte_to_talk = object.selection_get()
+                except:
+                    texte_to_talk = object.get("1.0", tk.END)
+                finally:
+                    moteur_de_diction(texte_to_talk, True)
+
         def lire_texte1():
-            moteur_de_diction(entree1.get("1.0", tk.END), True)
+            lire_text_from_object(entree1)
 
         def lire_texte2():
-            moteur_de_diction(entree2.get("1.0", tk.END), True)
+            lire_text_from_object(entree2)
 
         def translate_this_text():
             texte_initial = entree1.get("1.0", tk.END)
@@ -635,16 +642,12 @@ class Fenetre_entree:
                 for element in decoupe_texte(texte_initial):
                     translated_text = str(translate_it(text_to_translate=element))
                     entree2.insert(tk.END, translated_text)
-                    # peut-être ajouter un temporisateur ici
-                    # time.sleep(2.5)
-
             else:
                 translated_text = str(
                     translate_it(text_to_translate=decoupe_texte(texte_initial))
                 )
                 entree2.insert(tk.END, translated_text)
             entree2.update()
-
 
             # Création d'un bouton pour Lire
             bouton_lire2.pack(side=tk.RIGHT)
@@ -701,7 +704,10 @@ class Fenetre_entree:
 
         # Création d'un champ de saisie de l'utilisateur
         entree2 = tk.Text(canvas2)
-        entree2.configure(bg="green", fg="white")
+        entree2.configure(
+            bg="darkgrey",
+            fg="white",
+        )
         entree2.pack(fill="both", expand=True)
 
         # Création d'un bouton pour Lire
@@ -731,13 +737,6 @@ class Fenetre_entree:
         bouton_quitter = tk.Button(button_frame, text="Quitter", command=quitter)
         bouton_quitter.pack(side=tk.RIGHT)
 
-        # scroll_bar = tkinter.Scrollbar(out_frame3)
-        # scroll_bar["bg"] = out_config["bg"]
-
-        # scroll_bar.config(command=out_text.yview)
-        # out_text.config(yscrollcommand=scroll_bar.set)
-
-        # Affichage de la fenêtre
         fenetre.mainloop()
 
 
@@ -1123,17 +1122,17 @@ def main(prompt=False, stop_talking=False):
                     asked_task = call_editor_talker(
                         say_txt, streaming=stream, engine=model_ecouteur_micro
                     )
-
-                    actualise_index_html(
-                        texte=traitement_requete(
-                            texte=asked_task,
-                            client=client,
-                            moteur_diction=say_txt,
-                            model_to_use=model_used,
-                            file_to_append=resume_web_page,
-                        ),
-                        question=asked_task,
-                    )
+                    if asked_task != QUIT_MENU_COMMAND:
+                        actualise_index_html(
+                            texte=traitement_requete(
+                                texte=asked_task,
+                                client=client,
+                                moteur_diction=say_txt,
+                                model_to_use=model_used,
+                                file_to_append=resume_web_page,
+                            ),
+                            question=asked_task,
+                        )
 
                     compteur, _ = debut_ecoute("je vous écoute")
 
@@ -1266,25 +1265,14 @@ def call_editor_talker(say_txt, streaming, engine, text_init="") -> str:
     )
     if input("Voulez-vous soummetre votre texte à l'IA (o/n)?") == "o":
         texte_lu = fenetre_de_lecture.get_submission()
-        if len(texte_lu) > 500:
+        if len(texte_lu) > 200:
             print(texte_lu[:499] + "... ")
         else:
             print(texte_lu)
         say_txt("requette soumise à l'IA... Veuillez patienter", stop_ecoute=True)
+        return texte_lu
 
-    return fenetre_de_lecture.get_submission()
-
-
-def run_start_translating(text_to_translate):
-    loop = asyncio.get_event_loop()
-    rs = loop.run_until_complete(
-        async_translate_it(text_to_translate=text_to_translate)
-    )
-    return rs
-
-
-async def async_translate_it(text_to_translate: str):
-    return await translate_it(text_to_translate=text_to_translate)
+    return QUIT_MENU_COMMAND
 
 
 def translate_it(text_to_translate: str) -> str:
@@ -1295,14 +1283,14 @@ def translate_it(text_to_translate: str) -> str:
     """
 
     # Use any translator you like, in this example GoogleTranslator
-    from deep_translator import GoogleTranslator as zic_translator
+    from deep_translator import GoogleTranslator as _translator
 
-    if not isinstance(text_to_translate,str):
-        reformat_translated=" ".join(str(x) for x in text_to_translate)
-    else :
-        reformat_translated=text_to_translate
+    if not isinstance(text_to_translate, str):
+        reformat_translated = " ".join(str(x) for x in text_to_translate)
+    else:
+        reformat_translated = text_to_translate
 
-    translated = zic_translator(source="auto", target="fr").translate(
+    translated = _translator(source="auto", target="fr").translate(
         text=reformat_translated
     )  # output -> Weiter so, du bist großartig
 

@@ -12,6 +12,8 @@ class fenetre_entree:
         self.title = "ZicChatBot"
         self.content = ""
         self.submission = ""
+        self.creer_fenetre("TalkingZicBot", msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...")
+
 
     def set(self, content: str):
         self.content = content
@@ -27,6 +29,7 @@ class fenetre_entree:
 
     # open a windows
     def creer_fenetre(self, title, msg_to_write):
+        """ appelle la fenetre de diction """
 
         fenetre = tk.Tk()
         fenetre.title(self.title + " - " + title)
@@ -38,6 +41,7 @@ class fenetre_entree:
         enter1.pack(fill="both", expand=True)
 
         def quitter():
+            """ quitte la fenetre et set son attribut submission pour récupération ultérieure """
             # Afficher une boîte de message de confirmation
             reponse = messagebox.askyesno(
                 "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
@@ -49,10 +53,13 @@ class fenetre_entree:
                 print("L'utilisateur a annulé.")
 
         def lire_texte():
+            """ par défault, lit la sélection, sinon lit tout le texte à haute voix"""
             try:
-                dire(enter1.selection_get())
-            except:
-                dire(enter1.get("1.0", tk.END))
+                texte=enter1.selection_get()
+            except :
+                texte=enter1.get("1.0",tk.END)
+            finally:
+                dire(texte)
 
         bouton_lire = tk.Button(fenetre, text="Lire", command=lire_texte)
         bouton_lire.pack()
@@ -75,14 +82,18 @@ def create_instance_lecteur():
 
 
 def ouvrir_app(texte_initial: str):
+    # appel de l'application
     fenetre_de_lecture = fenetre_entree()
-    fenetre_de_lecture.creer_fenetre("TalkingZicBot", msg_to_write=texte_initial)
-
     print("\n"+"="*100+"\nDernier texte lu:\n"+"="*100+"\n[\n" + fenetre_de_lecture.get_submission() + "\n\t]\n"+"="*100+"\n")
 
 
 def dire(texte_a_lire: str):
-    lecteur.speak(text=texte_a_lire)
+    """ lit à haute voix le contenu de texte_a_lire, sinon dit qu'il n'y a rien à lire"""
+    if not texte_a_lire.isspace():
+        lecteur.speak(text=texte_a_lire)
+    else :
+        lecteur.speak(text="rien à lire")
+
 
 
 def main(alire: str):
