@@ -623,16 +623,12 @@ class Fenetre_entree:
                 texte=self.get_submission(),
             )
             readable_ai_response = ai_response["message"]["content"]
-            print(readable_ai_response)
-            markdown_content = markdown.markdown(
-                readable_ai_response, output_format="xhtml"
-            )
-           
-            entree2.set_html(MY_HEAD + self.get_submission() + markdown_content)
-            
+            # print(readable_ai_response)
+
+            refresh_entree_html(readable_ai_response)
+
             entree2.update()
             entree2.pack(fill="both", expand=True)
-            # entree2.pack(padx=10, pady=10)
             canvas2.pack(fill="both", expand=True)
 
             return readable_ai_response
@@ -671,6 +667,21 @@ class Fenetre_entree:
         def lire_texte2():
             lire_text_from_object(entree2)
 
+        def refresh_entree_html(texte: str):
+            markdown_content = markdown.markdown(texte, output_format="xhtml")
+            entree2.set_html(
+                MY_HEAD
+                + '<div style="padding:10px;">'
+                + '<span style="font-size: 8px;">'
+                + '<div style="border:1ps solid blue;">'
+                + '<pre><span style="font-size: 8px;color:grey">'
+                + self.get_submission()
+                + '</span></pre></div><span style="color:blue;">'
+                + markdown_content
+                + "</span></span></div>"
+            )
+            entree2.update()
+
         def translate_this_text():
             try:
                 texte_initial = entree1.selection_get()
@@ -681,12 +692,12 @@ class Fenetre_entree:
                 if isinstance(texte_traite, list):
                     for element in texte_traite:
                         translated_text = str(translate_it(text_to_translate=element))
-                        entree2.insert(tk.END, translated_text)
+                        refresh_entree_html(translated_text)
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
-                    entree2.insert(tk.END, translated_text + "\n")
-                entree2.update()
+                    refresh_entree_html(translated_text)
 
+                entree2.pack(fill="both", expand=True)
                 # Création d'un bouton pour Lire
                 bouton_lire2.pack(side=tk.RIGHT)
                 canvas2.pack(fill="both", expand=True)
@@ -725,9 +736,7 @@ class Fenetre_entree:
 
         # Création d'un champ de saisie de l'utilisateur
         entree2 = HTMLLabel(canvas2)
-        entree2.configure(
-            bg="black", fg="white", font=("Times New Roman Bold Italic", 8)
-        )
+        entree2.configure(font=("Trebuchet 8", 8))
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
         bouton_lire1.pack(side=tk.LEFT)
