@@ -3,7 +3,7 @@ import asyncio
 import datetime
 import threading
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import StringVar, messagebox
 from tkhtmlview import HTMLLabel
 from PIL import Image, ImageTk
 import os
@@ -46,7 +46,7 @@ ROLE_TYPES = [
 
 MY_HEAD = """
 <body class="container">
-    <p><strong>Réponse:</strong></p>"""
+    """
 
 ROLE_TYPE = ROLE_TYPES[0]
 
@@ -250,40 +250,6 @@ def affiche_menu_pricipale():
         + "\nRemarque : Vous pouvez aussi passer en mode chat"
         + " en disant : < écriture ! > "
     )
-
-
-def affiche_fille():
-    print()
-    print(
-        '''
-                 ,d8888888P:::::d:::::::::::::::::::::::::::::::::::888888888b
-                a8888888P:::::::8:::::::::::::::Normand:::::::::::::I888888888
-              ,d8888888"::::::::8:::::::::::::::Veilleux::::::::::::I888888888
-             ,d8888888P:::::::::8;::::::::::::::::::::::::::::::::::I888888888
-            ,d88888888::::::::::Yb;:::::::::::::::::::::::::::::::::I88888888P
-           ,d888888888:::::::::::Yb:::::::::::::::::::::::::::::::::I88888888'
-           d8888888888;:::::::::::Yb::::::::::::::::::::::::::::::::I8888888'
-          ,88888888888b::::::::::::"8;::::::::::::::::::::::::::::::8888888P
-          d888888888888b:::::::::::::"Ya;::::::::::;;aa;::::::::::::888888P'
-          88888888888888b;:::::::::::::`YbbaaaadddPP"":::::::::::::;88888"
-          8888888888888888b;:::a;;;::;ad"8:::::::::::::::::::::::::d88P"
-          88888888888888888Y;::::""""":::8:::::::::::::::::::::::::8"
-          Y88888888888888888Y;:::::::::::8:::::::::::::::::::::::::8
-          `888888888888888888b:::::::::::8:::::::::::::::::::::::::8
-           Y888888888888888888:::::::::::8::::::::::::::::::::::::;P
-            `"Y888888888888888:::::::::::8::::::::::::::::::::::::d'
-               "Y8888P"Y888888:::::::::::8::::::::::::::::::::::::8
-                 `"'    `"'  8:::::::::::8::::::::::::::::::::::::8
-                             8:::::::::::8::::::::::::::::::::::::8
-                             8:::::::::::8;::::::::::::::::::::::;P
-                             Y;::::::::::Ib::::::::::::::::::::::d'
-                             `b:::::::::::8::::::::::::::::::::::8
-                              8:::::::::::8:::::::::::::::::::::;P
-                              Y;::::::::::8:::::::::::::::::::::d'
-                              `b::::::::::Y;::::::::::::::::::::8
-'''
-    )
-    print()
 
 
 def lire_fichier(file_name: str) -> str:
@@ -528,7 +494,8 @@ class Fenetre_entree:
         self, msg_to_write, moteur_de_diction, title="Lecteur|traducteur"
     ):
         def appel_dicter():
-            dicter(image=ImageTk.PhotoImage(Image.open("IMG_20230619_090300.jpg")))
+            image = ImageTk.PhotoImage(Image.open("banniere.jpeg").resize((800, 160)))
+            dicter(image=image)
 
         def dicter(image):
             fenetre_dictee = motors_init()
@@ -623,13 +590,11 @@ class Fenetre_entree:
                 texte=self.get_submission(),
             )
             readable_ai_response = ai_response["message"]["content"]
-            # print(readable_ai_response)
+            print(readable_ai_response)
 
             refresh_entree_html(readable_ai_response)
 
             entree2.update()
-            entree2.pack(fill="both", expand=True)
-            canvas2.pack(fill="both", expand=True)
 
             return readable_ai_response
 
@@ -667,20 +632,69 @@ class Fenetre_entree:
         def lire_texte2():
             lire_text_from_object(entree2)
 
-        def refresh_entree_html(texte: str):
+        def refresh_entree_html(texte: str, ponctuel: bool = True):
             markdown_content = markdown.markdown(texte, output_format="xhtml")
-            entree2.set_html(
-                MY_HEAD
-                + '<div style="padding:10px;">'
-                + '<span style="font-size: 8px;">'
-                + '<div style="border:1ps solid blue;">'
-                + '<pre><span style="font-size: 8px;color:grey">'
-                + self.get_submission()
-                + '</span></pre></div><span style="color:blue;">'
-                + markdown_content
-                + "</span></span></div>"
-            )
+            html_entries = entree2.get("1.0", tk.END)
+            if ponctuel:
+                html_entries += (
+                    "<strong style='color:grey;'>Question:</strong>"
+                    + '<span style="font-size: 12px;color:grey;text-align:justify">'
+                    + self.get_submission()
+                    + "</span>"
+                    + "<strong style='color:red;'>Réponse:</strong>"
+                    + '<span style="font-size: 12px;color:brown;text-align:justify">'
+                    + markdown_content
+                    + "</span>"
+                    + "</span>"
+                )
+            else :
+                html_entries += (
+                    '<span style="font-size: 12px;color:brown;text-align:justify">'
+                    + markdown_content
+                )
+
+            entree2.set_html(html_entries)
+            entree2.fit_height()
             entree2.update()
+            entree2.bind()
+
+        def refresh_entree1_html(texte: str, index1: str, index2: str,ponctuel:bool=True):
+            entree1.replace(chars=texte, index1=index1, index2=index2)
+            # entree1.insert(index=index, chars=texte)
+            entree1.update()
+
+        def translate_inplace():
+            try:
+                texte_initial = entree1.selection_get()
+                indx1 = entree1.index(tk.SEL_FIRST)
+                indx2 = entree1.index(tk.SEL_LAST)
+                
+                texte_traite = traitement_du_texte(texte_initial, 500)
+                if isinstance(texte_traite, list):
+                    for element in texte_traite:
+                        translated_text = str(translate_it(text_to_translate=element))
+                        refresh_entree1_html(texte=translated_text, index1=indx1, index2=indx2,ponctuel=False)
+                else:
+                    translated_text = str(translate_it(text_to_translate=texte_traite))
+                    refresh_entree1_html(texte=translated_text, index1=indx1, index2=indx2,ponctuel=True)
+
+                entree1.pack(fill="both", expand=True)
+            except:
+                texte_initial = entree1.get("1.0", tk.END)
+                texte_traite = traitement_du_texte(texte_initial, 500)
+                if isinstance(texte_traite, list):
+                    for element in texte_traite:
+                        translated_text = str(translate_it(text_to_translate=element))
+                        refresh_entree_html(translated_text,False)
+                else:
+                    translated_text = str(translate_it(text_to_translate=texte_traite))
+                    refresh_entree_html(translated_text,True)
+
+                entree2.pack(fill="both", expand=True)
+
+                # Création d'un bouton pour Lire
+                bouton_lire2.pack(side=tk.RIGHT)
+                canvas2.pack(fill="both", expand=True)
 
         def translate_this_text():
             try:
@@ -692,10 +706,10 @@ class Fenetre_entree:
                 if isinstance(texte_traite, list):
                     for element in texte_traite:
                         translated_text = str(translate_it(text_to_translate=element))
-                        refresh_entree_html(translated_text)
+                        refresh_entree_html(translated_text,False)
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
-                    refresh_entree_html(translated_text)
+                    refresh_entree_html(translated_text,True)
 
                 entree2.pack(fill="both", expand=True)
                 # Création d'un bouton pour Lire
@@ -704,39 +718,36 @@ class Fenetre_entree:
 
         # Création de la fenêtre principale
         fenetre = tk.Tk()
-        # fenetre.geometry("1000x500")
         fenetre.title(self.title + " - " + title)
-        fenetre.configure(
-            border=0,
-            borderwidth=0,
-            background="black",
-        )
+        fenetre.configure(width=800)
 
-        my_image = ImageTk.PhotoImage(Image.open("IMG_20230619_090300.jpg"))
+        my_image = ImageTk.PhotoImage(Image.open("banniere.jpeg").resize((800, 160)))
         affiche_illustration(my_image, fenetre, "... Jonathan Livingston dit legoeland")
 
         # Création des boutons
-        button_frame = tk.Frame(fenetre)
+        button_frame = tk.Frame(fenetre, relief="sunken")
         button_frame.pack(fill="x", expand=False)
-
-        canvas1 = tk.Frame(fenetre)
-        canvas1.pack(fill="x", expand=True)
+        # donne moi une liste de 10 questions à propos de l'utilisation de la biliothèque asyncio en python
+        canvas1 = tk.Frame(fenetre, relief="sunken")
+        canvas1.pack(fill="x", expand=False)
 
         # Création d'un champ de saisie de l'utilisateur
         entree1 = tk.Text(canvas1)
-        entree1.configure(
-            bg="grey", fg="white", font=("Times New Roman Bold Italic", 12)
-        )
+        entree1.configure(bg="grey", fg="white", font=("arial", 14))
 
         entree1.insert(tk.END, msg_to_write)
         entree1.focus_set()
-        entree1.pack(fill="both", expand=True)
+        entree1.pack(fill="x", expand=False)
 
-        canvas2 = tk.Frame(fenetre)
+        canvas2 = tk.Frame(fenetre, relief="sunken")
 
         # Création d'un champ de saisie de l'utilisateur
         entree2 = HTMLLabel(canvas2)
-        entree2.configure(font=("Trebuchet 8", 8))
+        entree2.configure(bg="white", fg="brown",font=("arial ", 12))
+
+        entree2.pack(fill="x", expand=False)
+        canvas2.pack(fill="x", expand=False)
+
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
         bouton_lire1.pack(side=tk.LEFT)
@@ -757,6 +768,12 @@ class Fenetre_entree:
             button_frame, text="Traduire", command=translate_this_text
         )
         bouton_traduire.pack(side=tk.LEFT)
+
+        # Création d'un bouton pour traduction_sur_place
+        bouton_traduire_sur_place = tk.Button(
+            button_frame, text="...Traduire en place...", command=translate_inplace
+        )
+        bouton_traduire_sur_place.pack(side=tk.LEFT)
 
         # Création d'un bouton pour soumetre
         bouton_soumetre = tk.Button(button_frame, text="Soumettre", command=soumettre)
@@ -803,7 +820,7 @@ def affiche_illustration(image, fenetre, message):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
     cnvs1 = tk.Frame(fenetre)
-    cnvs1.configure(bg=_from_rgb((69, 122, 188)))
+    # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
     cnvs1.pack(fill="x", expand=False)
     # ################################
     cnvs2 = tk.Frame(cnvs1)
@@ -811,7 +828,7 @@ def affiche_illustration(image, fenetre, message):
     cnvs2.pack(fill="x", expand=False)
 
     # Create a canvas
-    canva = tk.Canvas(cnvs1, height=100, bg=_from_rgb((69, 122, 188)))
+    canva = tk.Canvas(cnvs1, height=160, width=800)
 
     label = tk.Label(
         cnvs2,
@@ -848,10 +865,21 @@ def main(prompt=False, stop_talking=False):
             name="rate", value=int(lecteur.getProperty(name="rate")) - 20
         )
 
-    def say_tt(alire: str):
+    async def dire_tt(alire: str):
         lecteur.say(alire)
         lecteur.runAndWait()
-        lecteur.stop()
+        return lecteur.stop()
+
+    # TODO : loop async for saytt
+    def start_loop_saying(texte:str):
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
+
+    def say_tt(alire:str):
+        threading.Thread(target=start_loop_saying(texte=alire)).start()
+
+
 
     def say_txt(alire: str, stop_ecoute: bool):
         if not stop_talking:
@@ -901,7 +929,6 @@ def main(prompt=False, stop_talking=False):
     # Create a recognizer
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
     say_txt("reconnaissance vocale initialisée", False)
-    affiche_fille()
 
     # Open the microphone stream
     p = pyaudio.PyAudio()
@@ -913,9 +940,7 @@ def main(prompt=False, stop_talking=False):
         frames_per_buffer=8192,
     )
 
-    asked_task = ""
-
-    fenetre_de_lecture = Fenetre_entree(
+    Fenetre_entree(
         stream=stream,
         lecteur=say_tt,
         engine_model=rec,
