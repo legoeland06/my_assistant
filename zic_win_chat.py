@@ -726,7 +726,7 @@ class Fenetre_entree:
         # Création d'un champ de saisie de l'utilisateur
         entree2 = HTMLLabel(canvas2)
         entree2.configure(
-            bg="brown", fg="orange", font=("Times New Roman Bold Italic", 8)
+            bg="black", fg="white", font=("Times New Roman Bold Italic", 8)
         )
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
