@@ -1,3 +1,5 @@
-# my_assistant
+# Your daily assistant
 ![image](banniere.jpeg)
-Assistant using ollama, recognizing voice, text_reader and translating_text
+
+## Using ollama, recognizing voice, text_reader and translating_text, reading_pdfs
+![image](Capturre.png)
