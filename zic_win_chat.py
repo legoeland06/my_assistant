@@ -61,6 +61,7 @@ BROWSE_WITH_BING = "browse"
 SCRUM_PROMPT = "prompt_scrum"
 CORRECTEUR = "prompt_a_corriger"
 SPECIALITY = "speciality"
+SPECIALIST = "specialist"
 PROMPTOR = "prompt_to_workd"
 DEBATEUR = "subject_to_mind"
 FORMATEUR = "sujet_à_traiter"
@@ -136,6 +137,7 @@ FENETRE_HEIGHT = 400
 
 PROMPTS_SYSTEMIQUES = {
     SPECIALITY: "Bonjour ! Je souhaite me former à [ speciality ], devenir un top expert sur le sujet. Peux-tu me proposer un programme de formation avec les thématiques à étudier, dans un ordre pertinent ? Tu es un expert en [ speciality ] et aussi un formateur confirmé. Base toi sur tes connaissances en [ speciality ] mais aussi en science de l'éducation pour me proposer le meilleur programme possible. Après ça, je te demanderai de me former sur chacun des points de ton programme",
+    SPECIALIST: "Bonjour ! Je souhaite des informations précises à propos de [ specialist ], devenir un top expert sur le sujet. Peux-tu me proposer des réponses claires et détaillées sur chaun des points que tu me proposeras, avec les thématiques à étudier si nécessaire, dans un ordre pertinent ? Tu es un expert en [ specialist ] et aussi un formateur confirmé. Base toi sur tes connaissances en [ specialist ] mais aussi en science de l'éducation pour me proposer le meilleur exposé détailllé de tes réponses. Après ça, je te demanderai de me former sur chacun des points que tu m'as donné",
     INVERSE_PROMPT: "Tu es un expert en Prompt Engineering et en intelligence artificielle générative. J’ai trouvé ce [ inverse_prompt ] que je trouve très bien et je souhaite obtenir un prompt pour générer un [ inverse_prompt ] de ce type.  Peux-tu faire du Reverse Prompt sur ce texte en prenant soin d’identifier le ton et les techniques de rédaction utilisées.",
     EMAIL_WRITER: "En tant que rédacteur d’e-mails expérimenté, je souhaite que tu t’appuies sur ton savoir-faire et des compétences en copywriting. Tu vas m’aider à créer des e-mails clairs et concis, adapté à mon objectif. Tu es capable de comprendre le but et le ton de l’e-mail en fonction de l’objet de l’e-mail et du message de fond.  Avant de rédiger un e-mail, tu dois me permettre de te communiquer les informations clés suivantes : le destinataire, l’objet de l’e-mail, le message et l’objectif de l’e-mail. L’objectif de l’e-mail peut être de toute nature comme un e-mail de prospection, de proposition commerciale, un message de suivi ou encore une newsletter marketing.  Une fois que je t’aurai transmis ces informations clés, tu devras rédiger l’e-mail en le personnalisant avec le nom du destinataire et en prenant soin de dire bonjour et de le conclure efficacement. Pour l’objet, tu me feras une suggestion créative, incitative et accrocheuse.  Dans ton rôle, tu vas prendre soin d’éviter toute erreur de grammaire, d’orthographe et de syntaxe. Ta proposition devra se faire dans un format convivial et prêt à être copiée/collée dans ma boite e-mail. Si c’est OK pour toi, crée une liste à puce avec les infos clés que je dois te transmettre. Je te les communiquerai ensuite et tu pourras rédiger ton e-mail.",
     EMAIL_WRITER1: "En tant que rédacteur d’e-mails expérimenté, je souhaite que tu t’appuies sur ton savoir-faire et des compétences en copywriting. Tu vas m’aider à créer des e-mails clairs et concis, adapté à mon objectif. Tu es capable de comprendre le but et le ton de l’e-mail en fonction de l’objet de l’e-mail et du message de fond.  Avant de rédiger un e-mail, tu dois me permettre de te communiquer les informations clés suivantes : le destinataire, l’objet de l’e-mail, le message et l’objectif de l’e-mail. L’objectif de l’e-mail peut être de toute nature comme un e-mail de prospection, de proposition commerciale, un message de suivi ou encore une newsletter marketing.  Une fois que je t’aurai transmis ces informations clés, tu devras rédiger l’e-mail en le personnalisant avec le nom du destinataire et en prenant soin de dire bonjour et de le conclure efficacement. Pour l’objet, tu me feras une suggestion créative, incitative et accrocheuse.  Dans ton rôle, tu vas prendre soin d’éviter toute erreur de grammaire, d’orthographe et de syntaxe. Ta proposition devra se faire dans un format convivial et prêt à être copiée/collée dans ma boite e-mail.  Voici un email que je veux que tu réécrives dans un style plus formel : [ email_writer1 ]",
@@ -186,7 +188,7 @@ PREPROMPTS = [
 ]
 
 
-def set_pre_prompt(rubrique: str, prompt_name: str):
+def get_pre_prompt(rubrique: str, prompt_name: str):
     return PROMPTS_SYSTEMIQUES[rubrique].replace(rubrique, prompt_name)
 
 
@@ -207,17 +209,14 @@ def engine_lecteur_init():
     pyttsx3.speak("lancement...")
     return lecteur
 
-def read_pdf(book, pg_no):
-    pdf_Reader = PyPDF2.PdfFileReader(book)
-    pages = pdf_Reader.numPages
 
-    speaker = pyttsx3.init()
-
-    for num in range((pg_no - 1), pages):
-        page = pdf_Reader.getPage(num)
-        text = page.extractText()
-        speaker.say(text)
-        speaker.runAndWait()
+def read_pdf(book):
+    text = ""
+    pdf_Reader = PyPDF2.PdfReader(book)
+    pages = pdf_Reader.pages
+    for page in pages:
+        text += page.extract_text() + "\n"
+    return text
 
 
 def lancer_chrome(url: str) -> subprocess.Popen[str]:
@@ -244,7 +243,7 @@ def engine_ecouteur_init():
     return vosk.Model(MODEL_PATH, lang="fr-fr")
 
 
-def init_model(model_to_use, prompted: bool = False):
+def init_model(model_to_use: str, prompted: bool = False):
     # model utilisé dans le chatbot
     msg = (
         "Chargement de l'Ia : ["
@@ -372,14 +371,14 @@ def traitement_chat(moteur_de_diction):
 
 def mode_chat(moteur_de_diction):
     moteur_de_diction("Mode tchat activé", False)
-    print("Mode chat activé")
+    # print("Mode chat activé")
     return input(" ==> ")
 
 
 def mode_Super_chat(moteur_de_diction):
     moteur_de_diction("Mode multilignes activé", False)
-    print("Mode multiligne activé")
-    print(INFOS_CHAT)
+    # print("Mode multiligne activé")
+    # print(INFOS_CHAT)
     buffer = []
     while True:
         try:
@@ -447,7 +446,7 @@ def traitement_rapide(texte: str, model_to_use, client, talking: bool, moteur_di
     ai_response = ask_to_ai(texte, model_to_use=model_to_use, client=client)
     readable_ai_response = ai_response["message"]["content"]
 
-    print(readable_ai_response)
+    # print(readable_ai_response)
     if talking:
         moteur_diction(readable_ai_response)
 
@@ -461,7 +460,7 @@ def traitement_requete(
     append_response_to_file(file_to_append, readable_ai_response)
 
     moteur_diction(REPONSE_TROUVEE, True)
-    print(readable_ai_response)
+    # print(readable_ai_response)
     return readable_ai_response
 
 
@@ -469,23 +468,28 @@ class Fenetre_entree:
     content: str
     title: str
     submission: str
+    talker: any
     model_to_use: str
     streaming: pyaudio.Stream
-    moteur_diction: any
-    engine_model: any
+    engine_model: vosk.KaldiRecognizer
 
-    def __init__(self, stream, lecteur, engine_model, model_to_use):
+    def __init__(
+        self,
+        stream: pyaudio.Stream,
+        lecteur: any,
+        engine_model: vosk.KaldiRecognizer,
+        model_to_use: str,
+    ):
         self.title = "ZicChatBot"
         self.content = ""
         self.submission = ""
         self.streaming = stream
         self.model_to_use = model_to_use
-        self.moteur_diction = lecteur
+        self.talker = lecteur
         self.engine_model = engine_model
         self.creer_fenetre(
             title="Zic_win_chat",
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
-            moteur_de_diction=self.moteur_diction,
         )
 
     def set(self, content: str):
@@ -503,16 +507,14 @@ class Fenetre_entree:
     def get_model(self) -> str:
         return self.model_to_use
 
-    def get_stream(self) -> any:
+    def get_stream(self) -> pyaudio.Stream:
         return self.streaming
 
-    def get_engine(self) -> any:
+    def get_engine(self) -> vosk.KaldiRecognizer:
         return self.engine_model
 
     # open a windows
-    def creer_fenetre(
-        self, msg_to_write, moteur_de_diction, title="Lecteur|traducteur"
-    ):
+    def creer_fenetre(self, msg_to_write, title="Lecteur|traducteur"):
         def appel_dicter():
             image = ImageTk.PhotoImage(
                 Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
@@ -546,28 +548,34 @@ class Fenetre_entree:
                 entree_dictee.update()
 
             def ecouter():
-                # entree_dictee.update()
-                while True:
+                compteur = 0
+                while compteur <= 15:
                     reco_text = ""
                     data = self.get_stream().read(
-                        num_frames=4096, exception_on_overflow=False
+                        num_frames=8192, exception_on_overflow=False
                     )  # read in chunks of 4096 bytes
                     if self.get_engine().AcceptWaveform(
                         data
                     ):  # accept waveform of input voice
                         # Parse the JSON result and get the recognized text
+                        compteur = 0
                         result = json.loads(self.get_engine().Result())
-                        reco_text = result["text"]
+                        reco_text: str = result["text"]
                         if (
-                            "terminer l'enregistrement" in reco_text.lower()
-                            or "fin de l'enregistrement" in reco_text.lower()
-                            or "arrêter l'enregistrement" in reco_text.lower()
+                            "terminer l'enregistrement" == reco_text.lower()
+                            or "fin de l'enregistrement" == reco_text.lower()
+                            or "arrêter l'enregistrement" == reco_text.lower()
                         ):
+                            reco_text = ""
                             break
-                        elif reco_text != "":
+                        elif reco_text.lower() != "":
                             entree_dictee.insert(tk.END, reco_text + "\n")
-                        entree_dictee.update()
+                    compteur += 1
+                    # print(compteur)
+
                 entree_dictee.configure(bg="white", fg="black")
+                transferer_contenu()
+                bouton_soumetre.invoke()
 
             # Création des boutons
             but_frame = tk.Frame(fenetre_dictee)
@@ -601,7 +609,7 @@ class Fenetre_entree:
 
         def soumettre() -> str:
             save_to_submission()
-            moteur_de_diction("ok")
+            self.talker("un instant s'il vous plait")
             threading.Thread(target=start_loop).start()
 
         async def asking() -> asyncio.futures.Future:
@@ -613,7 +621,7 @@ class Fenetre_entree:
                 texte=self.get_submission(),
             )
             readable_ai_response = ai_response["message"]["content"]
-            print(readable_ai_response)
+            # print(readable_ai_response)
 
             refresh_entree_html(readable_ai_response)
 
@@ -623,10 +631,18 @@ class Fenetre_entree:
 
         def save_to_submission():
             # Afficher une boîte de message de confirmation
+            try :
+                speciality=speciality_text.get()
+            except :
+                speciality=""
+            finally :
+                pre_prompt = get_pre_prompt(
+                    rubrique=SPECIALIST, prompt_name=speciality
+            )
             try:
-                self.set_submission(content=entree1.selection_get())
+                self.set_submission(content=pre_prompt +"\n"+ entree1.selection_get())
             except:
-                self.set_submission(content=entree1.get("1.0", tk.END))
+                self.set_submission(content=pre_prompt +"\n"+entree1.get("1.0", tk.END))
 
         def quitter() -> str:
             # Afficher une boîte de message de confirmation
@@ -647,13 +663,32 @@ class Fenetre_entree:
                 except:
                     texte_to_talk = object.get("1.0", tk.END)
                 finally:
-                    moteur_de_diction(texte_to_talk)
+                    self.talker(texte_to_talk)
 
         def clear_entree1():
             entree1.replace("1.0", tk.END, "")
 
         def clear_entree2():
             entree2.set_html("")
+
+        def load_pdf():
+
+            try:
+                file_to_read = filedialog.askopenfile(
+                    parent=fenetre,
+                    title="Ouvrir un fichier pdf",
+                    defaultextension="pdf",
+                    # filetypes=["AcrobatReader pdf { *.pdf ? pdf ?} ?"],
+                    # "typeName {extension ?extensions ...?} ?{macType ?macTypes ...?}?"
+                    mode="r",
+                    initialdir=".",
+                )
+                self.talker("Extraction du PDF")
+                resultat_txt = read_pdf(file_to_read.name)
+                self.talker("Fin de l'extraction")
+                entree1.insert(index=tk.END, chars=resultat_txt)
+            except:
+                messagebox("Problème avec ce fichier pdf")
 
         def text_to_mp3(object: tk.Text):
             texte_to_save_to_mp3 = object.get("1.0", tk.END)
@@ -664,16 +699,18 @@ class Fenetre_entree:
                 except:
                     texte_to_save_to_mp3 = object.get("1.0", tk.END)
                 finally:
-                    moteur_de_diction("transcription du texte vers un fichier mp3")
+                    self.talker("transcription du texte vers un fichier mp3")
                     simple_dialog = simpledialog.askstring(
                         parent=fenetre,
                         prompt="Enregistrement : veuillez choisir un nom au fichier",
                         title="Enregistrer vers audio",
                     )
-                    lecteur.save_to_file(texte_to_save_to_mp3, simple_dialog.lower() + ".mp3")
-                    moteur_de_diction("terminé")
-            else : 
-                moteur_de_diction("Désolé, Il n'y a pas de texte à enregistrer en mp3")
+                    lecteur.save_to_file(
+                        texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
+                    )
+                    self.talker("terminé")
+            else:
+                self.talker("Désolé, Il n'y a pas de texte à enregistrer en mp3")
 
         def entree1_to_mp3():
             text_to_mp3(entree1)
@@ -751,7 +788,7 @@ class Fenetre_entree:
         # Création de la fenêtre principale
         fenetre = tk.Tk()
         fenetre.title(self.title + " - " + title)
-        fenetre.configure(width=str(FENETRE_WIDTH), height=str(FENETRE_HEIGHT))
+        fenetre.configure(width=str(FENETRE_WIDTH), height=str(FENETRE_HEIGHT),background="black")
 
         my_image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
@@ -761,6 +798,7 @@ class Fenetre_entree:
         )
 
         button_frame = tk.Frame(fenetre, relief="sunken")
+        button_frame.configure(background="black")
         button_frame.pack(fill="x", expand=True)
         canvas_edition = tk.Frame(fenetre, relief="sunken")
 
@@ -773,12 +811,12 @@ class Fenetre_entree:
         boutons_effacer_canvas2.pack(fill="x", expand=True)
         canvas2.pack(fill="x", expand=True)
 
-        entree1 = tk.Text(canvas1)
+        entree1 = tk.Text(canvas1,name="saisie")
         # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
         entree1.configure(bg="grey", fg="white", font=("arial", 10))
 
         boutton_effacer_entree1 = tk.Button(
-            button_frame, text="X", command=clear_entree1
+            button_frame, text="x", command=clear_entree1
         )
         boutton_effacer_entree1.configure(bg="red", fg="white")
         boutton_effacer_entree1.pack(side="right")
@@ -788,7 +826,7 @@ class Fenetre_entree:
 
         # Création d'un champ de saisie de l'utilisateur
         boutton_effacer_entree2 = tk.Button(
-            boutons_effacer_canvas2, text="X", command=clear_entree2
+            boutons_effacer_canvas2, text="x", command=clear_entree2
         )
 
         boutton_effacer_entree2.configure(bg="red", fg="white")
@@ -804,19 +842,20 @@ class Fenetre_entree:
 
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(
-            button_frame, text="Lire la sélection", command=lire_texte1
+            button_frame, text="Lire", command=lire_texte1
         )
         bouton_lire1.configure(
             bg=_from_rgb((0, 0, 0)),
             fg="white",
             highlightbackground="red",
             highlightcolor="white",
+            activebackground="red",
         )
         bouton_lire1.pack(side=tk.LEFT)
 
         # Création d'un bouton pour traduction_sur_place
         bouton_traduire_sur_place = tk.Button(
-            button_frame, text="...Traduire en place...", command=translate_inplace
+            button_frame, text="Traduire", command=translate_inplace
         )
         bouton_traduire_sur_place.configure(
             bg=_from_rgb((40, 40, 40)),
@@ -842,7 +881,7 @@ class Fenetre_entree:
 
         # Création d'un bouton pour soumetre
         bouton_soumetre = tk.Button(
-            button_frame, text="Soumettre à l'IA", command=soumettre
+            button_frame, text="Ask to AI", command=soumettre
         )
         bouton_soumetre.configure(
             bg=_from_rgb((120, 120, 120)),
@@ -858,7 +897,21 @@ class Fenetre_entree:
         bouton_save_to_mp3.configure(bg=_from_rgb((160, 160, 160)), fg="black")
         bouton_save_to_mp3.pack(side="left")
 
-        # NE fonctionne pas pour mettre en pause la lecture à haute voix
+        bouton_load_pdf = tk.Button(button_frame, text="Charger Pdf", command=load_pdf)
+        bouton_load_pdf.configure(bg=_from_rgb((160, 160, 160)), fg="black")
+        bouton_load_pdf.pack(side="left")
+
+        speciality_text=tk.Entry(
+            button_frame,
+            width=30,
+            fg="brown",
+            bg="black",
+            font=("trebuchet", 10, "bold"),
+            relief="flat",
+            )
+        speciality_text.pack(side="left",padx=2,pady=2)
+
+        # TODO NE fonctionne pas pour mettre en pause la lecture à haute voix
         # bouton_stop=tk.Button(button_frame,text="Stop",command=lecteur.endLoop)
         # bouton_reprendre=tk.Button(button_frame,text="reprendre",command=lecteur.startLoop)
         # bouton_stop.pack(side=tk.LEFT)
@@ -880,7 +933,7 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     ### RETURN : str ou List
     """
 
-    # my_nlp=French()
+    # TODO my_nlp=French()
     # my_doc_texte=my_nlp.make_doc(texte)
     # my_liste_doc=my_doc_texte.cats
     # my_doc_texte.retokenize()
@@ -909,16 +962,16 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
 def affiche_illustration(image, fenetre, message, quitter):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre)
+    cnvs1 = tk.Frame(fenetre,background="black")
     # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
-    cnvs1.pack(fill="x", expand=False)
+    cnvs1.pack(fill="x", expand=True)
     # ################################
     cnvs2 = tk.Frame(cnvs1)
     cnvs2.configure(bg="black")
     cnvs2.pack(fill="x", expand=False)
 
     # Create a canvas
-    canva = tk.Canvas(cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH)
+    canva = tk.Canvas(cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH,background="black")
 
     # Création d'un bouton pour quitter
     bouton_quitter = tk.Button(cnvs2, text="Quitter", command=quitter)
@@ -947,10 +1000,6 @@ def _from_rgb(rgb):
 lecteur = engine_lecteur_init()
 
 
-def save_to_mp3(object: tk.Text):
-    pass
-
-
 def main(prompt=False, stop_talking=False):
 
     def inc_lecteur():
@@ -965,7 +1014,7 @@ def main(prompt=False, stop_talking=False):
 
     async def dire_tt(alire: str):
         lecteur.say(alire)
-        
+
         lecteur.runAndWait()
 
         # lecteur.endLoop()
@@ -978,7 +1027,7 @@ def main(prompt=False, stop_talking=False):
         loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
 
     def say_tt(alire: str):
-        the_thread=threading.Thread(target=start_loop_saying(texte=alire))
+        the_thread = threading.Thread(target=start_loop_saying(texte=alire))
         the_thread.start()
 
     def say_txt(alire: str, stop_ecoute: bool):
@@ -1068,7 +1117,7 @@ def translate_it(text_to_translate: str) -> str:
         text=reformat_translated
     )  # output -> Weiter so, du bist großartig
 
-    print(translated)
+    # print(translated)
     return translated
 
 
