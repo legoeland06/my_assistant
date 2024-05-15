@@ -2,6 +2,7 @@
 import asyncio
 import datetime
 import threading
+import time
 import tkinter as tk
 from tkinter import StringVar, messagebox
 from tkinter import filedialog
@@ -22,6 +23,8 @@ from spacy.lang.fr import French
 from spacy.lang.en import English
 
 from PIL import Image, ImageTk
+
+# from talking_zic import fenetre_entree
 
 # Liste des models déjà téléchargés
 
@@ -123,7 +126,6 @@ LIENS_CHROME = {
     "chrome": "",
     "youtube": "https://www.youtube.com/?authuser=0",
     "whatsapp": "https://web.whatsapp.com/",
-    "porn": "https://www.xnxx.com/",
     "actualité": "https://news.google.com/home?hl=fr&gl=FR&ceid=FR%3Afr",
     "netflix": "https://www.netflix.com/browse",
     "gmail": "https://mail.google.com/mail/u/0/#inbox",
@@ -464,7 +466,57 @@ def traitement_requete(
     return readable_ai_response
 
 
-class Fenetre_entree:
+class FenetreEnregistrement(tk.Frame):
+    content: str
+    title: str
+    submission: str
+    talker: any
+    streaming: pyaudio.Stream
+    engine_model: vosk.KaldiRecognizer
+    image: ImageTk
+
+    def __init__(
+        self,
+        image: ImageTk,
+        stream: pyaudio.Stream,
+        lecteur: any,
+        engine_model: vosk.KaldiRecognizer,
+        master=None,
+    ):
+        super().__init__(master=tk.Tk())
+        # self.master = master
+        self.pack()
+        self.title = "ZicRecoorder"
+        self.content = ""
+        self.submission = ""
+        self.streaming = stream
+        self.talker = lecteur
+        self.engine_model = engine_model
+        self.image = image
+        self.creer_fenetre(
+            title="Zic_win_chat",
+            msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
+        )
+
+    def set_image(self, image: ImageTk):
+        self.image = image
+
+    def get_image(self) -> ImageTk:
+        return self.image
+
+    def creer_fenetre(self, title: str, msg_to_write: str):
+        affiche_illustration(
+            self=self,
+            image=ImageTk.PhotoImage(
+                Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
+            ),
+            fenetre=self,
+            message="... Jonathan Livingston dit legoeland",
+            quitter=lambda: self.quitter(),
+        )
+
+
+class Fenetre_entree(tk.Frame):
     content: str
     title: str
     submission: str
@@ -472,6 +524,7 @@ class Fenetre_entree:
     model_to_use: str
     streaming: pyaudio.Stream
     engine_model: vosk.KaldiRecognizer
+    image: ImageTk
 
     def __init__(
         self,
@@ -479,7 +532,11 @@ class Fenetre_entree:
         lecteur: any,
         engine_model: vosk.KaldiRecognizer,
         model_to_use: str,
+        master=None,
     ):
+        super().__init__(master)
+        self.master = master
+        self.pack()
         self.title = "ZicChatBot"
         self.content = ""
         self.submission = ""
@@ -487,8 +544,13 @@ class Fenetre_entree:
         self.model_to_use = model_to_use
         self.talker = lecteur
         self.engine_model = engine_model
+        self.image = ImageTk.PhotoImage(
+            Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
+        )
+
         self.creer_fenetre(
             title="Zic_win_chat",
+            image=self.get_image(),
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
         )
 
@@ -513,94 +575,62 @@ class Fenetre_entree:
     def get_engine(self) -> vosk.KaldiRecognizer:
         return self.engine_model
 
+    def get_image(self) -> ImageTk:
+        return self.image
+
+    def set_image(self, image: ImageTk) -> bool:
+        self.image = image
+        return True
+
     # open a windows
-    def creer_fenetre(self, msg_to_write, title="Lecteur|traducteur"):
-        def appel_dicter():
-            image = ImageTk.PhotoImage(
-                Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
-            )
-            dicter(image=image)
+    def creer_fenetre(self, image: ImageTk, msg_to_write, title="Lecteur|traducteur"):
 
-        def dicter(image):
-            fenetre_dictee = motors_init()
+        def lance_ecoute():
+            entree1.configure(bg="black", fg="white")
+            entree1.update()
+            bouton_commencer_diction.flash()
+            ecouter()
+            entree1.configure(bg="white", fg="black")
+            entree1.update()
 
-            affiche_illustration(
-                image=image,
-                fenetre=fenetre_dictee,
-                message="... Jonathan Livingston dit legoeland",
-                quitter=quitter,
-            )
+        def ecouter():
+            start_tim_vide = time.perf_counter()
+            start_tim_parlotte = time.perf_counter()
+            while True:
+                reco_text = ""
+                data = self.get_stream().read(
+                    num_frames=8192, exception_on_overflow=False
+                )  # read in chunks of 4096 bytes
+                if self.get_engine().AcceptWaveform(
+                    data
+                ):  # accept waveform of input voice
+                    start_tim_parlotte = time.perf_counter()
+                    # start_tim_parlotte = time.perf_counter()
+                    # start_tim_vide = time.perf_counter()
+                    # Parse the JSON result and get the recognized text
+                    result = json.loads(self.get_engine().Result())
+                    reco_text: str = result["text"]
+                    if (
+                        "terminer l'enregistrement" == reco_text.lower()
+                        or "fin de l'enregistrement" == reco_text.lower()
+                        or "arrêter l'enregistrement" == reco_text.lower()
+                    ):
+                        reco_text = ""
+                        break
+                    elif reco_text.lower() != "":
+                        start_tim_vide = time.perf_counter()
+                        entree1.insert(tk.END, reco_text + "\n")
+                        print("insertion de texte")
+                        entree1.update()
 
-            def transferer_contenu():
-                try:
-                    entree1.insert(tk.END, " " + entree_dictee.selection_get())
-                except:
-                    entree1.insert(
-                        tk.END, "\n" + entree_dictee.get("1.0", tk.END) + "\n"
-                    )
+                time_delta_vide = time.perf_counter() - start_tim_vide
+                time_delta_parlotte = time.perf_counter() - start_tim_parlotte
+                print(str(time_delta_vide) + " :: " + str(time_delta_parlotte))
+                if time_delta_vide >= 3.0 and time_delta_parlotte <= 1:
+                    break
 
-            def lance_ecoute():
-                entree_dictee.configure(bg="black", fg="white")
-                entree_dictee.update()
-                bouton_commencer_diction.flash()
-                ecouter()
-                entree_dictee.configure(bg="white", fg="black")
-                entree_dictee.update()
-
-            def ecouter():
-                compteur = 0
-                while compteur <= 15:
-                    reco_text = ""
-                    data = self.get_stream().read(
-                        num_frames=8192, exception_on_overflow=False
-                    )  # read in chunks of 4096 bytes
-                    if self.get_engine().AcceptWaveform(
-                        data
-                    ):  # accept waveform of input voice
-                        # Parse the JSON result and get the recognized text
-                        compteur = 0
-                        result = json.loads(self.get_engine().Result())
-                        reco_text: str = result["text"]
-                        if (
-                            "terminer l'enregistrement" == reco_text.lower()
-                            or "fin de l'enregistrement" == reco_text.lower()
-                            or "arrêter l'enregistrement" == reco_text.lower()
-                        ):
-                            reco_text = ""
-                            break
-                        elif reco_text.lower() != "":
-                            entree_dictee.insert(tk.END, reco_text + "\n")
-                    compteur += 1
-                    # print(compteur)
-
-                entree_dictee.configure(bg="white", fg="black")
-                transferer_contenu()
-                bouton_soumetre.invoke()
-
-            # Création des boutons
-            but_frame = tk.Frame(fenetre_dictee)
-            but_frame.pack(fill="x", expand=False)
-
-            entree_dictee = tk.Text(fenetre_dictee)
-            entree_dictee.configure(bg="white", fg="black")
-
-            entree_dictee.pack(fill="both", expand=True)
-
-            bouton_commencer_diction = tk.Button(
-                but_frame, text="commencer la diction", command=lance_ecoute
-            )
-            bouton_commencer_diction.configure(bg="black", fg="white")
-
-            bouton_commencer_diction.pack(side=tk.LEFT)
-            bouton_transferer_contenu = tk.Button(
-                but_frame, text="transférer", command=transferer_contenu
-            )
-            bouton_transferer_contenu.pack(side=tk.RIGHT)
-            fenetre_dictee.mainloop()
-
-        def motors_init():
-            fenetre_dictee = tk.Toplevel()
-            return fenetre_dictee
+            entree1.configure(bg="white", fg="black")
+            bouton_soumetre.invoke()
 
         def start_loop():
             loop = asyncio.new_event_loop()
@@ -608,9 +638,11 @@ class Fenetre_entree:
             loop.run_until_complete(loop.create_task(asking()))
 
         def soumettre() -> str:
-            save_to_submission()
-            self.talker("un instant s'il vous plait")
-            threading.Thread(target=start_loop).start()
+            if save_to_submission():
+                self.talker("un instant s'il vous plait")
+                threading.Thread(target=start_loop).start()
+            else:
+                messagebox.showinfo(message="Veuillez poser au moins une question")
 
         async def asking() -> asyncio.futures.Future:
             client: ollama.Client = ollama.Client(host="http://localhost:11434")
@@ -626,31 +658,37 @@ class Fenetre_entree:
             refresh_entree_html(readable_ai_response)
 
             entree2.update()
+            self.talker(readable_ai_response)
 
             return readable_ai_response
 
-        def save_to_submission():
+        def save_to_submission() -> bool:
             # Afficher une boîte de message de confirmation
-            try :
-                speciality=speciality_text.get()
-            except :
-                speciality=""
-            finally :
-                pre_prompt = get_pre_prompt(
-                    rubrique=SPECIALIST, prompt_name=speciality
-            )
-            try:
-                self.set_submission(content=pre_prompt +"\n"+ entree1.selection_get())
-            except:
-                self.set_submission(content=pre_prompt +"\n"+entree1.get("1.0", tk.END))
+            speciality = speciality_text.get()
+            if len(speciality) <= 1:
+                speciality = ""
+                pre_prompt = ""
+            else:
+                pre_prompt = get_pre_prompt(rubrique=SPECIALIST, prompt_name=speciality)
 
-        def quitter() -> str:
+            try:
+                selection = entree1.selection_get()
+            except:
+                selection = entree1.get("1.0", tk.END)
+            finally:
+                if len(selection) > 1:
+                    self.set_submission(content=pre_prompt + "\n" + selection + "\n")
+                    return True
+                else:
+                    return False
+
+        def quitter(self) -> str:
             # Afficher une boîte de message de confirmation
             if messagebox.askyesno(
                 "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
             ):
                 save_to_submission()
-                fenetre.destroy()
+                self.destroy()
             else:
                 print("L'utilisateur a annulé.")
 
@@ -675,7 +713,7 @@ class Fenetre_entree:
 
             try:
                 file_to_read = filedialog.askopenfile(
-                    parent=fenetre,
+                    parent=self,
                     title="Ouvrir un fichier pdf",
                     defaultextension="pdf",
                     # filetypes=["AcrobatReader pdf { *.pdf ? pdf ?} ?"],
@@ -701,7 +739,7 @@ class Fenetre_entree:
                 finally:
                     self.talker("transcription du texte vers un fichier mp3")
                     simple_dialog = simpledialog.askstring(
-                        parent=fenetre,
+                        parent=self,
                         prompt="Enregistrement : veuillez choisir un nom au fichier",
                         title="Enregistrer vers audio",
                     )
@@ -748,6 +786,10 @@ class Fenetre_entree:
             entree1.replace(chars=texte, index1=index1, index2=index2)
 
         def translate_inplace():
+            traduit_maintenant()
+            self.talker("fin de la traduction")
+
+        def traduit_maintenant():
             was_a_list = False
             try:
                 texte_initial = entree1.selection_get()
@@ -786,21 +828,26 @@ class Fenetre_entree:
                     refresh_entree_html(translated_text, True)
 
         # Création de la fenêtre principale
-        fenetre = tk.Tk()
-        fenetre.title(self.title + " - " + title)
-        fenetre.configure(width=str(FENETRE_WIDTH), height=str(FENETRE_HEIGHT),background="black")
+        # fenetre = tk.Tk()
+        # fenetre.configure(
+        #     width=str(FENETRE_WIDTH), height=str(FENETRE_HEIGHT), background="black"
+        # )
 
-        my_image = ImageTk.PhotoImage(
-            Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
-        )
+        # image = ImageTk.PhotoImage(
+        #     Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
+        # )
         affiche_illustration(
-            my_image, fenetre, "... Jonathan Livingston dit legoeland", quitter=quitter
+            self,
+            image=image,
+            quitter=lambda: quitter(self=self),
+            message="... Jonathan LivingStone, dit legoeland",
+            fenetre=self,
         )
 
-        button_frame = tk.Frame(fenetre, relief="sunken")
+        button_frame = tk.Frame(self, relief="sunken")
         button_frame.configure(background="black")
         button_frame.pack(fill="x", expand=True)
-        canvas_edition = tk.Frame(fenetre, relief="sunken")
+        canvas_edition = tk.Frame(self, relief="sunken")
 
         canvas1 = tk.Frame(canvas_edition, relief="sunken")
         boutons_effacer_canvas2 = tk.Frame(canvas_edition)
@@ -811,7 +858,7 @@ class Fenetre_entree:
         boutons_effacer_canvas2.pack(fill="x", expand=True)
         canvas2.pack(fill="x", expand=True)
 
-        entree1 = tk.Text(canvas1,name="saisie")
+        entree1 = tk.Text(canvas1, name="saisie")
         # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
         entree1.configure(bg="grey", fg="white", font=("arial", 10))
 
@@ -841,9 +888,7 @@ class Fenetre_entree:
         entree2.pack(fill="both", expand=True)
 
         # Création d'un bouton pour Lire
-        bouton_lire1 = tk.Button(
-            button_frame, text="Lire", command=lire_texte1
-        )
+        bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
         bouton_lire1.configure(
             bg=_from_rgb((0, 0, 0)),
             fg="white",
@@ -865,24 +910,45 @@ class Fenetre_entree:
         )
         bouton_traduire_sur_place.pack(side=tk.LEFT)
 
+        # def command_dicter():
+        # fenetre_enregistrement = FenetreEnregistrement(
+        #     master=tk.Frame(),
+        #     image=image,
+        #     stream=self.get_stream(),
+        #     engine_model=self.get_engine(),
+        #     # # model_to_use=self.model_to_use,
+        #     lecteur=self.talker,
+        # )
+        # fenetre_enregistrement.title = "MyRecorderZic"
+        # print("voilou on est dedans")
+        # fenetre_enregistrement.mainloop(n=1)
+        # print("voilou on est dehors")
+        # fenetre_dictee = tk.Toplevel(Fenetre_entree)
+        # self.creer_fenetre()
+        # dicter(fenetre_dictee)
+
         # Création d'un bouton pour Dicter
-        bouton_dicter = tk.Button(
-            button_frame,
-            text="Passer en Mode diction",
-            command=appel_dicter,
-            highlightbackground="red",
-            highlightcolor="white",
+        bouton_commencer_diction = tk.Button(
+            button_frame, text=" ф ", command=lance_ecoute
         )
-        bouton_dicter.configure(
-            bg=_from_rgb((80, 80, 80)),
-            fg="white",
-        )
-        bouton_dicter.pack(side=tk.LEFT)
+        bouton_commencer_diction.configure(bg="red", fg="white")
+
+        bouton_commencer_diction.pack(side=tk.LEFT)
+        # bouton_dicter = tk.Button(
+        #     button_frame,
+        #     text="Passer en Mode diction",
+        #     command=lance_ecoute,
+        #     highlightbackground="red",
+        #     highlightcolor="white",
+        # )
+        # bouton_dicter.configure(
+        #     bg=_from_rgb((80, 80, 80)),
+        #     fg="white",
+        # )
+        # bouton_dicter.pack(side=tk.LEFT)
 
         # Création d'un bouton pour soumetre
-        bouton_soumetre = tk.Button(
-            button_frame, text="Ask to AI", command=soumettre
-        )
+        bouton_soumetre = tk.Button(button_frame, text="Ask to AI", command=soumettre)
         bouton_soumetre.configure(
             bg=_from_rgb((120, 120, 120)),
             fg="white",
@@ -901,15 +967,15 @@ class Fenetre_entree:
         bouton_load_pdf.configure(bg=_from_rgb((160, 160, 160)), fg="black")
         bouton_load_pdf.pack(side="left")
 
-        speciality_text=tk.Entry(
+        speciality_text = tk.Entry(
             button_frame,
             width=30,
             fg="brown",
             bg="black",
             font=("trebuchet", 10, "bold"),
             relief="flat",
-            )
-        speciality_text.pack(side="left",padx=2,pady=2)
+        )
+        speciality_text.pack(side="left", padx=2, pady=2)
 
         # TODO NE fonctionne pas pour mettre en pause la lecture à haute voix
         # bouton_stop=tk.Button(button_frame,text="Stop",command=lecteur.endLoop)
@@ -917,7 +983,7 @@ class Fenetre_entree:
         # bouton_stop.pack(side=tk.LEFT)
         # bouton_reprendre.pack(side=tk.LEFT)
 
-        fenetre.mainloop()
+        # self.mainloop()
 
 
 # ICI Tester text < 500 caractères
@@ -959,10 +1025,12 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         return texte
 
 
-def affiche_illustration(image, fenetre, message, quitter):
+def affiche_illustration(
+    self: Fenetre_entree, image: ImageTk, fenetre, message, quitter
+):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre,background="black")
+    cnvs1 = tk.Frame(fenetre, background="black")
     # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
     cnvs1.pack(fill="x", expand=True)
     # ################################
@@ -971,7 +1039,9 @@ def affiche_illustration(image, fenetre, message, quitter):
     cnvs2.pack(fill="x", expand=False)
 
     # Create a canvas
-    canva = tk.Canvas(cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH,background="black")
+    canva = tk.Canvas(
+        cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH, background="black"
+    )
 
     # Création d'un bouton pour quitter
     bouton_quitter = tk.Button(cnvs2, text="Quitter", command=quitter)
@@ -1090,12 +1160,23 @@ def main(prompt=False, stop_talking=False):
         frames_per_buffer=8192,
     )
     # Fenetre_entree(any,any,any,any)
-    Fenetre_entree(
+    # Fenetre_entree(
+    #     stream=stream,
+    #     lecteur=say_tt,
+    #     engine_model=rec,
+    #     model_to_use=model_used,
+    # )
+    root = tk.Tk()
+    root.title = "RootTitle - "
+    app = Fenetre_entree(
+        master=root,
         stream=stream,
-        lecteur=say_tt,
         engine_model=rec,
         model_to_use=model_used,
+        lecteur=say_tt,
     )
+    app.title = "MyApp"
+    app.mainloop()
 
 
 def translate_it(text_to_translate: str) -> str:
