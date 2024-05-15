@@ -24,8 +24,6 @@ from spacy.lang.en import English
 
 from PIL import Image, ImageTk
 
-# from talking_zic import fenetre_entree
-
 # Liste des models déjà téléchargés
 
 WIZARDLM2 = "wizardlm2:latest"
@@ -379,8 +377,6 @@ def mode_chat(moteur_de_diction):
 
 def mode_Super_chat(moteur_de_diction):
     moteur_de_diction("Mode multilignes activé", False)
-    # print("Mode multiligne activé")
-    # print(INFOS_CHAT)
     buffer = []
     while True:
         try:
@@ -419,16 +415,6 @@ def append_response_to_file(file_to_append, readable_ai_response):
             + markdown_content
             + "\n"
         )
-
-
-# def ask_to_ai2(texte, model_to_use, client: ollama.Client):
-#     ai_response = client.generate(
-#         model=model_to_use,
-#         prompt=texte,
-#         system="",
-#         template="",
-#     )
-#     return ai_response
 
 
 def ask_to_ai(texte, model_to_use, client: ollama.Client):
@@ -605,8 +591,7 @@ class Fenetre_entree(tk.Frame):
                     data
                 ):  # accept waveform of input voice
                     start_tim_parlotte = time.perf_counter()
-                    # start_tim_parlotte = time.perf_counter()
-                    # start_tim_vide = time.perf_counter()
+
                     # Parse the JSON result and get the recognized text
                     result = json.loads(self.get_engine().Result())
                     reco_text: str = result["text"]
@@ -653,13 +638,10 @@ class Fenetre_entree(tk.Frame):
                 texte=self.get_submission(),
             )
             readable_ai_response = ai_response["message"]["content"]
-            # print(readable_ai_response)
 
             refresh_entree_html(readable_ai_response)
 
             entree2.update()
-            self.talker(readable_ai_response)
-
             return readable_ai_response
 
         def save_to_submission() -> bool:
@@ -716,8 +698,6 @@ class Fenetre_entree(tk.Frame):
                     parent=self,
                     title="Ouvrir un fichier pdf",
                     defaultextension="pdf",
-                    # filetypes=["AcrobatReader pdf { *.pdf ? pdf ?} ?"],
-                    # "typeName {extension ?extensions ...?} ?{macType ?macTypes ...?}?"
                     mode="r",
                     initialdir=".",
                 )
@@ -827,15 +807,6 @@ class Fenetre_entree(tk.Frame):
                     translated_text = str(translate_it(text_to_translate=texte_traite))
                     refresh_entree_html(translated_text, True)
 
-        # Création de la fenêtre principale
-        # fenetre = tk.Tk()
-        # fenetre.configure(
-        #     width=str(FENETRE_WIDTH), height=str(FENETRE_HEIGHT), background="black"
-        # )
-
-        # image = ImageTk.PhotoImage(
-        #     Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
-        # )
         affiche_illustration(
             self,
             image=image,
@@ -910,23 +881,6 @@ class Fenetre_entree(tk.Frame):
         )
         bouton_traduire_sur_place.pack(side=tk.LEFT)
 
-        # def command_dicter():
-        # fenetre_enregistrement = FenetreEnregistrement(
-        #     master=tk.Frame(),
-        #     image=image,
-        #     stream=self.get_stream(),
-        #     engine_model=self.get_engine(),
-        #     # # model_to_use=self.model_to_use,
-        #     lecteur=self.talker,
-        # )
-        # fenetre_enregistrement.title = "MyRecorderZic"
-        # print("voilou on est dedans")
-        # fenetre_enregistrement.mainloop(n=1)
-        # print("voilou on est dehors")
-        # fenetre_dictee = tk.Toplevel(Fenetre_entree)
-        # self.creer_fenetre()
-        # dicter(fenetre_dictee)
-
         # Création d'un bouton pour Dicter
         bouton_commencer_diction = tk.Button(
             button_frame, text=" ф ", command=lance_ecoute
@@ -934,18 +888,6 @@ class Fenetre_entree(tk.Frame):
         bouton_commencer_diction.configure(bg="red", fg="white")
 
         bouton_commencer_diction.pack(side=tk.LEFT)
-        # bouton_dicter = tk.Button(
-        #     button_frame,
-        #     text="Passer en Mode diction",
-        #     command=lance_ecoute,
-        #     highlightbackground="red",
-        #     highlightcolor="white",
-        # )
-        # bouton_dicter.configure(
-        #     bg=_from_rgb((80, 80, 80)),
-        #     fg="white",
-        # )
-        # bouton_dicter.pack(side=tk.LEFT)
 
         # Création d'un bouton pour soumetre
         bouton_soumetre = tk.Button(button_frame, text="Ask to AI", command=soumettre)
@@ -1159,13 +1101,7 @@ def main(prompt=False, stop_talking=False):
         input=True,
         frames_per_buffer=8192,
     )
-    # Fenetre_entree(any,any,any,any)
-    # Fenetre_entree(
-    #     stream=stream,
-    #     lecteur=say_tt,
-    #     engine_model=rec,
-    #     model_to_use=model_used,
-    # )
+
     root = tk.Tk()
     root.title = "RootTitle - "
     app = Fenetre_entree(
