@@ -452,56 +452,6 @@ def traitement_requete(
     return readable_ai_response
 
 
-class FenetreEnregistrement(tk.Frame):
-    content: str
-    title: str
-    submission: str
-    talker: any
-    streaming: pyaudio.Stream
-    engine_model: vosk.KaldiRecognizer
-    image: ImageTk
-
-    def __init__(
-        self,
-        image: ImageTk,
-        stream: pyaudio.Stream,
-        lecteur: any,
-        engine_model: vosk.KaldiRecognizer,
-        master=None,
-    ):
-        super().__init__(master=tk.Tk())
-        # self.master = master
-        self.pack()
-        self.title = "ZicRecoorder"
-        self.content = ""
-        self.submission = ""
-        self.streaming = stream
-        self.talker = lecteur
-        self.engine_model = engine_model
-        self.image = image
-        self.creer_fenetre(
-            title="Zic_win_chat",
-            msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
-        )
-
-    def set_image(self, image: ImageTk):
-        self.image = image
-
-    def get_image(self) -> ImageTk:
-        return self.image
-
-    def creer_fenetre(self, title: str, msg_to_write: str):
-        affiche_illustration(
-            self=self,
-            image=ImageTk.PhotoImage(
-                Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
-            ),
-            fenetre=self,
-            message="... Jonathan Livingston dit legoeland",
-            quitter=lambda: self.quitter(),
-        )
-
-
 class Fenetre_entree(tk.Frame):
     content: str
     title: str
