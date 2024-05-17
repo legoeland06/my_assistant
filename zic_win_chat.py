@@ -4,7 +4,7 @@ import datetime
 import threading
 import time
 import tkinter as tk
-from tkinter import StringVar, messagebox
+from tkinter import Event, StringVar, messagebox
 from tkinter import filedialog
 from tkinter import simpledialog
 import PyPDF2
@@ -461,12 +461,11 @@ class Fenetre_entree(tk.Frame):
     streaming: pyaudio.Stream
     engine_model: vosk.KaldiRecognizer
     image: ImageTk
+    ia: str
 
     def __init__(
         self,
         stream: pyaudio.Stream,
-        lecteur: any,
-        engine_model: vosk.KaldiRecognizer,
         model_to_use: str,
         master=None,
     ):
@@ -474,12 +473,12 @@ class Fenetre_entree(tk.Frame):
         self.master = master
         self.pack()
         self.title = "ZicChatBot"
+        self.ia = LLAMA3
         self.content = ""
         self.submission = ""
         self.streaming = stream
         self.model_to_use = model_to_use
-        self.talker = lecteur
-        self.engine_model = engine_model
+        self.configure(height=800)
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
         )
@@ -496,17 +495,31 @@ class Fenetre_entree(tk.Frame):
     def get(self) -> str:
         return self.content
 
+    def get_talker(self) -> pyttsx3.Engine:
+        return self.talker
+
+    def set_talker(self, talker):
+        self.talker = talker
+
     def set_submission(self, content: str):
         self.submission = content
 
     def get_submission(self) -> str:
         return self.submission
 
+    def set_model(self, name_ia: str) -> bool:
+        self.model_to_use = name_ia
+
+        pyttsx3.speak("changement d'ia: " + self.model_to_use)
+
     def get_model(self) -> str:
         return self.model_to_use
 
     def get_stream(self) -> pyaudio.Stream:
         return self.streaming
+
+    def set_engine(self, engine):
+        self.engine_model = engine
 
     def get_engine(self) -> vosk.KaldiRecognizer:
         return self.engine_model
@@ -588,8 +601,16 @@ class Fenetre_entree(tk.Frame):
                 texte=self.get_submission(),
             )
             readable_ai_response = ai_response["message"]["content"]
-
-            refresh_entree_html(readable_ai_response)
+            entree2.insert(
+                tk.END,
+                STARS * WIDTH_TERM
+                + "\nModel : "
+                + self.get_model()
+                + "\n"
+                + STARS * WIDTH_TERM
+                + "\n"
+                + readable_ai_response,
+            )
 
             entree2.update()
             return readable_ai_response
@@ -604,7 +625,7 @@ class Fenetre_entree(tk.Frame):
                 pre_prompt = get_pre_prompt(rubrique=SPECIALIST, prompt_name=speciality)
 
             try:
-                selection = entree1.selection_get()
+                selection = entree1.get(tk.SEL_FIRST, tk.SEL_LAST)
             except:
                 selection = entree1.get("1.0", tk.END)
             finally:
@@ -629,7 +650,7 @@ class Fenetre_entree(tk.Frame):
 
             if texte_to_talk != "":
                 try:
-                    texte_to_talk = object.selection_get()
+                    texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
                 except:
                     texte_to_talk = object.get("1.0", tk.END)
                 finally:
@@ -639,7 +660,7 @@ class Fenetre_entree(tk.Frame):
             entree1.replace("1.0", tk.END, "")
 
         def clear_entree2():
-            entree2.set_html("")
+            entree2.replace("1.0", tk.END, "")
 
         def load_pdf():
 
@@ -663,7 +684,7 @@ class Fenetre_entree(tk.Frame):
 
             if texte_to_save_to_mp3 != "":
                 try:
-                    texte_to_save_to_mp3 = object.selection_get()
+                    texte_to_save_to_mp3 = object.get(tk.SEL_FIRST, tk.SEL_LAST)
                 except:
                     texte_to_save_to_mp3 = object.get("1.0", tk.END)
                 finally:
@@ -682,12 +703,6 @@ class Fenetre_entree(tk.Frame):
 
         def entree1_to_mp3():
             text_to_mp3(entree1)
-
-        def lire_texte1():
-            lire_text_from_object(entree1)
-
-        def lire_texte2():
-            lire_text_from_object(entree2)
 
         def refresh_entree_html(texte: str, ponctuel: bool = True):
             markdown_content = markdown.markdown(texte, output_format="xhtml")
@@ -717,12 +732,11 @@ class Fenetre_entree(tk.Frame):
 
         def translate_inplace():
             traduit_maintenant()
-            self.talker("fin de la traduction")
 
         def traduit_maintenant():
             was_a_list = False
             try:
-                texte_initial = entree1.selection_get()
+                texte_initial = entree1.get(tk.SEL_FIRST, tk.SEL_LAST)
                 indx1 = entree1.index(tk.SEL_FIRST)
                 indx2 = entree1.index(tk.SEL_LAST)
 
@@ -756,11 +770,12 @@ class Fenetre_entree(tk.Frame):
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
                     refresh_entree_html(translated_text, True)
+                self.talker("fin de la traduction")
 
         affiche_illustration(
             self,
             image=image,
-            quitter=lambda: quitter(self=self),
+            quitter=lambda: quitter(self=root),
             message="... Jonathan LivingStone, dit legoeland",
             fenetre=self,
         )
@@ -779,18 +794,21 @@ class Fenetre_entree(tk.Frame):
         boutons_effacer_canvas2.pack(fill="x", expand=True)
         canvas2.pack(fill="x", expand=True)
 
-        entree1 = tk.Text(canvas1, name="saisie")
+        entree1 = tk.Text(canvas1, name="entree1")
         # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
-        entree1.configure(bg="grey", fg="white", font=("arial", 10))
+        entree1.configure(bg="grey", fg="white", font=("arial", 10), height=10)
 
         boutton_effacer_entree1 = tk.Button(
             button_frame, text="x", command=clear_entree1
         )
         boutton_effacer_entree1.configure(bg="red", fg="white")
         boutton_effacer_entree1.pack(side="right")
+        scrollbar1 = tk.Scrollbar(canvas1)
+        scrollbar1.pack(side=tk.RIGHT, fill="both")
         entree1.insert(tk.END, msg_to_write)
         entree1.focus_set()
         entree1.pack(fill="both", expand=True)
+        entree1.configure(yscrollcommand=scrollbar1.set)
 
         # Création d'un champ de saisie de l'utilisateur
         boutton_effacer_entree2 = tk.Button(
@@ -800,16 +818,33 @@ class Fenetre_entree(tk.Frame):
         boutton_effacer_entree2.configure(bg="red", fg="white")
         boutton_effacer_entree2.pack(side="right")
         bouton_lire2 = tk.Button(
-            boutons_effacer_canvas2, text="Lire", command=lire_texte2
+            boutons_effacer_canvas2,
+            text="Lire",
+            command=lambda: lire_text_from_object(entree2),
         )
         bouton_lire2.configure(bg="green", fg="white")
         bouton_lire2.pack(side=tk.RIGHT)
-        entree2 = HTMLLabel(canvas2)
-        entree2.configure(bg="white", fg="brown", font=("arial ", 12))
+
+        scrollbar2 = tk.Scrollbar(canvas2)
+        scrollbar2.pack(side=tk.RIGHT, fill="both")
+        entree2 = tk.Text(canvas2, name="entree2")
+        # entree2 = HTMLLabel(canvas2)
+        entree2.configure(
+            bg="white",
+            fg="brown",
+            font=("arial ", 12),
+            height=10,
+            yscrollcommand=scrollbar2.set,
+        )
         entree2.pack(fill="both", expand=True)
 
+        scrollbar2.configure(command=entree2.yview)
+        scrollbar1.configure(command=entree1.yview)
+
         # Création d'un bouton pour Lire
-        bouton_lire1 = tk.Button(button_frame, text="Lire", command=lire_texte1)
+        bouton_lire1 = tk.Button(
+            button_frame, text="Lire", command=lambda: lire_text_from_object(entree1)
+        )
         bouton_lire1.configure(
             bg=_from_rgb((0, 0, 0)),
             fg="white",
@@ -916,6 +951,49 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     else:
         return texte
 
+def affiche_listbox():
+    frame=tk.Tk(className="list_ia")
+    _list_box=tk.Listbox(frame)
+    scroll_listbox=tk.Scrollbar(frame)
+    scroll_listbox.configure(command=_list_box.yview)
+
+    _list_box.pack(fill="both")
+    for item in my_liste:
+        _list_box.insert(tk.END, item["name"])
+    _list_box.configure(
+            background="red",
+            foreground="black",
+            yscrollcommand=scroll_listbox.set,
+        )
+    _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
+    
+
+def maximize(evt:tk.Event):
+    w: tk.Listbox = evt.widget
+    w.configure(
+            height=5,
+        )
+
+def minimize(evt:tk.Event):
+    w: tk.Listbox = evt.widget
+    w.configure(
+            height=1
+        )
+def change_model_ia(evt: tk.Event):
+    # Note here that Tkinter passes an event object to onselect()
+    w: tk.Listbox = evt.widget
+    try:
+        index = w.curselection()[0]
+        value = w.get(index)
+        print('You selected item %d: "%s"' % (index, value))
+        app.set_model(name_ia=str(value))
+        app.get_talker()("ok")
+       
+    except:
+        print("aucune ia sélectionner")
+        app.get_talker()("Oups")
+    finally:
+        w.focus_get().destroy()
 
 def affiche_illustration(
     self: Fenetre_entree, image: ImageTk, fenetre, message, quitter
@@ -937,8 +1015,12 @@ def affiche_illustration(
 
     # Création d'un bouton pour quitter
     bouton_quitter = tk.Button(cnvs2, text="Quitter", command=quitter)
-    bouton_quitter.configure(bg="black", fg="red")
+    bouton_quitter.configure(background="black", foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
+
+    bouton_liste=tk.Button(cnvs2,text="Changer d'IA",background="red",foreground="black",
+                           command=affiche_listbox)
+
     label = tk.Label(
         cnvs2,
         text=message,
@@ -946,7 +1028,9 @@ def affiche_illustration(
         fg="white",
         bg="black",
     )
+
     label.pack(side=tk.RIGHT, expand=False)
+    bouton_liste.pack(side=tk.RIGHT, expand=False)
 
     # Add the image to the canvas, anchored at the top-left (northwest) corner
     canva.create_image(0, 0, anchor="nw", image=image, tags="bg_img")
@@ -954,12 +1038,30 @@ def affiche_illustration(
 
 
 def _from_rgb(rgb):
-    """translates an rgb tuple of int to a tkinter friendly color code"""
+    """translates an rgb tuple of int to a tkinter friendly color code
+    You must give a tuplet (r,g,b) like _from_rgb((125,125,125))"""
     r, g, b = rgb
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
 lecteur = engine_lecteur_init()
+# Open the microphone stream
+p = pyaudio.PyAudio()
+stream = p.open(
+    format=pyaudio.paInt16,
+    channels=1,
+    rate=16000,
+    input=True,
+    frames_per_buffer=8192,
+)
+root = tk.Tk()
+app = Fenetre_entree(
+    master=root,
+    stream=stream,
+    model_to_use=LLAMA3,
+)
+
+my_liste = (ollama.list())["models"]
 
 
 def main(prompt=False, stop_talking=False):
@@ -976,7 +1078,6 @@ def main(prompt=False, stop_talking=False):
 
     async def dire_tt(alire: str):
         lecteur.say(alire)
-
         lecteur.runAndWait()
 
         # lecteur.endLoop()
@@ -1042,27 +1143,22 @@ def main(prompt=False, stop_talking=False):
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
     say_txt("reconnaissance vocale initialisée", False)
 
-    # Open the microphone stream
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16000,
-        input=True,
-        frames_per_buffer=8192,
-    )
-
-    root = tk.Tk()
+    # root = tk.Tk()
     root.title = "RootTitle - "
-    app = Fenetre_entree(
-        master=root,
-        stream=stream,
-        engine_model=rec,
-        model_to_use=model_used,
-        lecteur=say_tt,
-    )
+
     app.title = "MyApp"
+    app.set_talker(say_tt)
+    app.set_engine(rec)
     app.mainloop()
+
+
+def changer_ia(self, evt):
+    # Note here that Tkinter passes an event object to onselect()
+    w = evt.widget
+    index = int(w.curselection()[0])
+    value = w.get(index)
+    print('You selected item %d: "%s"' % (index, value))
+    self.set_model(value)
 
 
 def translate_it(text_to_translate: str) -> str:
