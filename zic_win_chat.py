@@ -181,7 +181,7 @@ Alors, voici le sujet du prompt que nous allons travailler: [ prompt_to_workd ]"
 }
 
 PREPROMPTS = [
-    "Sous forme de listes à puces, donne-moi 10 exemples de questions \n    que je peux te poser, sans donner de détails",
+    "Sous forme de listes à puces, donne-moi 10 exemples de questions que je peux te poser, sans donner de détails",
     "Quel est ton nom et que sais-tu faire ?",
     "combien de paramètre possèdes-tu ?",
     "Ecris moi un hello word en Rust et en suite en Java17",
@@ -632,6 +632,8 @@ class Fenetre_entree(tk.Frame):
                 if len(selection) > 1:
                     self.set_submission(content=pre_prompt + "\n" + selection + "\n")
                     return True
+                elif len(self.get_submission().lower()) > 1:
+                    return True
                 else:
                     return False
 
@@ -722,7 +724,7 @@ class Fenetre_entree(tk.Frame):
             else:
                 html_entries += markdown_content
 
-            entree2.set_html(html_entries)
+            # entree2.set_html(html_entries)
             entree2.update()
 
         def replace_in_place(
@@ -796,7 +798,9 @@ class Fenetre_entree(tk.Frame):
 
         entree1 = tk.Text(canvas1, name="entree1")
         # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
-        entree1.configure(bg="grey", fg="white", font=("arial", 10), height=10)
+        entree1.configure(
+            bg=_from_rgb((200, 200, 200)), fg="white", font=("arial", 10), height=10
+        )
 
         boutton_effacer_entree1 = tk.Button(
             button_frame, text="x", command=clear_entree1
@@ -833,7 +837,7 @@ class Fenetre_entree(tk.Frame):
             bg="white",
             fg="brown",
             font=("arial ", 12),
-            height=10,
+            height=20,
             yscrollcommand=scrollbar2.set,
         )
         entree2.pack(fill="both", expand=True)
@@ -902,6 +906,14 @@ class Fenetre_entree(tk.Frame):
             font=("trebuchet", 10, "bold"),
             relief="flat",
         )
+        bouton_finetune = tk.Button(
+            button_frame,
+            text="Pré-prompts",
+            background="black",
+            foreground="white",
+            command=lambda: affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
+        )
+        bouton_finetune.pack(side=tk.RIGHT, expand=False)
         speciality_text.pack(side="left", padx=2, pady=2)
 
         # TODO NE fonctionne pas pour mettre en pause la lecture à haute voix
@@ -951,34 +963,71 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     else:
         return texte
 
-def affiche_listbox():
-    frame=tk.Tk(className="list_ia")
-    _list_box=tk.Listbox(frame)
-    scroll_listbox=tk.Scrollbar(frame)
+
+def affiche_listbox(list_to_check: list):
+    _list_box: tk.Listbox = traite_listbox(list_to_check)
+    _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
+
+
+def affiche_prepromts(list_to_check: list):
+    _list_box: tk.Listbox = traite_listbox(list_to_check)
+    _list_box.bind("<<ListboxSelect>>", func=charge_preprompt)
+
+
+def traite_listbox(list_to_check: list):
+    frame = tk.Tk(className="list_ia")
+    _list_box = tk.Listbox(frame)
+    scroll_listbox = tk.Scrollbar(frame)
     scroll_listbox.configure(command=_list_box.yview)
 
     _list_box.pack(fill="both")
-    for item in my_liste:
-        _list_box.insert(tk.END, item["name"])
+    for item in list_to_check:
+        _list_box.insert(tk.END, item)
     _list_box.configure(
-            background="red",
-            foreground="black",
-            yscrollcommand=scroll_listbox.set,
-        )
-    _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
-    
+        background="red",
+        foreground="black",
+        yscrollcommand=scroll_listbox.set,
+    )
+    return _list_box
 
-def maximize(evt:tk.Event):
+    # _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
+
+
+def maximize(evt: tk.Event):
     w: tk.Listbox = evt.widget
     w.configure(
-            height=5,
-        )
+        height=5,
+    )
 
-def minimize(evt:tk.Event):
+
+def minimize(evt: tk.Event):
     w: tk.Listbox = evt.widget
-    w.configure(
-            height=1
+    w.configure(height=1)
+
+
+def charge_preprompt(evt: tk.Event):
+    # Note here that Tkinter passes an event object to onselect()
+    w: tk.Listbox = evt.widget
+    try:
+        index = w.curselection()[0]
+        value: str = w.get(index)
+        print('You selected item %d: "%s"' % (index, value))
+
+        preprompt = get_pre_prompt(
+            rubrique=value,
+            prompt_name=value.lower(),
         )
+        app.set_submission(preprompt)
+
+        app.get_talker()("prépromt ajouté : " + preprompt)
+
+    except:
+        print("aucun préprompt sélectionné")
+        app.get_talker()("Oups")
+    finally:
+        w.focus_get().destroy()
+
+
 def change_model_ia(evt: tk.Event):
     # Note here that Tkinter passes an event object to onselect()
     w: tk.Listbox = evt.widget
@@ -988,12 +1037,13 @@ def change_model_ia(evt: tk.Event):
         print('You selected item %d: "%s"' % (index, value))
         app.set_model(name_ia=str(value))
         app.get_talker()("ok")
-       
+
     except:
         print("aucune ia sélectionner")
         app.get_talker()("Oups")
     finally:
         w.focus_get().destroy()
+
 
 def affiche_illustration(
     self: Fenetre_entree, image: ImageTk, fenetre, message, quitter
@@ -1018,8 +1068,13 @@ def affiche_illustration(
     bouton_quitter.configure(background="black", foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
 
-    bouton_liste=tk.Button(cnvs2,text="Changer d'IA",background="red",foreground="black",
-                           command=affiche_listbox)
+    bouton_liste = tk.Button(
+        cnvs2,
+        text="Changer d'IA",
+        background="red",
+        foreground="black",
+        command=lambda: affiche_listbox(my_liste),
+    )
 
     label = tk.Label(
         cnvs2,
@@ -1061,7 +1116,11 @@ app = Fenetre_entree(
     model_to_use=LLAMA3,
 )
 
-my_liste = (ollama.list())["models"]
+my_liste = []
+for element in (ollama.list())["models"]:
+    my_liste.append(element["name"])
+
+print(my_liste)
 
 
 def main(prompt=False, stop_talking=False):
