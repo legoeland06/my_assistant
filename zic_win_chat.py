@@ -526,7 +526,6 @@ class Fenetre_entree(tk.Frame):
 
     def set_model(self, name_ia: str) -> bool:
         self.model_to_use = name_ia
-
         pyttsx3.speak("changement d'ia: " + self.model_to_use)
 
     def get_model(self) -> str:
@@ -623,7 +622,7 @@ class Fenetre_entree(tk.Frame):
                 # images_link=(self.get_image_link() if self.get_image_link() else ""),
             )
             readable_ai_response = ai_response["message"]["content"]
-            
+
             # TODO : tester la langue, si elle n'est pas français,
             # traduir automatiquement en français
 
@@ -997,9 +996,11 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         return texte
 
 
-def affiche_listbox(list_to_check: list):
-    _list_box: tk.Listbox = traite_listbox(list_to_check)
-    _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
+def affiche_listbox(
+    list_to_check: list,
+):
+    _listbox: tk.Listbox = traite_listbox(list_to_check)
+    _listbox.bind("<<ListboxSelect>>", func=change_model_ia)
 
 
 def affiche_prepromts(list_to_check: list, speciality_widget: tk.Entry):
@@ -1011,8 +1012,8 @@ def affiche_prepromts(list_to_check: list, speciality_widget: tk.Entry):
     app.set_motcle(mots_cle.split())
     speciality_widget.insert(0, mots_cle)
 
-    _list_box: tk.Listbox = traite_listbox(list_to_check)
-    _list_box.bind("<<ListboxSelect>>", func=charge_preprompt)
+    _listbox: tk.Listbox = traite_listbox(list_to_check)
+    _listbox.bind("<<ListboxSelect>>", func=charge_preprompt)
 
 
 def traite_listbox(list_to_check: list):
@@ -1079,6 +1080,8 @@ def change_model_ia(evt: tk.Event):
         value = w.get(index)
         print('You selected item %d: "%s"' % (index, value))
         app.set_model(name_ia=str(value))
+        app.nametowidget("cvns1.cvns2.btnlist").configure(text=value)
+
         app.get_talker()("ok")
 
     except:
@@ -1093,11 +1096,11 @@ def affiche_illustration(
 ):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0))
+    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0),name="cvns1")
     # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
     cnvs1.pack(fill="x", expand=True)
     # ################################
-    cnvs2 = tk.Frame(cnvs1)
+    cnvs2 = tk.Frame(cnvs1,name="cvns2")
     cnvs2.configure(bg="black")
     cnvs2.pack(fill="x", expand=False)
 
@@ -1113,6 +1116,7 @@ def affiche_illustration(
 
     bouton_liste = tk.Button(
         cnvs2,
+        name="btnlist",
         text="Changer d'IA",
         background="red",
         foreground="black",
