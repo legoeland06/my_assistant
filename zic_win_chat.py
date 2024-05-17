@@ -417,15 +417,17 @@ def append_response_to_file(file_to_append, readable_ai_response):
         )
 
 
-def ask_to_ai(texte, model_to_use, client: ollama.Client):
+def ask_to_ai(texte, model_to_use, client: ollama.Client, images_link: str = ""):
     ai_response = client.chat(
         model=model_to_use,
         messages=[
             {
                 "role": ROLE_TYPE,
                 "content": texte,
+                # "images": [images_link],
             },
         ],
+        keep_alive=-1
     )
     return ai_response
 
@@ -462,6 +464,8 @@ class Fenetre_entree(tk.Frame):
     engine_model: vosk.KaldiRecognizer
     image: ImageTk
     ia: str
+    motcle: list[str]
+    image_link: str
 
     def __init__(
         self,
@@ -472,22 +476,28 @@ class Fenetre_entree(tk.Frame):
         super().__init__(master)
         self.master = master
         self.pack()
-        self.title = "ZicChatBot"
+        self.title = root.winfo_name()
         self.ia = LLAMA3
         self.content = ""
         self.submission = ""
         self.streaming = stream
         self.model_to_use = model_to_use
         self.configure(height=800)
+        self.image_link = ""
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
         )
 
         self.creer_fenetre(
-            title="Zic_win_chat",
             image=self.get_image(),
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
         )
+
+    def set_motcle(self, motcle):
+        self.motcle = motcle
+
+    def get_motcle(self) -> list[str]:
+        return self.motcle
 
     def set(self, content: str):
         self.content = content
@@ -506,6 +516,12 @@ class Fenetre_entree(tk.Frame):
 
     def get_submission(self) -> str:
         return self.submission
+
+    def get_image_link(self) -> str:
+        return self.image_link
+
+    def set_image_link(self, image_link: str):
+        self.image_link = image_link
 
     def set_model(self, name_ia: str) -> bool:
         self.model_to_use = name_ia
@@ -532,7 +548,7 @@ class Fenetre_entree(tk.Frame):
         return True
 
     # open a windows
-    def creer_fenetre(self, image: ImageTk, msg_to_write, title="Lecteur|traducteur"):
+    def creer_fenetre(self, image: ImageTk, msg_to_write):
 
         def lance_ecoute():
             entree1.configure(bg="black", fg="white")
@@ -599,6 +615,7 @@ class Fenetre_entree(tk.Frame):
                 client=client,
                 model_to_use=self.get_model(),
                 texte=self.get_submission(),
+                # images_link=(self.get_image_link() if self.get_image_link() else ""),
             )
             readable_ai_response = ai_response["message"]["content"]
             entree2.insert(
@@ -620,9 +637,6 @@ class Fenetre_entree(tk.Frame):
             speciality = speciality_text.get()
             if len(speciality) <= 1:
                 speciality = ""
-                pre_prompt = ""
-            else:
-                pre_prompt = get_pre_prompt(rubrique=SPECIALIST, prompt_name=speciality)
 
             try:
                 selection = entree1.get(tk.SEL_FIRST, tk.SEL_LAST)
@@ -630,7 +644,9 @@ class Fenetre_entree(tk.Frame):
                 selection = entree1.get("1.0", tk.END)
             finally:
                 if len(selection) > 1:
-                    self.set_submission(content=pre_prompt + "\n" + selection + "\n")
+                    self.set_submission(
+                        content=self.get_submission() + "\n" + selection + "\n"
+                    )
                     return True
                 elif len(self.get_submission().lower()) > 1:
                     return True
@@ -901,7 +917,7 @@ class Fenetre_entree(tk.Frame):
         speciality_text = tk.Entry(
             button_frame,
             width=30,
-            fg="brown",
+            fg="red",
             bg="black",
             font=("trebuchet", 10, "bold"),
             relief="flat",
@@ -911,7 +927,9 @@ class Fenetre_entree(tk.Frame):
             text="Pré-prompts",
             background="black",
             foreground="white",
-            command=lambda: affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
+            command=lambda: affiche_prepromts(
+                PROMPTS_SYSTEMIQUES.keys(), speciality_text
+            ),
         )
         bouton_finetune.pack(side=tk.RIGHT, expand=False)
         speciality_text.pack(side="left", padx=2, pady=2)
@@ -969,7 +987,15 @@ def affiche_listbox(list_to_check: list):
     _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
 
 
-def affiche_prepromts(list_to_check: list):
+def affiche_prepromts(list_to_check: list, speciality_widget: tk.Entry):
+    mots_cle = simpledialog.askstring(
+        title="YourAssistant - pré-prompts",
+        initialvalue="Python",
+        prompt="Veuillez entrer le mot-clé à traiter",
+    )
+    app.set_motcle(mots_cle.split())
+    speciality_widget.insert(0, mots_cle)
+
     _list_box: tk.Listbox = traite_listbox(list_to_check)
     _list_box.bind("<<ListboxSelect>>", func=charge_preprompt)
 
@@ -990,8 +1016,6 @@ def traite_listbox(list_to_check: list):
     )
     return _list_box
 
-    # _list_box.bind("<<ListboxSelect>>", func=change_model_ia)
-
 
 def maximize(evt: tk.Event):
     w: tk.Listbox = evt.widget
@@ -1006,16 +1030,19 @@ def minimize(evt: tk.Event):
 
 
 def charge_preprompt(evt: tk.Event):
-    # Note here that Tkinter passes an event object to onselect()
-    w: tk.Listbox = evt.widget
     try:
-        index = w.curselection()[0]
+        # Note here that Tkinter passes an event object to onselect()
+        w: tk.Listbox = evt.widget
+        idx = w.curselection()
+        print("idx=" + str(idx) + "fin")
+        index = idx[0]
         value: str = w.get(index)
-        print('You selected item %d: "%s"' % (index, value))
+
+        print('You selected item : "%s"' % value)
 
         preprompt = get_pre_prompt(
             rubrique=value,
-            prompt_name=value.lower(),
+            prompt_name=str(app.get_motcle()).lower(),
         )
         app.set_submission(preprompt)
 
@@ -1109,7 +1136,7 @@ stream = p.open(
     input=True,
     frames_per_buffer=8192,
 )
-root = tk.Tk()
+root = tk.Tk(className="YourAssistant")
 app = Fenetre_entree(
     master=root,
     stream=stream,
@@ -1206,6 +1233,7 @@ def main(prompt=False, stop_talking=False):
     root.title = "RootTitle - "
 
     app.title = "MyApp"
+
     app.set_talker(say_tt)
     app.set_engine(rec)
     app.mainloop()
