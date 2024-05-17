@@ -133,7 +133,8 @@ LIENS_CHROME = {
 BANNIERE_WIDTH = 758
 BANNIERE_HEIGHT = 160
 FENETRE_WIDTH = 800
-FENETRE_HEIGHT = 400
+FENETRE_HEIGHT = 800
+DARK0 = (20, 20, 20)
 
 PROMPTS_SYSTEMIQUES = {
     SPECIALITY: "Bonjour ! Je souhaite me former à [ speciality ], devenir un top expert sur le sujet. Peux-tu me proposer un programme de formation avec les thématiques à étudier, dans un ordre pertinent ? Tu es un expert en [ speciality ] et aussi un formateur confirmé. Base toi sur tes connaissances en [ speciality ] mais aussi en science de l'éducation pour me proposer le meilleur programme possible. Après ça, je te demanderai de me former sur chacun des points de ton programme",
@@ -427,7 +428,7 @@ def ask_to_ai(texte, model_to_use, client: ollama.Client, images_link: str = "")
                 # "images": [images_link],
             },
         ],
-        keep_alive=-1
+        keep_alive=-1,
     )
     return ai_response
 
@@ -605,8 +606,12 @@ class Fenetre_entree(tk.Frame):
             if save_to_submission():
                 self.talker("un instant s'il vous plait")
                 threading.Thread(target=start_loop).start()
+
             else:
                 messagebox.showinfo(message="Veuillez poser au moins une question")
+
+            if not threading.currentThread().is_alive():
+                self.set_submission("")
 
         async def asking() -> asyncio.futures.Future:
             client: ollama.Client = ollama.Client(host="http://localhost:11434")
@@ -618,6 +623,10 @@ class Fenetre_entree(tk.Frame):
                 # images_link=(self.get_image_link() if self.get_image_link() else ""),
             )
             readable_ai_response = ai_response["message"]["content"]
+            
+            # TODO : tester la langue, si elle n'est pas français,
+            # traduir automatiquement en français
+
             entree2.insert(
                 tk.END,
                 STARS * WIDTH_TERM
@@ -799,7 +808,7 @@ class Fenetre_entree(tk.Frame):
         )
 
         button_frame = tk.Frame(self, relief="sunken")
-        button_frame.configure(background="black")
+        button_frame.configure(background=_from_rgb(DARK0))
         button_frame.pack(fill="x", expand=True)
         canvas_edition = tk.Frame(self, relief="sunken")
 
@@ -813,11 +822,17 @@ class Fenetre_entree(tk.Frame):
         canvas2.pack(fill="x", expand=True)
 
         entree1 = tk.Text(canvas1, name="entree1")
+
         # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
         entree1.configure(
-            bg=_from_rgb((200, 200, 200)), fg="white", font=("arial", 10), height=10
+            bg=_from_rgb((200, 200, 200)),
+            fg=_from_rgb((60, 60, 60)),
+            font=("arial", 10),
+            wrap="word",
+            padx=10,
+            pady=6,
+            height=15,
         )
-
         boutton_effacer_entree1 = tk.Button(
             button_frame, text="x", command=clear_entree1
         )
@@ -853,13 +868,13 @@ class Fenetre_entree(tk.Frame):
             bg="white",
             fg="brown",
             font=("arial ", 12),
-            height=20,
+            height=15,
             yscrollcommand=scrollbar2.set,
         )
         entree2.pack(fill="both", expand=True)
 
-        scrollbar2.configure(command=entree2.yview)
-        scrollbar1.configure(command=entree1.yview)
+        scrollbar2.configure(command=entree2.yview, bg=_from_rgb(DARK0))
+        scrollbar1.configure(command=entree1.yview, bg=_from_rgb(DARK0))
 
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(
@@ -925,7 +940,7 @@ class Fenetre_entree(tk.Frame):
         bouton_finetune = tk.Button(
             button_frame,
             text="Pré-prompts",
-            background="black",
+            background=_from_rgb(DARK0),
             foreground="white",
             command=lambda: affiche_prepromts(
                 PROMPTS_SYSTEMIQUES.keys(), speciality_text
@@ -1002,6 +1017,7 @@ def affiche_prepromts(list_to_check: list, speciality_widget: tk.Entry):
 
 def traite_listbox(list_to_check: list):
     frame = tk.Tk(className="list_ia")
+    frame.grid_location(100, 100)
     _list_box = tk.Listbox(frame)
     scroll_listbox = tk.Scrollbar(frame)
     scroll_listbox.configure(command=_list_box.yview)
@@ -1077,7 +1093,7 @@ def affiche_illustration(
 ):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre, background="black")
+    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0))
     # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
     cnvs1.pack(fill="x", expand=True)
     # ################################
@@ -1087,12 +1103,12 @@ def affiche_illustration(
 
     # Create a canvas
     canva = tk.Canvas(
-        cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH, background="black"
+        cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH, background=_from_rgb(DARK0)
     )
 
     # Création d'un bouton pour quitter
     bouton_quitter = tk.Button(cnvs2, text="Quitter", command=quitter)
-    bouton_quitter.configure(background="black", foreground="red")
+    bouton_quitter.configure(background=_from_rgb(DARK0), foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
 
     bouton_liste = tk.Button(
@@ -1108,7 +1124,7 @@ def affiche_illustration(
         text=message,
         font=("Trebuchet", 8),
         fg="white",
-        bg="black",
+        bg=_from_rgb(DARK0),
     )
 
     label.pack(side=tk.RIGHT, expand=False)
@@ -1231,6 +1247,8 @@ def main(prompt=False, stop_talking=False):
 
     # root = tk.Tk()
     root.title = "RootTitle - "
+    root.resizable(False, False)
+    root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
 
     app.title = "MyApp"
 
