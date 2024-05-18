@@ -42,7 +42,7 @@ wizard_vicuna_uncensored = "wizard-vicuna-uncensored:30b-q4_0"
 
 WIDTH_TERM = 80
 RAPIDITE_VOIX = 150
-STOP_TALKING:bool=False
+STOP_TALKING: bool = False
 
 ROLE_TYPES = [
     "user",
@@ -456,6 +456,21 @@ def traitement_requete(
     return readable_ai_response
 
 
+class StoppableThread(threading.Thread):
+    """Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition."""
+
+    def __init__(self, *args, **kwargs):
+        super(StoppableThread, self).__init__(*args, **kwargs)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
+
+
 class Fenetre_entree(tk.Frame):
     content: str
     title: str
@@ -552,16 +567,19 @@ class Fenetre_entree(tk.Frame):
     def creer_fenetre(self, image: ImageTk, msg_to_write):
 
         def lance_ecoute():
-            entree1.configure(bg="black", fg="white")
-            entree1.update()
             bouton_commencer_diction.flash()
-            ecouter()
-            entree1.configure(bg="white", fg="black")
-            entree1.update()
+            my_thread = threading.Thread(name="my_thread", target=ecouter)
+            my_thread.start()
 
         def ecouter():
-            start_tim_vide = time.perf_counter()
-            start_tim_parlotte = time.perf_counter()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            loop.create_task(dialog_ia())
+            loop.run_forever()
+
+        async def dialog_ia():
+            print("on est dans l'async def dialog_ia")
+            terminus = False
             while True:
                 reco_text = ""
                 data = self.get_stream().read(
@@ -570,86 +588,128 @@ class Fenetre_entree(tk.Frame):
                 if self.get_engine().AcceptWaveform(
                     data
                 ):  # accept waveform of input voice
-                    start_tim_parlotte = time.perf_counter()
 
                     # Parse the JSON result and get the recognized text
                     result = json.loads(self.get_engine().Result())
                     reco_text: str = result["text"]
-
-                    ne_pas_deranger = "ne pas déranger" in reco_text.lower()
-                    activer_parlote = "activer la voix" in reco_text.lower()
-                    incremente_lecteur = "la voie soit plus rapide" in reco_text.lower()
-                    decremente_lecteur = (
-                        "la voie soit moins rapide" in reco_text.lower()
-                    )
-
-                    if incremente_lecteur:
-                        engine = lecteur
-                        engine.setProperty(
-                            name="rate",
-                            value=int(engine.getProperty(name="rate")) + 20,
-                        )
+                    print(reco_text)
+                    if "dis-moi" == reco_text.lower():
+                        print("je t'écoute")
                         pyttsx3.speak(
-                            "voix plus rapide",
+                            "je t'écoute",
                         )
+                        reco_text_real=""
+                        while not terminus:
+                            if "fin de l'enregistrement" in reco_text_real.lower():
+                                terminus=True
+                                break
 
-                    if decremente_lecteur:
-                        lecteur.setProperty(
-                            name="rate",
-                            value=int(lecteur.getProperty(name="rate")) + -20,
-                        )
-                        pyttsx3.speak(
-                            "voix plus lente",
-                        )
+                            start_tim_vide = time.perf_counter()
+                            start_tim_parlotte = time.perf_counter()
+                            data_real = self.get_stream().read(
+                                num_frames=8192, exception_on_overflow=False
+                            )  # read in chunks of 4096 bytes
+                            if self.get_engine().AcceptWaveform(
+                                data_real
+                            ):  # accept waveform of input voice
+                                # Parse the JSON result and get the recognized text
+                                result_real = json.loads(self.get_engine().Result())
+                                reco_text_real: str = result_real["text"]
 
-                    if ne_pas_deranger:
-                        pyttsx3.speak(
-                            "ok plus de bruit",
-                        )
-                        STOP_TALKING = True
+                                ne_pas_deranger = (
+                                    "ne pas déranger" in reco_text_real.lower()
+                                )
+                                activer_parlote = (
+                                    "activer la voix" in reco_text_real.lower()
+                                )
+                                incremente_lecteur = (
+                                    "la voie soit plus rapide" in reco_text_real.lower()
+                                )
+                                decremente_lecteur = (
+                                    "la voie soit moins rapide"
+                                    in reco_text_real.lower()
+                                )
 
-                    if activer_parlote:
-                        STOP_TALKING = False
-                        pyttsx3.speak(
-                            "ok me re voilà",
-                        )
+                                if incremente_lecteur:
+                                    engine = lecteur
+                                    engine.setProperty(
+                                        name="rate",
+                                        value=int(engine.getProperty(name="rate")) + 20,
+                                    )
+                                    pyttsx3.speak(
+                                        "voix plus rapide",
+                                    )
 
-                    if "quel jour sommes-nous" in reco_text.lower():
-                        pyttsx3.speak(
-                            "Nous sommes le " + time.strftime("%Y-%m-%d")
-                        )
+                                if decremente_lecteur:
+                                    lecteur.setProperty(
+                                        name="rate",
+                                        value=int(lecteur.getProperty(name="rate"))
+                                        + -20,
+                                    )
+                                    pyttsx3.speak(
+                                        "voix plus lente",
+                                    )
 
-                    if "quelle heure est-il" in reco_text.lower():
-                        pyttsx3.speak(
-                            "il est exactement " + time.strftime("%H:%M:%S")
-                        )
+                                if ne_pas_deranger:
+                                    pyttsx3.speak(
+                                        "ok plus de bruit",
+                                    )
+                                    STOP_TALKING = True
 
-                    if "est-ce que tu m'écoutes" in reco_text.lower():
-                        pyttsx3.speak(
-                            "oui je suis toujours à l'écoute kiki"
-                        )
+                                if activer_parlote:
+                                    STOP_TALKING = False
+                                    pyttsx3.speak(
+                                        "ok me re voilà",
+                                    )
 
-                    if (
-                        "terminer l'enregistrement" == reco_text.lower()
-                        or "fin de l'enregistrement" == reco_text.lower()
-                        or "arrêter l'enregistrement" == reco_text.lower()
-                    ):
-                        reco_text = ""
-                        break
-                    elif reco_text.lower() != "":
-                        start_tim_vide = time.perf_counter()
-                        entree1.insert(tk.END, reco_text + "\n")
-                        print("insertion de texte")
+                                if "quel jour sommes-nous" in reco_text_real.lower():
+                                    pyttsx3.speak(
+                                        "Nous sommes le " + time.strftime("%Y-%m-%d")
+                                    )
+
+                                if "quelle heure est-il" in reco_text_real.lower():
+                                    pyttsx3.speak(
+                                        "il est exactement " + time.strftime("%H:%M:%S")
+                                    )
+
+                                if "est-ce que tu m'écoutes" in reco_text_real.lower():
+                                    pyttsx3.speak(
+                                        "oui je suis toujours à l'écoute kiki"
+                                    )
+
+                                if (
+                                    "terminer l'enregistrement"
+                                    == reco_text_real.lower()
+                                    or "fin de l'enregistrement"
+                                    == reco_text_real.lower()
+                                    or "arrêter l'enregistrement"
+                                    == reco_text_real.lower()
+                                ):
+                                    reco_text_real = ""
+                                    break
+                                elif reco_text_real.lower() != "":
+                                    start_tim_vide = time.perf_counter()
+                                    entree1.insert(tk.END, reco_text_real + "\n")
+                                    print("insertion de texte")
+                                    entree1.update()
+                            if "fin de l'enregistrement" in reco_text_real.lower():
+                                terminus=True
+                                break
+                            
+                            time_delta_vide = time.perf_counter() - start_tim_vide
+                            time_delta_parlotte = (
+                                time.perf_counter() - start_tim_parlotte
+                            )
+                            print(
+                                str(time_delta_vide) + " :: " + str(time_delta_parlotte)
+                            )
+                    
+                        stop_thread = StoppableThread(None, threading.current_thread())
+                        stop_thread.stop()
                         entree1.update()
-
-                    time_delta_vide = time.perf_counter() - start_tim_vide
-                    time_delta_parlotte = time.perf_counter() - start_tim_parlotte
-                    print(str(time_delta_vide) + " :: " + str(time_delta_parlotte))
-                    if time_delta_vide >= 3.0 and time_delta_parlotte <= 1:
+                    if terminus:
                         break
 
-            entree1.configure(bg="white", fg="black")
-            # bouton_soumetre.invoke()
 
         def start_loop():
             loop = asyncio.new_event_loop()
@@ -1229,95 +1289,48 @@ for element in (ollama.list())["models"]:
 
 print(my_liste)
 
-def main(prompt=False, stop_talking=STOP_TALKING):
 
-    def inc_lecteur():
-        lecteur.setProperty(
-            name="rate", value=int(lecteur.getProperty(name="rate")) + 20
-        )
+async def dire_tt(alire: str):
+    lecteur.say(alire)
+    lecteur.runAndWait()
 
-    def dec_lecteur():
-        lecteur.setProperty(
-            name="rate", value=int(lecteur.getProperty(name="rate")) - 20
-        )
+    # lecteur.endLoop()
+    return lecteur.stop()
 
-    async def dire_tt(alire: str):
+
+# TODO : loop async for saytt
+def start_loop_saying(texte: str):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
+
+
+def say_tt(alire: str):
+    the_thread = threading.Thread(target=start_loop_saying(texte=alire))
+    the_thread.start()
+
+
+def say_txt(alire: str, stop_ecoute: bool):
+    if not STOP_TALKING:
+        if stop_ecoute:
+            arret_ecoute()
         lecteur.say(alire)
         lecteur.runAndWait()
+        lecteur.stop()
 
-        # lecteur.endLoop()
-        return lecteur.stop()
 
-    # TODO : loop async for saytt
-    def start_loop_saying(texte: str):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
+def arret_ecoute():
+    stream.stop_stream()
 
-    def say_tt(alire: str):
-        the_thread = threading.Thread(target=start_loop_saying(texte=alire))
-        the_thread.start()
 
-    def say_txt(alire: str, stop_ecoute: bool):
-        if not stop_talking:
-            if stop_ecoute:
-                arret_ecoute()
-            lecteur.say(alire)
-            lecteur.runAndWait()
-            lecteur.stop()
+def debut_ecoute(info: str = ""):
+    say_txt(info, True)
+    stream.start_stream()
+    return 0, ""
 
-    if prompt:
-        model_used = init_model(LLAMA3, prompted=True)
-        return traitement_rapide(
-            prompt,
-            model_to_use=model_used,
-            client=ollama.Client(host="http://localhost:11434"),
-            talking=stop_talking,
-            moteur_diction=say_tt,
-        )
 
-    model_used = init_model(LLAMA3, prompted=False)
-
-    say_txt("IA initialisée ! ", stop_ecoute=False)
-
-    def arret_ecoute():
-        stream.stop_stream()
-
-    def debut_ecoute(info: str = ""):
-        say_txt(info, True)
-        stream.start_stream()
-        return 0, ""
-
-    def read_prompt_file(file):
-        return file.read()
-
-    print(
-        "ZicChatbotAudio\n"
-        + STARS * WIDTH_TERM
-        + "\nChargement... Veuillez patienter\n"
-        + STARS * WIDTH_TERM
-    )
-
-    # prend beaucoup de temp
-    # passer ça en asynchrone
-    model_ecouteur_micro = engine_ecouteur_init()
-
-    say_txt("micro audio initialisé", False)
-
-    # Create a recognizer
-    rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    say_txt("reconnaissance vocale initialisée", False)
-
-    # root = tk.Tk()
-    root.title = "RootTitle - "
-    root.resizable(False, False)
-    root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
-
-    app.title = "MyApp"
-
-    app.set_talker(say_tt)
-    app.set_engine(rec)
-    app.mainloop()
+def read_prompt_file(file):
+    return file.read()
 
 
 def changer_ia(self, evt):
@@ -1369,6 +1382,49 @@ def actualise_index_html(texte: str, question: str):
             + "\n"
             + "</div>"
         )
+
+
+def main(prompt=False, stop_talking=STOP_TALKING):
+    """Début du programme principal"""
+    if prompt:
+        model_used = init_model(LLAMA3, prompted=True)
+        return traitement_rapide(
+            prompt,
+            model_to_use=model_used,
+            client=ollama.Client(host="http://localhost:11434"),
+            talking=stop_talking,
+            moteur_diction=say_tt,
+        )
+
+    model_used = init_model(LLAMA3, prompted=False)
+    say_txt("IA initialisée ! ", stop_ecoute=False)
+    print(
+        "ZicChatbotAudio\n"
+        + STARS * WIDTH_TERM
+        + "\nChargement... Veuillez patienter\n"
+        + STARS * WIDTH_TERM
+    )
+
+    # prend beaucoup de temp
+    # passer ça en asynchrone
+    model_ecouteur_micro = engine_ecouteur_init()
+
+    say_txt("micro audio initialisé", False)
+
+    # Create a recognizer
+    rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
+    say_txt("reconnaissance vocale initialisée", False)
+
+    # root = tk.Tk()
+    root.title = "RootTitle - "
+    root.resizable(False, False)
+    root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
+
+    app.title = "MyApp"
+
+    app.set_talker(say_tt)
+    app.set_engine(rec)
+    app.mainloop()
 
 
 if __name__ == "__main__":
