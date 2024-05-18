@@ -42,6 +42,7 @@ wizard_vicuna_uncensored = "wizard-vicuna-uncensored:30b-q4_0"
 
 WIDTH_TERM = 80
 RAPIDITE_VOIX = 150
+STOP_TALKING:bool=False
 
 ROLE_TYPES = [
     "user",
@@ -459,7 +460,7 @@ class Fenetre_entree(tk.Frame):
     content: str
     title: str
     submission: str
-    talker: any
+    talker: pyttsx3.Engine
     model_to_use: str
     streaming: pyaudio.Stream
     engine_model: vosk.KaldiRecognizer
@@ -574,6 +575,60 @@ class Fenetre_entree(tk.Frame):
                     # Parse the JSON result and get the recognized text
                     result = json.loads(self.get_engine().Result())
                     reco_text: str = result["text"]
+
+                    ne_pas_deranger = "ne pas déranger" in reco_text.lower()
+                    activer_parlote = "activer la voix" in reco_text.lower()
+                    incremente_lecteur = "la voie soit plus rapide" in reco_text.lower()
+                    decremente_lecteur = (
+                        "la voie soit moins rapide" in reco_text.lower()
+                    )
+
+                    if incremente_lecteur:
+                        engine = lecteur
+                        engine.setProperty(
+                            name="rate",
+                            value=int(engine.getProperty(name="rate")) + 20,
+                        )
+                        pyttsx3.speak(
+                            "voix plus rapide",
+                        )
+
+                    if decremente_lecteur:
+                        lecteur.setProperty(
+                            name="rate",
+                            value=int(lecteur.getProperty(name="rate")) + -20,
+                        )
+                        pyttsx3.speak(
+                            "voix plus lente",
+                        )
+
+                    if ne_pas_deranger:
+                        pyttsx3.speak(
+                            "ok plus de bruit",
+                        )
+                        STOP_TALKING = True
+
+                    if activer_parlote:
+                        STOP_TALKING = False
+                        pyttsx3.speak(
+                            "ok me re voilà",
+                        )
+
+                    if "quel jour sommes-nous" in reco_text.lower():
+                        pyttsx3.speak(
+                            "Nous sommes le " + time.strftime("%Y-%m-%d")
+                        )
+
+                    if "quelle heure est-il" in reco_text.lower():
+                        pyttsx3.speak(
+                            "il est exactement " + time.strftime("%H:%M:%S")
+                        )
+
+                    if "est-ce que tu m'écoutes" in reco_text.lower():
+                        pyttsx3.speak(
+                            "oui je suis toujours à l'écoute kiki"
+                        )
+
                     if (
                         "terminer l'enregistrement" == reco_text.lower()
                         or "fin de l'enregistrement" == reco_text.lower()
@@ -587,14 +642,14 @@ class Fenetre_entree(tk.Frame):
                         print("insertion de texte")
                         entree1.update()
 
-                time_delta_vide = time.perf_counter() - start_tim_vide
-                time_delta_parlotte = time.perf_counter() - start_tim_parlotte
-                print(str(time_delta_vide) + " :: " + str(time_delta_parlotte))
-                if time_delta_vide >= 3.0 and time_delta_parlotte <= 1:
-                    break
+                    time_delta_vide = time.perf_counter() - start_tim_vide
+                    time_delta_parlotte = time.perf_counter() - start_tim_parlotte
+                    print(str(time_delta_vide) + " :: " + str(time_delta_parlotte))
+                    if time_delta_vide >= 3.0 and time_delta_parlotte <= 1:
+                        break
 
             entree1.configure(bg="white", fg="black")
-            bouton_soumetre.invoke()
+            # bouton_soumetre.invoke()
 
         def start_loop():
             loop = asyncio.new_event_loop()
@@ -609,7 +664,7 @@ class Fenetre_entree(tk.Frame):
             else:
                 messagebox.showinfo(message="Veuillez poser au moins une question")
 
-            if not threading.currentThread().is_alive():
+            if not threading.current_thread().is_alive():
                 self.set_submission("")
 
         async def asking() -> asyncio.futures.Future:
@@ -806,7 +861,7 @@ class Fenetre_entree(tk.Frame):
             fenetre=self,
         )
 
-        button_frame = tk.Frame(self, relief="sunken")
+        button_frame = tk.Frame(self, relief="sunken", name="button_frame")
         button_frame.configure(background=_from_rgb(DARK0))
         button_frame.pack(fill="x", expand=True)
         canvas_edition = tk.Frame(self, relief="sunken")
@@ -930,6 +985,7 @@ class Fenetre_entree(tk.Frame):
 
         speciality_text = tk.Entry(
             button_frame,
+            name="speciality_text",
             width=30,
             fg="red",
             bg="black",
@@ -941,9 +997,7 @@ class Fenetre_entree(tk.Frame):
             text="Pré-prompts",
             background=_from_rgb(DARK0),
             foreground="white",
-            command=lambda: affiche_prepromts(
-                PROMPTS_SYSTEMIQUES.keys(), speciality_text
-            ),
+            command=lambda: affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
         )
         bouton_finetune.pack(side=tk.RIGHT, expand=False)
         speciality_text.pack(side="left", padx=2, pady=2)
@@ -1003,14 +1057,18 @@ def affiche_listbox(
     _listbox.bind("<<ListboxSelect>>", func=change_model_ia)
 
 
-def affiche_prepromts(list_to_check: list, speciality_widget: tk.Entry):
+def affiche_prepromts(
+    list_to_check: list,
+):
     mots_cle = simpledialog.askstring(
         title="YourAssistant - pré-prompts",
         initialvalue="Python",
         prompt="Veuillez entrer le mot-clé à traiter",
     )
     app.set_motcle(mots_cle.split())
-    speciality_widget.insert(0, mots_cle)
+    _speciality_widget: tk.Entry = app.nametowidget("button_frame.speciality_text")
+    _speciality_widget.delete(0)
+    _speciality_widget.insert(0, mots_cle)
 
     _listbox: tk.Listbox = traite_listbox(list_to_check)
     _listbox.bind("<<ListboxSelect>>", func=charge_preprompt)
@@ -1018,12 +1076,12 @@ def affiche_prepromts(list_to_check: list, speciality_widget: tk.Entry):
 
 def traite_listbox(list_to_check: list):
     frame = tk.Tk(className="list_ia")
-    frame.grid_location(100, 100)
+    frame.grid_location(root.winfo_x() + 50, root.winfo_y() + 30)
     _list_box = tk.Listbox(frame)
     scroll_listbox = tk.Scrollbar(frame)
     scroll_listbox.configure(command=_list_box.yview)
 
-    _list_box.pack(fill="both")
+    _list_box.pack(side=tk.LEFT, fill="both")
     for item in list_to_check:
         _list_box.insert(tk.END, item)
     _list_box.configure(
@@ -1031,6 +1089,8 @@ def traite_listbox(list_to_check: list):
         foreground="black",
         yscrollcommand=scroll_listbox.set,
     )
+    scroll_listbox.pack(side=tk.RIGHT, fill="both")
+
     return _list_box
 
 
@@ -1096,11 +1156,11 @@ def affiche_illustration(
 ):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0),name="cvns1")
+    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0), name="cvns1")
     # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
     cnvs1.pack(fill="x", expand=True)
     # ################################
-    cnvs2 = tk.Frame(cnvs1,name="cvns2")
+    cnvs2 = tk.Frame(cnvs1, name="cvns2")
     cnvs2.configure(bg="black")
     cnvs2.pack(fill="x", expand=False)
 
@@ -1169,8 +1229,7 @@ for element in (ollama.list())["models"]:
 
 print(my_liste)
 
-
-def main(prompt=False, stop_talking=False):
+def main(prompt=False, stop_talking=STOP_TALKING):
 
     def inc_lecteur():
         lecteur.setProperty(
