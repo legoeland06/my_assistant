@@ -2,12 +2,15 @@
 import asyncio
 import datetime
 import json.tool
+import re
 import threading
 import time
 import tkinter as tk
 from tkinter import Event, StringVar, messagebox
 from tkinter import filedialog
 from tkinter import simpledialog
+import tkinter.font as tkfont
+import tkinter.scrolledtext as tkscroll
 from typing import Any, Mapping
 import PyPDF2
 from tkhtmlview import HTMLLabel
@@ -445,17 +448,17 @@ def traitement_rapide(texte: str, model_to_use, client, talking: bool, moteur_di
         moteur_diction(readable_ai_response)
 
 
-def traitement_requete(
-    texte: str, file_to_append: str, moteur_diction, model_to_use, client
-):
-    veullez_patienter(moteur_de_diction=moteur_diction)
-    ai_response = ask_to_ai(texte, model_to_use=model_to_use, client=client)
-    readable_ai_response = ai_response["message"]["content"]
-    append_response_to_file(file_to_append, readable_ai_response)
+# def traitement_requete(
+#     texte: str, file_to_append: str, moteur_diction, model_to_use, client
+# ):
+#     veullez_patienter(moteur_de_diction=moteur_diction)
+#     ai_response = ask_to_ai(texte, model_to_use=model_to_use, client=client)
+#     readable_ai_response = ai_response["message"]["content"]
+#     append_response_to_file(file_to_append, readable_ai_response)
 
-    moteur_diction(REPONSE_TROUVEE, True)
-    # print(readable_ai_response)
-    return readable_ai_response
+#     moteur_diction(REPONSE_TROUVEE, True)
+#     # print(readable_ai_response)
+#     return readable_ai_response
 
 
 class StoppableThread(threading.Thread):
@@ -485,6 +488,8 @@ class Fenetre_entree(tk.Frame):
     ia: str
     motcle: list[str]
     image_link: str
+    client: ollama.Client
+    ai_response: str
 
     def __init__(
         self,
@@ -512,7 +517,19 @@ class Fenetre_entree(tk.Frame):
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
         )
 
-    def set_motcle(self, motcle):
+    def set_ai_response(self, response: str):
+        self.ai_response = response
+
+    def get_ai_response(self) -> str:
+        return self.ai_response
+
+    def set_client(self, client: ollama.Client):
+        self.client = client
+
+    def get_client(self) -> ollama.Client:
+        return self.client
+
+    def set_motcle(self, motcle: list[str]):
         self.motcle = motcle
 
     def get_motcle(self) -> list[str]:
@@ -696,7 +713,9 @@ class Fenetre_entree(tk.Frame):
                                     break
                                 elif reco_text_real.lower() != "":
                                     start_tim_vide = time.perf_counter()
-                                    entree1.insert(tk.END, reco_text_real + "\n")
+                                    entree1.insert_markdown(
+                                        mkd_text=reco_text_real + "\n"
+                                    )
                                     print("insertion de texte")
                                     entree1.update()
                             if "fin de l'enregistrement" in reco_text_real.lower():
@@ -726,6 +745,9 @@ class Fenetre_entree(tk.Frame):
             asyncio.set_event_loop(loop)
             loop.run_until_complete(loop.create_task(asking()))
 
+        def go_submit(evt):
+            soumettre()
+
         def soumettre() -> str:
             if save_to_submission():
                 self.talker("un instant s'il vous plait")
@@ -738,29 +760,48 @@ class Fenetre_entree(tk.Frame):
                 self.set_submission("")
 
         async def asking() -> asyncio.futures.Future:
-            client: ollama.Client = ollama.Client(host="http://localhost:11434")
+            self.set_client(ollama.Client(host="http://localhost:11434"))
 
-            ai_response = ask_to_ai(
-                client=client,
+            response_ai = ask_to_ai(
+                client=self.get_client(),
                 model_to_use=self.get_model(),
                 texte=self.get_submission(),
                 # images_link=(self.get_image_link() if self.get_image_link() else ""),
             )
-            readable_ai_response = ai_response["message"]["content"]
+            readable_ai_response = response_ai["message"]["content"]
+            self.set_ai_response(readable_ai_response)
 
             # TODO : tester la langue, si elle n'est pas français,
             # traduir automatiquement en français
-
+            entree2.tag_configure(
+                tagName="boldtext", font=entree2.cget("font") + " bold"
+            )
+            entree2.tag_configure(
+                tagName="response",
+                border=20,
+                wrap="word",
+                spacing1=10,
+                spacing3=10,
+                lmargin1=10,
+                lmargin2=10,
+                lmargincolor="green",
+                rmargin=10,
+                rmargincolor="green",
+                selectbackground="red",
+            )
+            entree2.tag_configure(
+                "balise",
+                font=(entree2.cget("font") + " italic", 8),
+                foreground=_from_rgb((100, 100, 100)),
+            )
             entree2.insert(
                 tk.END,
-                STARS * WIDTH_TERM
-                + "\nModel : "
-                + self.get_model()
-                + "\n"
-                + STARS * WIDTH_TERM
-                + "\n"
-                + readable_ai_response,
+                datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n\n",
+                "balise",
             )
+            # entree2.insert(tk.END, readable_ai_response, "response")
+            entree2.insert_markdown(readable_ai_response)
+            # entree2.insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
 
             entree2.update()
             return readable_ai_response
@@ -826,11 +867,11 @@ class Fenetre_entree(tk.Frame):
                 self.talker("Extraction du PDF")
                 resultat_txt = read_pdf(file_to_read.name)
                 self.talker("Fin de l'extraction")
-                entree1.insert(index=tk.END, chars=resultat_txt)
+                entree1.insert_markdown(mkd_text=resultat_txt)
             except:
                 messagebox("Problème avec ce fichier pdf")
 
-        def text_to_mp3(object: tk.Text):
+        def textwidget_to_mp3(object: tk.Text):
             texte_to_save_to_mp3 = object.get("1.0", tk.END)
 
             if texte_to_save_to_mp3 != "":
@@ -851,9 +892,6 @@ class Fenetre_entree(tk.Frame):
                     self.talker("terminé")
             else:
                 self.talker("Désolé, Il n'y a pas de texte à enregistrer en mp3")
-
-        def entree1_to_mp3():
-            text_to_mp3(entree1)
 
         def refresh_entree_html(texte: str, ponctuel: bool = True):
             markdown_content = markdown.markdown(texte, output_format="xhtml")
@@ -945,8 +983,10 @@ class Fenetre_entree(tk.Frame):
         boutons_effacer_canvas2.pack(fill="x", expand=True)
         canvas2.pack(fill="x", expand=True)
 
-        entree1 = tk.Text(canvas1, name="entree1")
-
+        # entree1 = tk.Text(canvas1, name="entree1")
+        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font.configure(size=8)
+        entree1 = SimpleMarkdownText(canvas1, height=20, font=default_font)
         # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
         entree1.configure(
             bg=_from_rgb((200, 200, 200)),
@@ -964,10 +1004,14 @@ class Fenetre_entree(tk.Frame):
         boutton_effacer_entree1.pack(side="right")
         scrollbar1 = tk.Scrollbar(canvas1)
         scrollbar1.pack(side=tk.RIGHT, fill="both")
-        entree1.insert(tk.END, msg_to_write)
+        entree1.tag_configure("italic", font=entree1.cget("font") + " italic")
+        entree1.insert_markdown(
+            mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
+        )
         entree1.focus_set()
         entree1.pack(fill="both", expand=True)
         entree1.configure(yscrollcommand=scrollbar1.set)
+        entree1.bind("<Control-Return>", func=go_submit)
 
         # Création d'un champ de saisie de l'utilisateur
         boutton_effacer_entree2 = tk.Button(
@@ -983,16 +1027,26 @@ class Fenetre_entree(tk.Frame):
         )
         bouton_lire2.configure(bg="green", fg="white")
         bouton_lire2.pack(side=tk.RIGHT)
-
+        bouton_transfere = tk.Button(
+            boutons_effacer_canvas2,
+            text="Transférer",
+            command=lambda: entree1.insert_markdown(self.get_ai_response()),
+        )
+        bouton_transfere.pack(side=tk.RIGHT, fill="both")
         scrollbar2 = tk.Scrollbar(canvas2)
         scrollbar2.pack(side=tk.RIGHT, fill="both")
-        entree2 = tk.Text(canvas2, name="entree2")
-        # entree2 = HTMLLabel(canvas2)
+        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font.configure(size=8)
+        entree2 = SimpleMarkdownText(canvas2, height=20, font=default_font)
+        # entree2 = tk.Text(canvas2, name="entree2")
         entree2.configure(
             bg="white",
-            fg="brown",
+            fg="black",
             font=("arial ", 12),
             height=15,
+            wrap="word",
+            padx=10,
+            pady=6,
             yscrollcommand=scrollbar2.set,
         )
         entree2.pack(fill="both", expand=True)
@@ -1044,7 +1098,9 @@ class Fenetre_entree(tk.Frame):
         bouton_soumetre.pack(side=tk.LEFT)
 
         bouton_save_to_mp3 = tk.Button(
-            button_frame, text="texte vers mp3", command=entree1_to_mp3
+            button_frame,
+            text="texte vers mp3",
+            command=lambda: textwidget_to_mp3(entree1),
         )
         bouton_save_to_mp3.configure(bg=_from_rgb((160, 160, 160)), fg="black")
         bouton_save_to_mp3.pack(side="left")
@@ -1120,6 +1176,110 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         return texte
 
 
+class SimpleMarkdownText(tk.Text):
+    """
+    Really basic Markdown display. Thanks to Bryan Oakley's RichText:
+    https://stackoverflow.com/a/63105641/79125
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        default_font = tkfont.nametofont(self.cget("font"))
+
+        em = default_font.measure("m")
+        default_size = default_font.cget("size")
+        bold_font = tkfont.Font(**default_font.configure())
+        italic_font = tkfont.Font(**default_font.configure())
+
+        bold_font.configure(weight="bold")
+        italic_font.configure(slant="italic")
+
+        # Small subset of markdown. Just enough to make text look nice.
+        self.tag_configure("**", font=bold_font)
+        self.tag_configure("*", font=italic_font)
+        self.tag_configure("_", font=italic_font)
+        self.tag_chars = "*_"
+        self.tag_char_re = re.compile(r"[*_]")
+
+        max_heading = 3
+        for i in range(1, max_heading + 1):
+            header_font = tkfont.Font(**default_font.configure())
+            header_font.configure(size=int(default_size * i + 3), weight="bold")
+            self.tag_configure(
+                "#" * (max_heading - i), font=header_font, spacing3=default_size
+            )
+
+        lmargin2 = em + default_font.measure("\u2022 ")
+        self.tag_configure("bullet", lmargin1=em, lmargin2=lmargin2)
+        lmargin2 = em + default_font.measure("1. ")
+        self.tag_configure("numbered", lmargin1=em, lmargin2=lmargin2)
+
+        self.numbered_index = 1
+
+    def insert_bullet(self, position, text):
+        self.insert(position, f"\u2022 {text}", "bullet")
+
+    def insert_numbered(self, position, text):
+        self.insert(position, f"{self.numbered_index}. {text}", "numbered")
+        self.numbered_index += 1
+
+    def insert_markdown(self, mkd_text):
+        """A very basic markdown parser.
+
+        Helpful to easily set formatted text in tk. If you want actual markdown
+        support then use a real parser.
+        """
+        for line in mkd_text.split("\n"):
+            if line == "":
+                # Blank lines reset numbering
+                self.numbered_index = 1
+                self.insert("end", line)
+
+            elif line.startswith("#"):
+                tag = re.match(r"(#+) (.*)", line)
+                line = tag.group(2)
+                self.insert("end", line, tag.group(1))
+
+            elif line.startswith("* "):
+                line = line[2:]
+                self.insert_bullet("end", line)
+
+            elif line.startswith("1. "):
+                line = line[2:]
+                self.insert_numbered("end", line)
+
+            elif not self.tag_char_re.search(line):
+                self.insert("end", line)
+
+            else:
+                tag = None
+                accumulated = []
+                skip_next = False
+                for i, c in enumerate(line):
+                    if skip_next:
+                        skip_next = False
+                        continue
+                    if c in self.tag_chars and (not tag or c == tag[0]):
+                        if tag:
+                            self.insert("end", "".join(accumulated), tag)
+                            accumulated = []
+                            tag = None
+                        else:
+                            self.insert("end", "".join(accumulated))
+                            accumulated = []
+                            tag = c
+                            next_i = i + 1
+                            if len(line) > next_i and line[next_i] == tag:
+                                tag = line[i : next_i + 1]
+                                skip_next = True
+
+                    else:
+                        accumulated.append(c)
+                self.insert("end", "".join(accumulated), tag)
+
+            self.insert("end", "\n")
+
+
 def affiche_listbox(
     list_to_check: list,
 ):
@@ -1164,16 +1324,12 @@ def traite_listbox(list_to_check: list):
     return _list_box
 
 
-def maximize(evt: tk.Event):
-    w: tk.Listbox = evt.widget
-    w.configure(
-        height=5,
-    )
+def maximize(object: SimpleMarkdownText):
+    object.configure(height=11)
 
 
-def minimize(evt: tk.Event):
-    w: tk.Listbox = evt.widget
-    w.configure(height=1)
+def minimize(object: SimpleMarkdownText):
+    object.destroy()
 
 
 def charge_preprompt(evt: tk.Event):
@@ -1205,18 +1361,28 @@ def charge_preprompt(evt: tk.Event):
         w.focus_get().destroy()
 
 
-def replace_canvas_by_text(canvas: tk.Canvas, content: Mapping[str, Any]):
-    # on récupère le canvas à remplacer et on le sauve dans <canvas_saved> puis on récupère ses infos de pack()
-    canvas_infos_pack = canvas.pack_info()
+def clean_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
+    button.destroy()
+    text_area.destroy()
 
-    # on récupère le canvas parent et on le sauve dans <canvas_parents>
-    canvas_parent_name: str = canvas.winfo_parent()
-    canvas_parent: tk.Canvas = app.nametowidget(canvas_parent_name)
 
-    # on créer un Tk.Text() nommé text_to_place_instead puis on le pack dans le canvas_parent
-    text_to_place_instead = tk.Text(master=canvas_parent, height=10)
-    text_to_place_instead.pack(canvas_infos_pack)
-    text_to_place_instead.configure(background="black", fg="red")
+def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
+    default_font = tkfont.nametofont("TkDefaultFont")
+    default_font.configure(size=8)
+    canvas_bouton_minimize = tk.Canvas(master=master, bg="black")
+    canvas_bouton_minimize.pack(fill="x", expand=True)
+    infos_model = SimpleMarkdownText(master, font=default_font)
+    bouton_minimize = tk.Button(
+        canvas_bouton_minimize,
+        text="-",
+        command=lambda: clean_infos_model(
+            button=canvas_bouton_minimize, text_area=infos_model
+        ),
+        fg="black",
+        bg="red",
+    )
+    bouton_minimize.pack(side=tk.RIGHT)
+    infos_model.configure(background="black", fg="white", height=11)
     print("okok")
     jsonified = (
         json.dumps(
@@ -1227,7 +1393,8 @@ def replace_canvas_by_text(canvas: tk.Canvas, content: Mapping[str, Any]):
     )
 
     print(jsonified)
-    text_to_place_instead.insert(tk.END, jsonified)
+    infos_model.pack(fill="x", expand=True)
+    infos_model.insert_markdown(mkd_text=jsonified)
 
 
 def change_model_ia(evt: tk.Event):
@@ -1242,10 +1409,7 @@ def change_model_ia(evt: tk.Event):
         _widget.configure(text=value)
         model_info = ollama.show(app.get_model())
         app.get_talker()("ok")
-        replace_canvas_by_text(
-            canvas=app.nametowidget("cnvs1.canva"), content=model_info
-        )
-
+        display_infos_model(master=app.nametowidget("cnvs1"), content=model_info)
     except:
         print("aucune ia sélectionner")
         app.get_talker()("Oups")
