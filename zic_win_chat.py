@@ -1,4 +1,5 @@
 # zic_chat.py
+from argparse import Namespace
 import asyncio
 import datetime
 import json.tool
@@ -21,6 +22,7 @@ import pyaudio
 import json
 import pyttsx3
 import ollama
+from llama_index.llms.ollama import Ollama as Ola
 import markdown
 import imageio.v3 as iio
 import subprocess
@@ -28,6 +30,9 @@ from spacy.lang.fr import French
 from spacy.lang.en import English
 
 from PIL import Image, ImageTk
+
+from SimpleMarkdownText import SimpleMarkdownText
+from StoppableThread import StoppableThread
 
 # Liste des models déjà téléchargés
 
@@ -42,6 +47,7 @@ llava = "llava:latest"
 mario = "mario:latest"
 neural_chat = "neural-chat:latest"
 wizard_vicuna_uncensored = "wizard-vicuna-uncensored:30b-q4_0"
+
 
 # CONSTANTS
 
@@ -207,13 +213,19 @@ def affiche_preprompts():
 
 
 def engine_lecteur_init():
+    """
+    ## initialise le Lecteur de l'application
+    * initialise pyttsx3 avec la langue française
+    * set la rapidité de locution.
+    #### RETURN : lecteur de type Any|Engine
+    """
     lecteur = pyttsx3.init()
-    # voice = lecteur.getProperty("voices")[0]  # the french voice
-    # lecteur.setProperty(voice, "male")
     lecteur.setProperty("lang", "french")
     lecteur.setProperty("rate", RAPIDITE_VOIX)
 
+    # TODO Rien à faire ici, voir si on peut le déplacer
     pyttsx3.speak("lancement...")
+
     return lecteur
 
 
@@ -352,7 +364,7 @@ def veullez_patienter(moteur_de_diction):
     moteur_de_diction(TRAITEMENT_EN_COURS, stop_ecoute=True)
 
 
-def merci_au_revoir(moteur_de_diction, stream_to_stop, pulse_audio_to_stop):
+def merci_au_revoir(moteur_de_diction, stream_to_stop:pyaudio.Stream, pulse_audio_to_stop:pyaudio.PyAudio):
     # Stop and close the stream_to_stop
     moteur_de_diction(BYEBYE, False)
     lecteur.stop()
@@ -424,70 +436,41 @@ def append_response_to_file(file_to_append, readable_ai_response):
         )
 
 
-def ask_to_ai(texte, model_to_use, client: ollama.Client, images_link: str = ""):
-    ai_response = client.chat(
+def ask_to_ai(texte, model_to_use):
+
+    llm = Ola(
         model=model_to_use,
-        messages=[
-            {
-                "role": ROLE_TYPE,
-                "content": texte,
-                # "images": [images_link],
-            },
-        ],
-        keep_alive=-1,
+        request_timeout=500.0,
+        additional_kwargs={"num_predict": 2048, "keep_alive": -1},
     )
-    return ai_response
+    ai_response = llm.complete(texte)
+    print(ai_response)
+    return ai_response.text
 
 
 def traitement_rapide(texte: str, model_to_use, client, talking: bool, moteur_diction):
-    ai_response = ask_to_ai(texte, model_to_use=model_to_use, client=client)
-    readable_ai_response = ai_response["message"]["content"]
+    ai_response = ask_to_ai(texte, model_to_use=model_to_use)
+    readable_ai_response = ai_response
+    # readable_ai_response = ai_response["message"]["content"]
 
     # print(readable_ai_response)
     if talking:
         moteur_diction(readable_ai_response)
 
 
-# def traitement_requete(
-#     texte: str, file_to_append: str, moteur_diction, model_to_use, client
-# ):
-#     veullez_patienter(moteur_de_diction=moteur_diction)
-#     ai_response = ask_to_ai(texte, model_to_use=model_to_use, client=client)
-#     readable_ai_response = ai_response["message"]["content"]
-#     append_response_to_file(file_to_append, readable_ai_response)
-
-#     moteur_diction(REPONSE_TROUVEE, True)
-#     # print(readable_ai_response)
-#     return readable_ai_response
-
-
-class StoppableThread(threading.Thread):
-    """Thread class with a stop() method. The thread itself has to check
-    regularly for the stopped() condition."""
-
-    def __init__(self, *args, **kwargs):
-        super(StoppableThread, self).__init__(*args, **kwargs)
-        self._stop_event = threading.Event()
-
-    def stop(self):
-        self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
-
-
 class Fenetre_entree(tk.Frame):
+    master: tk.Tk
     content: str
     title: str
+    ia: str
     submission: str
-    talker: pyttsx3.Engine
+    talker: any
     model_to_use: str
     streaming: pyaudio.Stream
     engine_model: vosk.KaldiRecognizer
     image: ImageTk
-    ia: str
-    motcle: list[str]
     image_link: str
+    motcle: list[str]
     client: ollama.Client
     ai_response: str
 
@@ -502,16 +485,17 @@ class Fenetre_entree(tk.Frame):
         self.pack()
         self.title = root.winfo_name()
         self.ia = LLAMA3
-        self.content = ""
         self.submission = ""
-        self.streaming = stream
+        self.talker = say_txt
         self.model_to_use = model_to_use
-        self.configure(height=800)
-        self.image_link = ""
+        self.streaming = stream
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
         )
-
+        self.image_link = ""
+        self.content = ""
+        self.configure(height=800)
+        # self.set_client(ollama)
         self.creer_fenetre(
             image=self.get_image(),
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
@@ -523,6 +507,7 @@ class Fenetre_entree(tk.Frame):
     def get_ai_response(self) -> str:
         return self.ai_response
 
+    # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
     def set_client(self, client: ollama.Client):
         self.client = client
 
@@ -596,6 +581,7 @@ class Fenetre_entree(tk.Frame):
             loop.create_task(dialog_ia())
             loop.run_forever()
 
+        # TODO : problème ici, difficulté à arrêter le thread !!
         async def dialog_ia():
             print("on est dans l'async def dialog_ia")
             terminus = False
@@ -614,9 +600,7 @@ class Fenetre_entree(tk.Frame):
                     print(reco_text)
                     if "dis-moi" == reco_text.lower():
                         print("je t'écoute")
-                        pyttsx3.speak(
-                            "je t'écoute",
-                        )
+                        self.get_talker("je t'écoute", False)
                         reco_text_real = ""
                         while not terminus:
                             if "fin de l'enregistrement" in reco_text_real.lower():
@@ -660,9 +644,7 @@ class Fenetre_entree(tk.Frame):
                                         name="rate",
                                         value=int(engine.getProperty(name="rate")) + 20,
                                     )
-                                    pyttsx3.speak(
-                                        "voix plus rapide",
-                                    )
+                                    self.get_talker("voix plus rapide", False)
 
                                 if decremente_lecteur:
                                     lecteur.setProperty(
@@ -670,35 +652,32 @@ class Fenetre_entree(tk.Frame):
                                         value=int(lecteur.getProperty(name="rate"))
                                         + -20,
                                     )
-                                    pyttsx3.speak(
-                                        "voix plus lente",
-                                    )
+                                    self.get_talker("voix plus lente", False)
 
                                 if ne_pas_deranger:
-                                    pyttsx3.speak(
-                                        "ok plus de bruit",
-                                    )
+                                    self.get_talker("ok plus de bruit", False)
                                     STOP_TALKING = True
 
                                 if activer_parlote:
                                     STOP_TALKING = False
-                                    pyttsx3.speak(
-                                        "ok me re voilà",
-                                    )
+                                    self.get_talker("ok me re voilà", False)
 
                                 if "quel jour sommes-nous" in reco_text_real.lower():
-                                    pyttsx3.speak(
-                                        "Nous sommes le " + time.strftime("%Y-%m-%d")
+                                    self.get_talker(
+                                        "Nous sommes le " + time.strftime("%Y-%m-%d"),
+                                        False,
                                     )
 
                                 if "quelle heure est-il" in reco_text_real.lower():
-                                    pyttsx3.speak(
-                                        "il est exactement " + time.strftime("%H:%M:%S")
+                                    self.get_talker(
+                                        "il est exactement "
+                                        + time.strftime("%H:%M:%S"),
+                                        False,
                                     )
 
                                 if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                                    pyttsx3.speak(
-                                        "oui je suis toujours à l'écoute kiki"
+                                    self.get_talker(
+                                        "oui je suis toujours à l'écoute kiki", False
                                     )
 
                                 if (
@@ -750,25 +729,26 @@ class Fenetre_entree(tk.Frame):
 
         def soumettre() -> str:
             if save_to_submission():
-                self.talker("un instant s'il vous plait")
+                self.talker("un instant s'il vous plait", False)
                 threading.Thread(target=start_loop).start()
+
+            elif not threading.current_thread().is_alive():
+                self.set_submission("")
 
             else:
                 messagebox.showinfo(message="Veuillez poser au moins une question")
 
-            if not threading.current_thread().is_alive():
-                self.set_submission("")
-
         async def asking() -> asyncio.futures.Future:
-            self.set_client(ollama.Client(host="http://localhost:11434"))
+            # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
+
+            self.set_client(client=ollama.Client(host="http://localhost:11434"))
 
             response_ai = ask_to_ai(
-                client=self.get_client(),
                 model_to_use=self.get_model(),
                 texte=self.get_submission(),
-                # images_link=(self.get_image_link() if self.get_image_link() else ""),
             )
-            readable_ai_response = response_ai["message"]["content"]
+            readable_ai_response = response_ai
+            # readable_ai_response = response_ai["message"]["content"]
             self.set_ai_response(readable_ai_response)
 
             # TODO : tester la langue, si elle n'est pas français,
@@ -846,7 +826,7 @@ class Fenetre_entree(tk.Frame):
                 except:
                     texte_to_talk = object.get("1.0", tk.END)
                 finally:
-                    self.talker(texte_to_talk)
+                    self.talker(texte_to_talk, False)
 
         def clear_entree1():
             entree1.replace("1.0", tk.END, "")
@@ -864,9 +844,9 @@ class Fenetre_entree(tk.Frame):
                     mode="r",
                     initialdir=".",
                 )
-                self.talker("Extraction du PDF")
+                self.talker("Extraction du PDF", False)
                 resultat_txt = read_pdf(file_to_read.name)
-                self.talker("Fin de l'extraction")
+                self.talker("Fin de l'extraction", False)
                 entree1.insert_markdown(mkd_text=resultat_txt)
             except:
                 messagebox("Problème avec ce fichier pdf")
@@ -880,7 +860,7 @@ class Fenetre_entree(tk.Frame):
                 except:
                     texte_to_save_to_mp3 = object.get("1.0", tk.END)
                 finally:
-                    self.talker("transcription du texte vers un fichier mp3")
+                    self.talker("transcription du texte vers un fichier mp3", False)
                     simple_dialog = simpledialog.askstring(
                         parent=self,
                         prompt="Enregistrement : veuillez choisir un nom au fichier",
@@ -889,9 +869,9 @@ class Fenetre_entree(tk.Frame):
                     lecteur.save_to_file(
                         texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
                     )
-                    self.talker("terminé")
+                    self.talker("terminé", False)
             else:
-                self.talker("Désolé, Il n'y a pas de texte à enregistrer en mp3")
+                self.talker("Désolé, Il n'y a pas de texte à enregistrer en mp3", False)
 
         def refresh_entree_html(texte: str, ponctuel: bool = True):
             markdown_content = markdown.markdown(texte, output_format="xhtml")
@@ -959,7 +939,7 @@ class Fenetre_entree(tk.Frame):
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
                     refresh_entree_html(translated_text, True)
-                self.talker("fin de la traduction")
+                self.talker("fin de la traduction", False)
 
         affiche_illustration(
             self,
@@ -1149,15 +1129,6 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         on envois le texte telquel
     ### RETURN : str ou List
     """
-
-    # TODO my_nlp=French()
-    # my_doc_texte=my_nlp.make_doc(texte)
-    # my_liste_doc=my_doc_texte.cats
-    # my_doc_texte.retokenize()
-    # span = my_liste_doc[1:3]
-    # # Get the span text via the .text attribute
-    # print(span.text)
-
     # on découpe le texte par mots
     liste_of_words = texte.split()
     if len(liste_of_words) >= number:
@@ -1174,110 +1145,6 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         return list_of_large_text
     else:
         return texte
-
-
-class SimpleMarkdownText(tk.Text):
-    """
-    Really basic Markdown display. Thanks to Bryan Oakley's RichText:
-    https://stackoverflow.com/a/63105641/79125
-    """
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        default_font = tkfont.nametofont(self.cget("font"))
-
-        em = default_font.measure("m")
-        default_size = default_font.cget("size")
-        bold_font = tkfont.Font(**default_font.configure())
-        italic_font = tkfont.Font(**default_font.configure())
-
-        bold_font.configure(weight="bold")
-        italic_font.configure(slant="italic")
-
-        # Small subset of markdown. Just enough to make text look nice.
-        self.tag_configure("**", font=bold_font)
-        self.tag_configure("*", font=italic_font)
-        self.tag_configure("_", font=italic_font)
-        self.tag_chars = "*_"
-        self.tag_char_re = re.compile(r"[*_]")
-
-        max_heading = 3
-        for i in range(1, max_heading + 1):
-            header_font = tkfont.Font(**default_font.configure())
-            header_font.configure(size=int(default_size * i + 3), weight="bold")
-            self.tag_configure(
-                "#" * (max_heading - i), font=header_font, spacing3=default_size
-            )
-
-        lmargin2 = em + default_font.measure("\u2022 ")
-        self.tag_configure("bullet", lmargin1=em, lmargin2=lmargin2)
-        lmargin2 = em + default_font.measure("1. ")
-        self.tag_configure("numbered", lmargin1=em, lmargin2=lmargin2)
-
-        self.numbered_index = 1
-
-    def insert_bullet(self, position, text):
-        self.insert(position, f"\u2022 {text}", "bullet")
-
-    def insert_numbered(self, position, text):
-        self.insert(position, f"{self.numbered_index}. {text}", "numbered")
-        self.numbered_index += 1
-
-    def insert_markdown(self, mkd_text):
-        """A very basic markdown parser.
-
-        Helpful to easily set formatted text in tk. If you want actual markdown
-        support then use a real parser.
-        """
-        for line in mkd_text.split("\n"):
-            if line == "":
-                # Blank lines reset numbering
-                self.numbered_index = 1
-                self.insert("end", line)
-
-            elif line.startswith("#"):
-                tag = re.match(r"(#+) (.*)", line)
-                line = tag.group(2)
-                self.insert("end", line, tag.group(1))
-
-            elif line.startswith("* "):
-                line = line[2:]
-                self.insert_bullet("end", line)
-
-            elif line.startswith("1. "):
-                line = line[2:]
-                self.insert_numbered("end", line)
-
-            elif not self.tag_char_re.search(line):
-                self.insert("end", line)
-
-            else:
-                tag = None
-                accumulated = []
-                skip_next = False
-                for i, c in enumerate(line):
-                    if skip_next:
-                        skip_next = False
-                        continue
-                    if c in self.tag_chars and (not tag or c == tag[0]):
-                        if tag:
-                            self.insert("end", "".join(accumulated), tag)
-                            accumulated = []
-                            tag = None
-                        else:
-                            self.insert("end", "".join(accumulated))
-                            accumulated = []
-                            tag = c
-                            next_i = i + 1
-                            if len(line) > next_i and line[next_i] == tag:
-                                tag = line[i : next_i + 1]
-                                skip_next = True
-
-                    else:
-                        accumulated.append(c)
-                self.insert("end", "".join(accumulated), tag)
-
-            self.insert("end", "\n")
 
 
 def affiche_listbox(
@@ -1352,11 +1219,11 @@ def charge_preprompt(evt: tk.Event):
         )
         app.set_submission(preprompt)
 
-        app.get_talker()("prépromt ajouté : " + preprompt)
+        app.get_talker("prépromt ajouté : " + preprompt, False)
 
     except:
         print("aucun préprompt sélectionné")
-        app.get_talker()("Oups")
+        app.get_talker("Oups", False)
     finally:
         w.focus_get().destroy()
 
@@ -1408,11 +1275,11 @@ def change_model_ia(evt: tk.Event):
         _widget: tk.Button = app.nametowidget("cnvs1.cnvs2.btnlist")
         _widget.configure(text=value)
         model_info = ollama.show(app.get_model())
-        app.get_talker()("ok")
+        app.get_talker("ok", False)
         display_infos_model(master=app.nametowidget("cnvs1"), content=model_info)
     except:
         print("aucune ia sélectionner")
-        app.get_talker()("Oups")
+        app.get_talker("Oups", False)
     finally:
         w.focus_get().destroy()
 
@@ -1475,31 +1342,6 @@ def _from_rgb(rgb):
     r, g, b = rgb
     return f"#{r:02x}{g:02x}{b:02x}"
 
-
-lecteur = engine_lecteur_init()
-# Open the microphone stream
-p = pyaudio.PyAudio()
-stream = p.open(
-    format=pyaudio.paInt16,
-    channels=1,
-    rate=16000,
-    input=True,
-    frames_per_buffer=8192,
-)
-root = tk.Tk(className="YourAssistant")
-app = Fenetre_entree(
-    master=root,
-    stream=stream,
-    model_to_use=LLAMA3,
-)
-
-my_liste = []
-for element in (ollama.list())["models"]:
-    my_liste.append(element["name"])
-
-print(my_liste)
-
-
 async def dire_tt(alire: str):
     lecteur.say(alire)
     lecteur.runAndWait()
@@ -1534,7 +1376,7 @@ def arret_ecoute():
 
 
 def debut_ecoute(info: str = ""):
-    say_txt(info, True)
+    say_txt(info, False)
     stream.start_stream()
     return 0, ""
 
@@ -1632,10 +1474,46 @@ def main(prompt=False, stop_talking=STOP_TALKING):
 
     app.title = "MyApp"
 
-    app.set_talker(say_tt)
+    app.set_talker(say_txt)
     app.set_engine(rec)
     app.mainloop()
 
+
+def init_main():
+    # Open the microphone stream
+    p = pyaudio.PyAudio()
+    stream = p.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16000,
+        input=True,
+        frames_per_buffer=8192,
+    )
+
+    my_liste = []
+    for element in (ollama.list())["models"]:
+        my_liste.append(element["name"])
+
+    print(my_liste)
+    return my_liste, stream
+
+
+def init_start(LLAMA3, engine_lecteur_init, init_main):
+    my_liste, stream = init_main()
+
+    lecteur = engine_lecteur_init()
+    return lecteur, my_liste, stream
+
+
+# Début du programme
+lecteur, my_liste, stream = init_start(LLAMA3, engine_lecteur_init, init_main)
+
+root = tk.Tk(className="YourAssistant")
+app = Fenetre_entree(
+    master=root,
+    stream=stream,
+    model_to_use=LLAMA3,
+)
 
 if __name__ == "__main__":
     import argparse
@@ -1647,6 +1525,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--talk", metavar="talk", required=False, help="set talking to on"
     )
-    args = parser.parse_args()
+    args:Namespace = parser.parse_args()
 
     main(prompt=args.prompt, stop_talking=args.talk)
