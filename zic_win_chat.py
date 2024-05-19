@@ -1,12 +1,14 @@
 # zic_chat.py
 import asyncio
 import datetime
+import json.tool
 import threading
 import time
 import tkinter as tk
 from tkinter import Event, StringVar, messagebox
 from tkinter import filedialog
 from tkinter import simpledialog
+from typing import Any, Mapping
 import PyPDF2
 from tkhtmlview import HTMLLabel
 from PIL import Image, ImageTk
@@ -580,7 +582,7 @@ class Fenetre_entree(tk.Frame):
         async def dialog_ia():
             print("on est dans l'async def dialog_ia")
             terminus = False
-            while True:
+            while not terminus:
                 reco_text = ""
                 data = self.get_stream().read(
                     num_frames=8192, exception_on_overflow=False
@@ -598,10 +600,15 @@ class Fenetre_entree(tk.Frame):
                         pyttsx3.speak(
                             "je t'écoute",
                         )
-                        reco_text_real=""
+                        reco_text_real = ""
                         while not terminus:
                             if "fin de l'enregistrement" in reco_text_real.lower():
-                                terminus=True
+                                terminus = True
+                                stop_thread = StoppableThread(
+                                    None, threading.current_thread()
+                                )
+                                if not stop_thread.stopped():
+                                    stop_thread.stop()
                                 break
 
                             start_tim_vide = time.perf_counter()
@@ -693,9 +700,9 @@ class Fenetre_entree(tk.Frame):
                                     print("insertion de texte")
                                     entree1.update()
                             if "fin de l'enregistrement" in reco_text_real.lower():
-                                terminus=True
+                                terminus = True
                                 break
-                            
+
                             time_delta_vide = time.perf_counter() - start_tim_vide
                             time_delta_parlotte = (
                                 time.perf_counter() - start_tim_parlotte
@@ -703,13 +710,16 @@ class Fenetre_entree(tk.Frame):
                             print(
                                 str(time_delta_vide) + " :: " + str(time_delta_parlotte)
                             )
-                    
+
                         stop_thread = StoppableThread(None, threading.current_thread())
-                        stop_thread.stop()
+                        if not stop_thread.stopped():
+                            stop_thread.stop()
                         entree1.update()
                     if terminus:
                         break
-
+            stop_thread = StoppableThread(None, threading.current_thread())
+            if not stop_thread.stopped():
+                stop_thread.stop()
 
         def start_loop():
             loop = asyncio.new_event_loop()
@@ -1167,6 +1177,9 @@ def minimize(evt: tk.Event):
 
 
 def charge_preprompt(evt: tk.Event):
+    """gère la sélection d'un élément dans une listebox Tkinter,
+    récupère la valeur sélectionnée, obtient un préprompt correspondant,
+      l'ajoute à une application et affiche un message en conséquence."""
     try:
         # Note here that Tkinter passes an event object to onselect()
         w: tk.Listbox = evt.widget
@@ -1192,6 +1205,31 @@ def charge_preprompt(evt: tk.Event):
         w.focus_get().destroy()
 
 
+def replace_canvas_by_text(canvas: tk.Canvas, content: Mapping[str, Any]):
+    # on récupère le canvas à remplacer et on le sauve dans <canvas_saved> puis on récupère ses infos de pack()
+    canvas_infos_pack = canvas.pack_info()
+
+    # on récupère le canvas parent et on le sauve dans <canvas_parents>
+    canvas_parent_name: str = canvas.winfo_parent()
+    canvas_parent: tk.Canvas = app.nametowidget(canvas_parent_name)
+
+    # on créer un Tk.Text() nommé text_to_place_instead puis on le pack dans le canvas_parent
+    text_to_place_instead = tk.Text(master=canvas_parent, height=10)
+    text_to_place_instead.pack(canvas_infos_pack)
+    text_to_place_instead.configure(background="black", fg="red")
+    print("okok")
+    jsonified = (
+        json.dumps(
+            content["details"],
+            indent=4,
+        )
+        + "\n"
+    )
+
+    print(jsonified)
+    text_to_place_instead.insert(tk.END, jsonified)
+
+
 def change_model_ia(evt: tk.Event):
     # Note here that Tkinter passes an event object to onselect()
     w: tk.Listbox = evt.widget
@@ -1200,9 +1238,13 @@ def change_model_ia(evt: tk.Event):
         value = w.get(index)
         print('You selected item %d: "%s"' % (index, value))
         app.set_model(name_ia=str(value))
-        app.nametowidget("cvns1.cvns2.btnlist").configure(text=value)
-
+        _widget: tk.Button = app.nametowidget("cnvs1.cnvs2.btnlist")
+        _widget.configure(text=value)
+        model_info = ollama.show(app.get_model())
         app.get_talker()("ok")
+        replace_canvas_by_text(
+            canvas=app.nametowidget("cnvs1.canva"), content=model_info
+        )
 
     except:
         print("aucune ia sélectionner")
@@ -1216,17 +1258,21 @@ def affiche_illustration(
 ):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0), name="cvns1")
+    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0), name="cnvs1")
     # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
     cnvs1.pack(fill="x", expand=True)
     # ################################
-    cnvs2 = tk.Frame(cnvs1, name="cvns2")
+    cnvs2 = tk.Frame(cnvs1, name="cnvs2")
     cnvs2.configure(bg="black")
     cnvs2.pack(fill="x", expand=False)
 
     # Create a canvas
     canva = tk.Canvas(
-        cnvs1, height=BANNIERE_HEIGHT, width=BANNIERE_WIDTH, background=_from_rgb(DARK0)
+        cnvs1,
+        height=BANNIERE_HEIGHT,
+        width=BANNIERE_WIDTH,
+        background=_from_rgb(DARK0),
+        name="canva",
     )
 
     # Création d'un bouton pour quitter
