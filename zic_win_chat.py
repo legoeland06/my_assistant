@@ -279,18 +279,18 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
         llm: Ola = agent_appel(
             base_url="http://localhost:11434",
             model=model_to_use,
-            request_timeout=3600,
+            request_timeout=REQUEST_TIMEOUT_DEFAULT,
             additional_kwargs={"num_predict": 1024, "keep_alive": -1},
         )
         ai_response = llm.complete(prompt).text
 
     # calcul le temps écoulé par la thread
-    timing: float = (time.perf_counter_ns() - app.get_timer()) / 1000.0
+    timing: float = (time.perf_counter_ns() - app.get_timer()) / 1_000_000_000.0
     print("Type_agent_appel::" + str(type(agent_appel)))
     print("Type_ai_réponse::" + str(type(ai_response)))
 
-    append_response_to_file(resume_web_page, ai_response)
-    actualise_index_html(texte=ai_response, question=prompt)
+    append_response_to_file(RESUME_WEB, ai_response)
+    actualise_index_html(texte=ai_response, question=prompt, timing=timing)
 
     return ai_response, timing
 
@@ -645,7 +645,7 @@ class Fenetre_entree(tk.Frame):
             )
             entree2.insert(
                 tk.END,
-                str(_timing) + "millisecondes < " + str(type(agent_appel)) + " >\n",
+                str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
                 "balise_bold",
             )
             # entree2.insert(tk.END, readable_ai_response, "response")
@@ -840,13 +840,16 @@ class Fenetre_entree(tk.Frame):
         )
 
         button_frame = tk.Frame(self, relief="sunken", name="button_frame")
-        button_frame.configure(background=_from_rgb(DARK0))
+        button_frame.configure(background=_from_rgb(DARK3))
         button_frame.pack(fill="x", expand=True)
         canvas_edition = tk.Frame(self, relief="sunken")
 
         canvas1 = tk.Frame(canvas_edition, relief="sunken")
         boutons_effacer_canvas2 = tk.Frame(canvas_edition)
         canvas2 = tk.Frame(canvas_edition, relief="sunken")
+
+        # TODO : transformer les entree1 et entree2 en liste
+        # de plusieurs question_tk_text et reponse_tk_text
 
         canvas_edition.pack(fill="x", expand=True)
         canvas1.pack(fill="x", expand=True)
@@ -861,8 +864,8 @@ class Fenetre_entree(tk.Frame):
         # Attention la taille de la police, ici 10, ce parametre
         # tant à changer le cadre d'ouverture de la fenetre
         entree1.configure(
-            bg=_from_rgb((200, 200, 200)),
-            fg=_from_rgb((60, 60, 60)),
+            bg=_from_rgb(LIGHT2),
+            fg=_from_rgb(DARK3),
             font=("arial", 10),
             wrap="word",
             padx=10,
@@ -872,7 +875,7 @@ class Fenetre_entree(tk.Frame):
         boutton_effacer_entree1 = tk.Button(
             button_frame, text="x", command=clear_entree1
         )
-        boutton_effacer_entree1.configure(bg="red", fg="white")
+        boutton_effacer_entree1.configure(bg="red", fg=_from_rgb(LIGHT3))
         boutton_effacer_entree1.pack(side="right")
         scrollbar1 = tk.Scrollbar(canvas1)
         scrollbar1.pack(side=tk.RIGHT, fill="both")
@@ -890,19 +893,21 @@ class Fenetre_entree(tk.Frame):
             boutons_effacer_canvas2, text="x", command=clear_entree2
         )
 
-        boutton_effacer_entree2.configure(bg="red", fg="white")
+        boutton_effacer_entree2.configure(bg="red", fg=_from_rgb(LIGHT3))
         boutton_effacer_entree2.pack(side="right")
         bouton_lire2 = tk.Button(
             boutons_effacer_canvas2,
             text="Lire",
             command=lambda: lire_text_from_object(entree2),
         )
-        bouton_lire2.configure(bg="green", fg="white")
+        bouton_lire2.configure(bg=_from_rgb(DARK3), fg=_from_rgb(LIGHT3))
         bouton_lire2.pack(side=tk.RIGHT)
         bouton_transfere = tk.Button(
             boutons_effacer_canvas2,
             text="Transférer",
             command=lambda: entree1.insert_markdown(self.get_ai_response()),
+            bg=_from_rgb(LIGHT3),
+            fg=_from_rgb(DARK3),
         )
         bouton_transfere.pack(side=tk.RIGHT, fill="both")
         scrollbar2 = tk.Scrollbar(canvas2)
@@ -911,8 +916,8 @@ class Fenetre_entree(tk.Frame):
         default_font.configure(size=8)
         entree2 = SimpleMarkdownText(canvas2, height=20, font=default_font)
         entree2.configure(
-            bg="white",
-            fg="black",
+            bg=_from_rgb(LIGHT3),
+            fg=_from_rgb(DARK2),
             font=("arial ", 12),
             height=15,
             wrap="word",
@@ -922,18 +927,18 @@ class Fenetre_entree(tk.Frame):
         )
         entree2.pack(fill="both", expand=True)
 
-        scrollbar2.configure(command=entree2.yview, bg=_from_rgb(DARK0))
-        scrollbar1.configure(command=entree1.yview, bg=_from_rgb(DARK0))
+        scrollbar2.configure(command=entree2.yview, bg=_from_rgb(DARK2))
+        scrollbar1.configure(command=entree1.yview, bg=_from_rgb(DARK2))
 
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(
             button_frame, text="Lire", command=lambda: lire_text_from_object(entree1)
         )
         bouton_lire1.configure(
-            bg=_from_rgb((0, 0, 0)),
-            fg="white",
+            bg=_from_rgb(DARK3),
+            fg=_from_rgb(LIGHT3),
             highlightbackground="red",
-            highlightcolor="white",
+            highlightcolor=_from_rgb(LIGHT3),
             activebackground="red",
         )
         bouton_lire1.pack(side=tk.LEFT)
@@ -943,10 +948,10 @@ class Fenetre_entree(tk.Frame):
             button_frame, text="Traduire", command=translate_inplace
         )
         bouton_traduire_sur_place.configure(
-            bg=_from_rgb((40, 40, 40)),
-            fg="white",
+            bg=_from_rgb(DARK2),
+            fg=_from_rgb(LIGHT3),
             highlightbackground="red",
-            highlightcolor="white",
+            highlightcolor=_from_rgb(LIGHT3),
         )
         bouton_traduire_sur_place.pack(side=tk.LEFT)
 
@@ -954,7 +959,7 @@ class Fenetre_entree(tk.Frame):
         bouton_commencer_diction = tk.Button(
             button_frame, text=" ф ", command=lance_ecoute
         )
-        bouton_commencer_diction.configure(bg="red", fg="white")
+        bouton_commencer_diction.configure(bg="red", fg=_from_rgb(LIGHT3))
 
         bouton_commencer_diction.pack(side=tk.LEFT)
 
@@ -962,9 +967,9 @@ class Fenetre_entree(tk.Frame):
         bouton_soumetre = tk.Button(button_frame, text="Ask to AI", command=soumettre)
         bouton_soumetre.configure(
             bg=_from_rgb((120, 120, 120)),
-            fg="white",
+            fg=_from_rgb(LIGHT3),
             highlightbackground="red",
-            highlightcolor="white",
+            highlightcolor=_from_rgb(LIGHT3),
         )
         bouton_soumetre.pack(side=tk.LEFT)
 
@@ -973,15 +978,15 @@ class Fenetre_entree(tk.Frame):
             text="texte vers mp3",
             command=lambda: textwidget_to_mp3(entree1),
         )
-        bouton_save_to_mp3.configure(bg=_from_rgb((160, 160, 160)), fg="black")
+        bouton_save_to_mp3.configure(bg=_from_rgb(DARK1), fg=_from_rgb(LIGHT3))
         bouton_save_to_mp3.pack(side="left")
 
         bouton_load_pdf = tk.Button(button_frame, text="Charger Pdf", command=load_pdf)
-        bouton_load_pdf.configure(bg=_from_rgb((160, 160, 160)), fg="black")
+        bouton_load_pdf.configure(bg=_from_rgb(DARK2), fg=_from_rgb(LIGHT3))
         bouton_load_pdf.pack(side="left")
 
         bouton_load_txt = tk.Button(button_frame, text="Charger TXT", command=load_txt)
-        bouton_load_txt.configure(bg=_from_rgb((160, 160, 160)), fg="black")
+        bouton_load_txt.configure(bg=_from_rgb(DARK3), fg=_from_rgb((255, 255, 255)))
         bouton_load_txt.pack(side="left")
 
         motcles_widget = tk.Entry(
@@ -989,15 +994,15 @@ class Fenetre_entree(tk.Frame):
             name="motcles_widget",
             width=30,
             fg="red",
-            bg="black",
+            bg=_from_rgb(DARK3),
             font=("trebuchet", 10, "bold"),
             relief="flat",
         )
         button_keywords = tk.Button(
             button_frame,
             text="Mot-clé",
-            background=_from_rgb(DARK0),
-            foreground="white",
+            background=_from_rgb(DARK2),
+            foreground=_from_rgb(LIGHT3),
             command=lambda: affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
         )
         button_keywords.pack(side=tk.RIGHT, expand=False)
@@ -1095,7 +1100,7 @@ def traite_listbox(list_to_check: list):
         _list_box.insert(tk.END, item)
     _list_box.configure(
         background="red",
-        foreground="black",
+        foreground=_from_rgb(DARK3),
         yscrollcommand=scrollbar_listbox.set,
     )
     scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
@@ -1148,7 +1153,7 @@ def clean_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
 def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
     default_font = tkfont.nametofont("TkDefaultFont")
     default_font.configure(size=8)
-    canvas_bouton_minimize = tk.Canvas(master=master, bg="black")
+    canvas_bouton_minimize = tk.Canvas(master=master, bg=_from_rgb(DARK3))
     canvas_bouton_minimize.pack(fill="x", expand=True)
     infos_model = SimpleMarkdownText(master, font=default_font)
     bouton_minimize = tk.Button(
@@ -1157,11 +1162,11 @@ def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
         command=lambda: clean_infos_model(
             button=canvas_bouton_minimize, text_area=infos_model
         ),
-        fg="black",
+        fg=_from_rgb(DARK3),
         bg="red",
     )
     bouton_minimize.pack(side=tk.RIGHT)
-    infos_model.configure(background="black", fg="white", height=11)
+    infos_model.configure(background=_from_rgb(DARK3), fg=_from_rgb(LIGHT3), height=11)
     print("okok")
     jsonified = (
         json.dumps(
@@ -1201,12 +1206,11 @@ def affiche_illustration(
 ):
     """affiche l'illustration du goeland ainsi que son slogan"""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK0), name="cnvs1")
-    # cnvs1.configure(bg=_from_rgb((69, 122, 188)))
+    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK2), name="cnvs1")
     cnvs1.pack(fill="x", expand=True)
     # ################################
     cnvs2 = tk.Frame(cnvs1, name="cnvs2")
-    cnvs2.configure(bg="black")
+    cnvs2.configure(bg=_from_rgb(DARK3))
     cnvs2.pack(fill="x", expand=False)
 
     # Create a canvas
@@ -1214,13 +1218,13 @@ def affiche_illustration(
         cnvs1,
         height=BANNIERE_HEIGHT,
         width=BANNIERE_WIDTH,
-        background=_from_rgb(DARK0),
+        background=_from_rgb(DARK2),
         name="canva",
     )
 
     # Création d'un bouton pour quitter
     bouton_quitter = tk.Button(cnvs2, text="Quitter", command=quitter)
-    bouton_quitter.configure(background=_from_rgb(DARK0), foreground="red")
+    bouton_quitter.configure(background=_from_rgb(DARK3), foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
 
     bouton_Ola = tk.Button(
@@ -1230,7 +1234,7 @@ def affiche_illustration(
         highlightthickness=3,
         highlightcolor="yellow",
     )
-    bouton_Ola.configure(background=_from_rgb(DARK0), foreground="red")
+    bouton_Ola.configure(background=_from_rgb(LIGHT3), foreground=_from_rgb(DARK3))
     bouton_Ola.pack(side=tk.LEFT)
 
     bouton_Ollama = tk.Button(
@@ -1240,7 +1244,7 @@ def affiche_illustration(
         highlightthickness=3,
         highlightcolor="yellow",
     )
-    bouton_Ollama.configure(background=_from_rgb(DARK0), foreground="red")
+    bouton_Ollama.configure(background=_from_rgb(LIGHT3), foreground=_from_rgb(DARK3))
     bouton_Ollama.pack(side=tk.LEFT)
 
     bouton_liste = tk.Button(
@@ -1248,7 +1252,7 @@ def affiche_illustration(
         name="btnlist",
         text="Changer d'IA",
         background="red",
-        foreground="black",
+        foreground=_from_rgb(DARK3),
         command=lambda: affiche_ia_list(my_liste),
     )
 
@@ -1256,8 +1260,8 @@ def affiche_illustration(
         cnvs2,
         text=message,
         font=("Trebuchet", 8),
-        fg="white",
-        bg=_from_rgb(DARK0),
+        fg=_from_rgb(LIGHT3),
+        bg=_from_rgb(DARK2),
     )
 
     label.pack(side=tk.RIGHT, expand=False)
@@ -1352,7 +1356,7 @@ def translate_it(text_to_translate: str) -> str:
     return translated
 
 
-def actualise_index_html(texte: str, question: str):
+def actualise_index_html(texte: str, question: str, timing: float):
     if len(question) > 500:
         question = question[:499] + "..."
     with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
@@ -1361,6 +1365,13 @@ def actualise_index_html(texte: str, question: str):
         file_to_update.write(
             "<div id='response_ai'>"
             + "<div id=question_to_ai>"
+            + "<span class='btn btn-success'> "
+            + app.get_model()
+            + "</span> "
+            + "<span><strong>"
+            + str(timing)
+            + " secodnes "
+            + "</strong></span>"
             + "<h3>Prompt</h3>"
             + markdown_question
             + "\n"

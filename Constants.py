@@ -5,23 +5,23 @@ WIZARDLM2 = "wizardlm2:latest"
 DEEPSEEK_CODER = "deepseek-coder:6.7b"
 ALFRED = "alfred:latest"
 LLAMA3 = "llama3:latest"
-deepseek_coder = "deepseek-coder:latest"
-expert = "expert:latest"
-gemma = "gemma:latest"
-llava = "llava:latest"
-mario = "mario:latest"
-neural_chat = "neural-chat:latest"
-wizard_vicuna_uncensored = "wizard-vicuna-uncensored:30b-q4_0"
+DEEPSEEK_CODERR = "deepseek-coder:latest"
+EXPERT = "expert:latest"
+GEMMA = "gemma:latest"
+LLAVA = "llava:latest"
+MARIO = "mario:latest"
+NEURAL_CHAT = "neural-chat:latest"
+WIZARD_VICUNA_UNCENSORED = "wizard-vicuna-uncensored:30b-q4_0"
 
+REQUEST_TIMEOUT_DEFAULT=50
 
 # CONSTANTS
  # Specify the path for the output text file
-output_file_path = "recognized_text"
-response_file_path = "ai_response"
-
-resume_file_path = "ai_resume"
-resume_web_page = "ai.resume_web"
-resume_image_page = "ai.resume_image"
+OUTPUT_PATH_FILE = "recognized_text"
+RESPONSE_FILE = "ai_response"
+RESUME_FILE = "ai_resume"
+RESUME_WEB = "ai.resume_web"
+RESUME_IMAGE = "ai.resume_image"
 
 WIDTH_TERM = 80
 RAPIDITE_VOIX = 150
@@ -33,12 +33,11 @@ ROLE_TYPES = [
     "system",
 ]
 
-MY_HEAD = """
-<body class="container">
-    """
-
 ROLE_TYPE = ROLE_TYPES[0]
 
+INDEX_HEAD = """
+<body class="container">
+    """
 
 FICHE_DE_POSTE = "fiche_de_poste"
 SCRAP_CONTENT = "content_scrapped"
@@ -100,8 +99,9 @@ QUESTIONS = [
 LIENS_APPS = {
     "whatsapp": "",
 }
-chrome_pid = 0
-chrome_pid: subprocess.Popen[str]
+
+CHROME_PID0 = 0
+CHROME_PID: subprocess.Popen[str]
 
 GOOGLECHROME_APP = "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe "
 LIENS_CHROME = {
@@ -118,7 +118,15 @@ BANNIERE_WIDTH = 758
 BANNIERE_HEIGHT = 160
 FENETRE_WIDTH = 800
 FENETRE_HEIGHT = 800
-DARK0 = (20, 20, 20)
+DARK3 = (10, 10, 10)
+DARK2 = (40, 40, 40)
+DARK1 = (70, 70, 70)
+DARK0 = (100, 100, 100)
+LIGHT0 = (150, 150, 150)
+LIGHT1 = (180, 180, 180)
+LIGHT2 = (210,210,210)
+LIGHT3 = (240,240,240)
+
 
 PROMPTS_SYSTEMIQUES = {
     SPECIALITY: "Bonjour ! Je souhaite me former à [ speciality ], devenir un top expert sur le sujet. Peux-tu me proposer un programme de formation avec les thématiques à étudier, dans un ordre pertinent ? Tu es un expert en [ speciality ] et aussi un formateur confirmé. Base toi sur tes connaissances en [ speciality ] mais aussi en science de l'éducation pour me proposer le meilleur programme possible. Après ça, je te demanderai de me former sur chacun des points de ton programme",
