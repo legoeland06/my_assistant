@@ -614,7 +614,7 @@ class Fenetre_entree(tk.Frame):
 
         def save_to_submission() -> bool:
             # Afficher une boîte de message de confirmation
-            speciality = speciality_text.get()
+            speciality = motcles_widget.get()
             if len(speciality) <= 1:
                 speciality = ""
 
@@ -941,24 +941,24 @@ class Fenetre_entree(tk.Frame):
         bouton_load_txt.configure(bg=_from_rgb((160, 160, 160)), fg="black")
         bouton_load_txt.pack(side="left")
 
-        speciality_text = tk.Entry(
+        motcles_widget = tk.Entry(
             button_frame,
-            name="speciality_text",
+            name="motcles_widget",
             width=30,
             fg="red",
             bg="black",
             font=("trebuchet", 10, "bold"),
             relief="flat",
         )
-        bouton_finetune = tk.Button(
+        button_keywords = tk.Button(
             button_frame,
-            text="Pré-prompts",
+            text="Mot-clé",
             background=_from_rgb(DARK0),
             foreground="white",
             command=lambda: affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
         )
-        bouton_finetune.pack(side=tk.RIGHT, expand=False)
-        speciality_text.pack(side="left", padx=2, pady=2)
+        button_keywords.pack(side=tk.RIGHT, expand=False)
+        motcles_widget.pack(side="left", padx=2, pady=2)
 
         # TODO NE fonctionne pas pour mettre en pause la lecture à haute voix
         # bouton_stop=tk.Button(button_frame,text="Stop",command=lecteur.endLoop)
@@ -967,16 +967,15 @@ class Fenetre_entree(tk.Frame):
         # bouton_reprendre.pack(side=tk.LEFT)
 
 
-# ICI Tester text < number caractères
-# sinon le couper en plusieurs texte dans une liste
 def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     """
-    ## traitement_du_texte
-        Vérifie si le texte ne possède pas plus de <number> caractères
-    #### si oui:
-        on coupe le texte en portions de <number> caractères et on renvois cette liste de portions de texte
+    ### traitement_du_texte
+    #### si le texte possède plus de <number> caractères :
+        on coupe le texte en plusieurs listes de maximum <number> caractères
+        et on renvois cette liste de liste
     #### sinon :
         on envois le texte telquel
+
     ### RETURN : str ou List
     """
     # on découpe le texte par mots
@@ -997,27 +996,47 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         return texte
 
 
-def affiche_listbox(
-    list_to_check: list,
-):
+def affiche_ia_list(list_to_check: list):
+    """
+    Display a list of AI you can use
+    * affiche la listebox avec la liste donnée en paramètre list_to_check
+    * click on it cause model AI to change
+    """
     _listbox: tk.Listbox = traite_listbox(list_to_check)
     _listbox.bind("<<ListboxSelect>>", func=change_model_ia)
 
 
-def affiche_prepromts(
-    list_to_check: list,
-):
+def affiche_prepromts(list_to_check: list):
+    """Diplays premprompts
+    * asking for keywords about this subject
+    * enregistre ces mot-cles dans l'attribut motcle de la classe app.
+    * puis les insère dans <motcles_widget> de la fenetre principal
+    * affiche la listebox avec la liste donnée en paramètre list_to_check
+
+    ### TODO : make it possible to display the prompt directly when clic of or when hovering over the prompt categories
+    """
+    # ouvre une boite dialog et récupère la sortie
     mots_cle = simpledialog.askstring(
         title="YourAssistant - pré-prompts",
         initialvalue="Python",
         prompt="Veuillez entrer le mot-clé à traiter",
     )
+
+    # on set l'attribut motcle de la classe
     app.set_motcle(mots_cle.split())
-    _speciality_widget: tk.Entry = app.nametowidget("button_frame.speciality_text")
-    _speciality_widget.delete(0)
+
+    # on récupère le tk.Entry de la fenetre principale : button_frame.motcles_widget
+    # on le clean et on y insère le thème récupéré par la simpledialog auparavant
+    _speciality_widget: tk.Entry = app.nametowidget("button_frame.motcles_widget")
+    _speciality_widget.select_range("1.0",tk.END)
+    _speciality_widget.selection_clear()
     _speciality_widget.insert(0, mots_cle)
 
+    # crée et affiche une _listbox remplie avec la variable list_to_check
     _listbox: tk.Listbox = traite_listbox(list_to_check)
+
+    # bind sur l'événement sélection d'un item de la liste
+    # vers la fonction charge_preprompt
     _listbox.bind("<<ListboxSelect>>", func=charge_preprompt)
 
 
@@ -1025,8 +1044,8 @@ def traite_listbox(list_to_check: list):
     frame = tk.Tk(className="list_ia")
     frame.grid_location(root.winfo_x() + 50, root.winfo_y() + 30)
     _list_box = tk.Listbox(frame)
-    scroll_listbox = tk.Scrollbar(frame)
-    scroll_listbox.configure(command=_list_box.yview)
+    scrollbar_listbox = tk.Scrollbar(frame)
+    scrollbar_listbox.configure(command=_list_box.yview)
 
     _list_box.pack(side=tk.LEFT, fill="both")
     for item in list_to_check:
@@ -1034,9 +1053,9 @@ def traite_listbox(list_to_check: list):
     _list_box.configure(
         background="red",
         foreground="black",
-        yscrollcommand=scroll_listbox.set,
+        yscrollcommand=scrollbar_listbox.set,
     )
-    scroll_listbox.pack(side=tk.RIGHT, fill="both")
+    scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
 
     return _list_box
 
@@ -1167,7 +1186,7 @@ def affiche_illustration(
         text="Changer d'IA",
         background="red",
         foreground="black",
-        command=lambda: affiche_listbox(my_liste),
+        command=lambda: affiche_ia_list(my_liste),
     )
 
     label = tk.Label(
