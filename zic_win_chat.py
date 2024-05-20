@@ -259,29 +259,48 @@ def append_response_to_file(file_to_append, readable_ai_response):
         )
 
 
-def ask_to_ai(texte, model_to_use):
+def ask_to_ai(agent_appel, prompt, model_to_use):
 
-    llm = Ola(
-        model=model_to_use,
-        request_timeout=3600,
-        additional_kwargs={"num_predict": 2048, "keep_alive": -1},
+    app.set_timer(time.perf_counter_ns())
+
+    if isinstance(agent_appel, ollama.Client):
+        llm: ollama.Client = agent_appel.chat(
+            model=model_to_use,
+            messages=[
+                {
+                    "role": ROLE_TYPE,
+                    "content": prompt,
+                },
+            ],
+        )
+        ai_response = llm["message"]["content"]
+
+    elif isinstance(agent_appel, Ola.__class__):
+        llm: Ola = agent_appel(
+            base_url="http://localhost:11434",
+            model=model_to_use,
+            request_timeout=3600,
+            additional_kwargs={"num_predict": 1024, "keep_alive": -1},
+        )
+        ai_response = llm.complete(prompt).text
+
+    # calcul le temps écoulé par la thread
+    timing: float = (time.perf_counter_ns() - app.get_timer()) / 1000.0
+    print("Type_agent_appel::" + str(type(agent_appel)))
+    print("Type_ai_réponse::" + str(type(ai_response)))
+
+    append_response_to_file(resume_web_page, ai_response)
+    actualise_index_html(texte=ai_response, question=prompt)
+
+    return ai_response, timing
+
+
+def traitement_rapide(texte: str, model_to_use, talking: bool, moteur_diction):
+    ai_response, _timing = ask_to_ai(
+        agent_appel=ollama.Client, prompt=texte, model_to_use=model_to_use
     )
-
-    ai_response = llm.complete(texte)
-    print(ai_response)
-    append_response_to_file(resume_web_page, ai_response.text)
-    actualise_index_html(texte=ai_response.text, question=texte)
-    return ai_response.text
-
-
-def traitement_rapide(texte: str, model_to_use, client, talking: bool, moteur_diction):
-    ai_response = ask_to_ai(texte, model_to_use=model_to_use)
     readable_ai_response = ai_response
-    # readable_ai_response = ai_response["message"]["content"]
-
-    # print(readable_ai_response)
-    if talking:
-        moteur_diction(readable_ai_response)
+    app.get_talker()(readable_ai_response, False)
 
 
 class Fenetre_entree(tk.Frame):
@@ -297,8 +316,9 @@ class Fenetre_entree(tk.Frame):
     image: ImageTk
     image_link: str
     motcle: list[str]
-    client: ollama.Client
+    client: any = None
     ai_response: str
+    timer: float
 
     def __init__(
         self,
@@ -327,6 +347,12 @@ class Fenetre_entree(tk.Frame):
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
         )
 
+    def set_timer(self, timer: float):
+        self.timer = timer
+
+    def get_timer(self) -> float:
+        return self.timer
+
     def set_ai_response(self, response: str):
         self.ai_response = response
 
@@ -336,6 +362,7 @@ class Fenetre_entree(tk.Frame):
     # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
     def set_client(self, client: ollama.Client):
         self.client = client
+        pyttsx3.speak("changement du client : " + str(type(self.client)))
 
     def get_client(self) -> ollama.Client:
         return self.client
@@ -567,14 +594,20 @@ class Fenetre_entree(tk.Frame):
         async def asking() -> asyncio.futures.Future:
             # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
 
-            self.set_client(client=ollama.Client(host="http://localhost:11434"))
+            if not self.get_client():
+                messagebox.showerror(
+                    title="Client absent",
+                    message="Vous devez choisir un client, en haut à gauche de l'écran",
+                )
+                return
+            agent_appel = self.get_client()
 
-            response_ai = ask_to_ai(
+            response_ai, _timing = ask_to_ai(
+                agent_appel=agent_appel,
                 model_to_use=self.get_model(),
-                texte=self.get_submission(),
+                prompt=self.get_submission(),
             )
             readable_ai_response = response_ai
-            # readable_ai_response = response_ai["message"]["content"]
             self.set_ai_response(readable_ai_response)
 
             # TODO : tester la langue, si elle n'est pas français,
@@ -600,13 +633,23 @@ class Fenetre_entree(tk.Frame):
                 font=(entree2.cget("font") + " italic", 8),
                 foreground=_from_rgb((100, 100, 100)),
             )
+            entree2.tag_configure(
+                "balise_bold",
+                font=(entree2.cget("font") + " bold", 8),
+                foreground=_from_rgb((100, 100, 100)),
+            )
             entree2.insert(
                 tk.END,
-                datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n\n",
+                datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n",
                 "balise",
             )
+            entree2.insert(
+                tk.END,
+                str(_timing) + "millisecondes < " + str(type(agent_appel)) + " >\n",
+                "balise_bold",
+            )
             # entree2.insert(tk.END, readable_ai_response, "response")
-            entree2.insert_markdown(readable_ai_response)
+            entree2.insert_markdown(readable_ai_response + "\n\n")
             # entree2.insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
 
             entree2.update()
@@ -1028,7 +1071,7 @@ def affiche_prepromts(list_to_check: list):
     # on récupère le tk.Entry de la fenetre principale : button_frame.motcles_widget
     # on le clean et on y insère le thème récupéré par la simpledialog auparavant
     _speciality_widget: tk.Entry = app.nametowidget("button_frame.motcles_widget")
-    _speciality_widget.select_range("1.0",tk.END)
+    _speciality_widget.select_range("1.0", tk.END)
     _speciality_widget.selection_clear()
     _speciality_widget.insert(0, mots_cle)
 
@@ -1180,6 +1223,26 @@ def affiche_illustration(
     bouton_quitter.configure(background=_from_rgb(DARK0), foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
 
+    bouton_Ola = tk.Button(
+        cnvs2,
+        text="Ola",
+        command=lambda: self.set_client(Ola),
+        highlightthickness=3,
+        highlightcolor="yellow",
+    )
+    bouton_Ola.configure(background=_from_rgb(DARK0), foreground="red")
+    bouton_Ola.pack(side=tk.LEFT)
+
+    bouton_Ollama = tk.Button(
+        cnvs2,
+        text="Ollama",
+        command=lambda: self.set_client(ollama.Client(host="http://127.0.0.1:11434")),
+        highlightthickness=3,
+        highlightcolor="yellow",
+    )
+    bouton_Ollama.configure(background=_from_rgb(DARK0), foreground="red")
+    bouton_Ollama.pack(side=tk.LEFT)
+
     bouton_liste = tk.Button(
         cnvs2,
         name="btnlist",
@@ -1315,7 +1378,6 @@ def main(prompt=False, stop_talking=STOP_TALKING):
         return traitement_rapide(
             prompt,
             model_to_use=model_used,
-            client=ollama.Client(host="http://localhost:11434"),
             talking=stop_talking,
             moteur_diction=say_tt,
         )
@@ -1370,7 +1432,7 @@ def init_main():
     return my_liste, stream
 
 
-def init_start(LLAMA3, engine_lecteur_init, init_main):
+def init_start(engine_lecteur_init, init_main):
     my_liste, stream = init_main()
 
     lecteur = engine_lecteur_init()
@@ -1378,7 +1440,7 @@ def init_start(LLAMA3, engine_lecteur_init, init_main):
 
 
 # Début du programme
-lecteur, my_liste, stream = init_start(LLAMA3, engine_lecteur_init, init_main)
+lecteur, my_liste, stream = init_start(engine_lecteur_init, init_main)
 
 root = tk.Tk(className="YourAssistant")
 app = Fenetre_entree(
