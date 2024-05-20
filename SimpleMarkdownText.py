@@ -49,7 +49,8 @@ class SimpleMarkdownText(tkinter.Text):
         self.numbered_index += 1
 
     def insert_markdown(self, mkd_text):
-        """A very basic markdown parser.
+        """
+        #### A very basic markdown parser.
 
         Helpful to easily set formatted text in tk. If you want actual markdown
         support then use a real parser.
