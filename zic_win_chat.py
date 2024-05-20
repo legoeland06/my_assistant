@@ -264,12 +264,13 @@ def ask_to_ai(texte, model_to_use):
     llm = Ola(
         model=model_to_use,
         request_timeout=3600,
-        additional_kwargs={"num_predict": 204800, "keep_alive": -1},
+        additional_kwargs={"num_predict": 2048, "keep_alive": -1},
     )
 
     ai_response = llm.complete(texte)
     print(ai_response)
-    append_response_to_file(resume_web_page, ai_response)
+    append_response_to_file(resume_web_page, ai_response.text)
+    actualise_index_html(texte=ai_response.text, question=texte)
     return ai_response.text
 
 
@@ -813,7 +814,9 @@ class Fenetre_entree(tk.Frame):
         default_font = tkfont.nametofont("TkDefaultFont")
         default_font.configure(size=8)
         entree1 = SimpleMarkdownText(canvas1, height=20, font=default_font)
-        # Attention la taille de la police, ici 10, ce parametre tant à changer le cadre d'ouverture de la fenetre
+
+        # Attention la taille de la police, ici 10, ce parametre
+        # tant à changer le cadre d'ouverture de la fenetre
         entree1.configure(
             bg=_from_rgb((200, 200, 200)),
             fg=_from_rgb((60, 60, 60)),
@@ -864,7 +867,6 @@ class Fenetre_entree(tk.Frame):
         default_font = tkfont.nametofont("TkDefaultFont")
         default_font.configure(size=8)
         entree2 = SimpleMarkdownText(canvas2, height=20, font=default_font)
-        # entree2 = tk.Text(canvas2, name="entree2")
         entree2.configure(
             bg="white",
             fg="black",
@@ -964,10 +966,8 @@ class Fenetre_entree(tk.Frame):
         # bouton_stop.pack(side=tk.LEFT)
         # bouton_reprendre.pack(side=tk.LEFT)
 
-        # self.mainloop()
 
-
-# ICI Tester text < 500 caractères
+# ICI Tester text < number caractères
 # sinon le couper en plusieurs texte dans une liste
 def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     """
@@ -1069,11 +1069,11 @@ def charge_preprompt(evt: tk.Event):
         )
         app.set_submission(preprompt)
 
-        app.get_talker("prépromt ajouté : " + preprompt, False)
+        app.get_talker()("prépromt ajouté : " + preprompt, False)
 
     except:
         print("aucun préprompt sélectionné")
-        app.get_talker("Oups", False)
+        app.get_talker()("Oups", False)
     finally:
         w.focus_get().destroy()
 
@@ -1125,11 +1125,11 @@ def change_model_ia(evt: tk.Event):
         _widget: tk.Button = app.nametowidget("cnvs1.cnvs2.btnlist")
         _widget.configure(text=value)
         model_info = ollama.show(app.get_model())
-        say_txt("ok", False)
+        app.get_talker()("ok", False)
         display_infos_model(master=app.nametowidget("cnvs1"), content=model_info)
     except:
         print("aucune ia sélectionner")
-        say_txt("Oups", False)
+        app.get_talker()("Oups", False)
     finally:
         w.focus_get().destroy()
 
