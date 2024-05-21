@@ -29,8 +29,10 @@ import subprocess
 from spacy.lang.fr import French
 from spacy.lang.en import English
 from PIL import Image, ImageTk
+from ClassOutils import _from_rgb, lire_text_from_object
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
+from FenetreResponse import FenetreResponse
 from Constants import *
 
 
@@ -545,11 +547,11 @@ class Fenetre_entree(tk.Frame):
                                     break
                                 elif reco_text_real.lower() != "":
                                     start_tim_vide = time.perf_counter()
-                                    entree1.insert_markdown(
+                                    entree_prompt_principal.insert_markdown(
                                         mkd_text=reco_text_real + "\n"
                                     )
                                     print("insertion de texte")
-                                    entree1.update()
+                                    entree_prompt_principal.update()
                             if "fin de l'enregistrement" in reco_text_real.lower():
                                 terminus = True
                                 break
@@ -565,7 +567,7 @@ class Fenetre_entree(tk.Frame):
                         stop_thread = StoppableThread(None, threading.current_thread())
                         if not stop_thread.stopped():
                             stop_thread.stop()
-                        entree1.update()
+                        entree_prompt_principal.update()
                     if terminus:
                         break
             stop_thread = StoppableThread(None, threading.current_thread())
@@ -610,12 +612,21 @@ class Fenetre_entree(tk.Frame):
             readable_ai_response = response_ai
             self.set_ai_response(readable_ai_response)
 
+            fenetre_response = FenetreResponse(
+                master=cnvas,
+                entree_recup=entree_prompt_principal,
+                ai_response=response_ai,
+            )
+            fenetre_response.pack(fill="x", expand=True)
+            fenetre_response.set_talker(self.get_talker())
+
             # TODO : tester la langue, si elle n'est pas français,
             # traduir automatiquement en français
-            entree2.tag_configure(
-                tagName="boldtext", font=entree2.cget("font") + " bold"
+            fenetre_response.get_entree_response().tag_configure(
+                tagName="boldtext",
+                font=fenetre_response.get_entree_response().cget("font") + " bold",
             )
-            entree2.tag_configure(
+            fenetre_response.get_entree_response().tag_configure(
                 tagName="response",
                 border=20,
                 wrap="word",
@@ -628,31 +639,83 @@ class Fenetre_entree(tk.Frame):
                 rmargincolor="green",
                 selectbackground="red",
             )
-            entree2.tag_configure(
+            fenetre_response.get_entree_response().tag_configure(
                 "balise",
-                font=(entree2.cget("font") + " italic", 8),
+                font=(
+                    fenetre_response.get_entree_response().cget("font") + " italic",
+                    8,
+                ),
                 foreground=_from_rgb((100, 100, 100)),
             )
-            entree2.tag_configure(
+            fenetre_response.get_entree_response().tag_configure(
                 "balise_bold",
-                font=(entree2.cget("font") + " bold", 8),
+                font=(fenetre_response.get_entree_response().cget("font") + " bold", 8),
                 foreground=_from_rgb((100, 100, 100)),
             )
-            entree2.insert(
+            fenetre_response.get_entree_response().insert(
                 tk.END,
                 datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n",
                 "balise",
             )
-            entree2.insert(
+            fenetre_response.get_entree_response().insert(
                 tk.END,
                 str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
                 "balise_bold",
             )
-            # entree2.insert(tk.END, readable_ai_response, "response")
-            entree2.insert_markdown(readable_ai_response + "\n\n")
-            # entree2.insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
+            # fenetre_response.get_entree_response().insert(tk.END, readable_ai_response, "response")
+            fenetre_response.get_entree_response().insert_markdown(
+                readable_ai_response + "\n\n"
+            )
+            # fenetre_response.get_entree_response().insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
 
-            entree2.update()
+            fenetre_response.get_entree_question().configure(font=("Arial", 10))
+            fenetre_response.get_entree_question().tag_configure(
+                tagName="boldtext",
+                font=fenetre_response.get_entree_question().cget("font") + " bold",
+            )
+            fenetre_response.get_entree_question().tag_configure(
+                tagName="response",
+                border=20,
+                wrap="word",
+                spacing1=10,
+                spacing3=10,
+                lmargin1=10,
+                lmargin2=10,
+                lmargincolor="green",
+                rmargin=10,
+                rmargincolor="green",
+                selectbackground="red",
+            )
+            fenetre_response.get_entree_question().tag_configure(
+                "balise",
+                font=(
+                    fenetre_response.get_entree_question().cget("font") + " italic",
+                    8,
+                ),
+                foreground=_from_rgb((100, 100, 100)),
+            )
+            fenetre_response.get_entree_question().tag_configure(
+                "balise_bold",
+                font=(fenetre_response.get_entree_question().cget("font") + " bold", 8),
+                foreground=_from_rgb((100, 100, 100)),
+            )
+            fenetre_response.get_entree_question().insert(
+                tk.END,
+                datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n",
+                "balise",
+            )
+            fenetre_response.get_entree_question().insert(
+                tk.END,
+                str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
+                "balise_bold",
+            )
+
+            fenetre_response.get_entree_question().insert_markdown(
+                self.get_submission() + "\n\n"
+            )
+            fenetre_response.get_entree_response().update()
+            fenetre_response.get_entree_question().update()
+
             return readable_ai_response
 
         def save_to_submission() -> bool:
@@ -662,9 +725,9 @@ class Fenetre_entree(tk.Frame):
                 speciality = ""
 
             try:
-                selection = entree1.get(tk.SEL_FIRST, tk.SEL_LAST)
+                selection = entree_prompt_principal.get(tk.SEL_FIRST, tk.SEL_LAST)
             except:
-                selection = entree1.get("1.0", tk.END)
+                selection = entree_prompt_principal.get("1.0", tk.END)
             finally:
                 if len(selection) > 1:
                     self.set_submission(
@@ -686,22 +749,8 @@ class Fenetre_entree(tk.Frame):
             else:
                 print("L'utilisateur a annulé.")
 
-        def lire_text_from_object(object: tk.Text):
-            texte_to_talk = object.get("1.0", tk.END)
-
-            if texte_to_talk != "":
-                try:
-                    texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-                except:
-                    texte_to_talk = object.get("1.0", tk.END)
-                finally:
-                    self.talker(texte_to_talk, False)
-
-        def clear_entree1():
-            entree1.replace("1.0", tk.END, "")
-
-        def clear_entree2():
-            entree2.replace("1.0", tk.END, "")
+        def clear_entree_prompt_principal():
+            entree_prompt_principal.replace("1.0", tk.END, "")
 
         def load_txt():
             try:
@@ -720,7 +769,7 @@ class Fenetre_entree(tk.Frame):
                 # qui demande un texte fait de lignes séparées par des \n
                 # transforme list[str] -> str
                 resultat_reformater = "".join(resultat_txt)
-                entree1.insert_markdown(mkd_text=resultat_reformater)
+                entree_prompt_principal.insert_markdown(mkd_text=resultat_reformater)
 
             except:
                 messagebox("Problème avec ce fichier txt")
@@ -737,7 +786,7 @@ class Fenetre_entree(tk.Frame):
                 self.talker("Extraction du PDF", False)
                 resultat_txt = read_pdf(file_to_read.name)
                 self.talker("Fin de l'extraction", False)
-                entree1.insert_markdown(mkd_text=resultat_txt)
+                entree_prompt_principal.insert_markdown(mkd_text=resultat_txt)
             except:
                 messagebox("Problème avec ce fichier pdf")
 
@@ -763,31 +812,10 @@ class Fenetre_entree(tk.Frame):
             else:
                 self.talker("Désolé, Il n'y a pas de texte à enregistrer en mp3", False)
 
-        def refresh_entree_html(texte: str, ponctuel: bool = True):
-            markdown_content = markdown.markdown(texte, output_format="xhtml")
-            html_entries = entree2.get("1.0", tk.END)
-            if ponctuel:
-                html_entries += (
-                    "<strong style='color:grey;'>Question:</strong>"
-                    + '<span style="font-size: 12;color:grey;text-align:justify">'
-                    + self.get_submission()
-                    + "</span>"
-                    + "<strong style='color:red;'>Réponse:</strong>"
-                    + '<span style="font-size: 12;color:brown;text-align:justify">'
-                    + markdown_content
-                    + "</span>"
-                    + "</span>"
-                )
-            else:
-                html_entries += markdown_content
-
-            # entree2.set_html(html_entries)
-            entree2.update()
-
         def replace_in_place(
             texte: str, index1: str, index2: str, ponctuel: bool = True
         ):
-            entree1.replace(chars=texte, index1=index1, index2=index2)
+            entree_prompt_principal.replace(chars=texte, index1=index1, index2=index2)
 
         def translate_inplace():
             traduit_maintenant()
@@ -795,9 +823,9 @@ class Fenetre_entree(tk.Frame):
         def traduit_maintenant():
             was_a_list = False
             try:
-                texte_initial = entree1.get(tk.SEL_FIRST, tk.SEL_LAST)
-                indx1 = entree1.index(tk.SEL_FIRST)
-                indx2 = entree1.index(tk.SEL_LAST)
+                texte_initial = entree_prompt_principal.get(tk.SEL_FIRST, tk.SEL_LAST)
+                indx1 = entree_prompt_principal.index(tk.SEL_FIRST)
+                indx2 = entree_prompt_principal.index(tk.SEL_LAST)
 
                 texte_traite = traitement_du_texte(texte_initial, 500)
                 if isinstance(texte_traite, list):
@@ -816,19 +844,16 @@ class Fenetre_entree(tk.Frame):
                     )
 
             except:
-                texte_initial = entree1.get("1.0", tk.END)
+                texte_initial = entree_prompt_principal.get("1.0", tk.END)
                 texte_traite = traitement_du_texte(texte_initial, 500)
                 if isinstance(texte_traite, list):
                     for element in texte_traite:
                         translated_text = str(translate_it(text_to_translate=element))
-                        refresh_entree_html(translated_text, False)
                     was_a_list = True
                 elif was_a_list == True:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
-                    refresh_entree_html(translated_text, False)
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
-                    refresh_entree_html(translated_text, True)
                 self.talker("fin de la traduction", False)
 
         affiche_illustration(
@@ -839,100 +864,78 @@ class Fenetre_entree(tk.Frame):
             fenetre=self,
         )
 
-        button_frame = tk.Frame(self, relief="sunken", name="button_frame")
+        canvas_prompts = tk.Frame(self, relief="sunken")
+        canvas_globals_resp = tk.Frame(self, height=400)
+        canvas_globals_resp.pack(fill="both", expand=True)
+        cnvas = tk.Canvas(
+            canvas_globals_resp,
+            bg="#FFFFFF",
+            width=300,
+            height=400,
+            scrollregion=(0, 0, 500, 500),
+        )
+
+        canvas_prompts.pack(side=tk.BOTTOM, expand=True)
+        button_frame = tk.Frame(canvas_prompts, relief="sunken", name="button_frame")
         button_frame.configure(background=_from_rgb(DARK3))
+
+        scrollbar_global_response = tk.Scrollbar(canvas_globals_resp,orient="vertical")
+        scrollbar_global_response.pack(side=tk.RIGHT, fill="y")
+        scrollbar_global_response.configure(command=cnvas.yview, bg=_from_rgb(DARK2))
+        cnvas.config(height=400,yscrollcommand=scrollbar_global_response.set)
+        cnvas.pack(side=tk.RIGHT, expand=True, fill="both")
+
+        canvas_principal_prompt = tk.Frame(canvas_prompts, relief="sunken")
+
         button_frame.pack(fill="x", expand=True)
-        canvas_edition = tk.Frame(self, relief="sunken")
+        canvas_principal_prompt.pack(fill="x", expand=True)
 
-        canvas1 = tk.Frame(canvas_edition, relief="sunken")
-        boutons_effacer_canvas2 = tk.Frame(canvas_edition)
-        canvas2 = tk.Frame(canvas_edition, relief="sunken")
-
-        # TODO : transformer les entree1 et entree2 en liste
-        # de plusieurs question_tk_text et reponse_tk_text
-
-        canvas_edition.pack(fill="x", expand=True)
-        canvas1.pack(fill="x", expand=True)
-        boutons_effacer_canvas2.pack(fill="x", expand=True)
-        canvas2.pack(fill="x", expand=True)
-
-        # entree1 = tk.Text(canvas1, name="entree1")
         default_font = tkfont.nametofont("TkDefaultFont")
         default_font.configure(size=8)
-        entree1 = SimpleMarkdownText(canvas1, height=20, font=default_font)
+        entree_prompt_principal = SimpleMarkdownText(
+            canvas_principal_prompt, height=5, font=default_font
+        )
 
         # Attention la taille de la police, ici 10, ce parametre
         # tant à changer le cadre d'ouverture de la fenetre
-        entree1.configure(
+        entree_prompt_principal.configure(
             bg=_from_rgb(LIGHT2),
             fg=_from_rgb(DARK3),
-            font=("arial", 10),
+            font=("Arial", 12),
             wrap="word",
             padx=10,
             pady=6,
-            height=15,
         )
-        boutton_effacer_entree1 = tk.Button(
-            button_frame, text="x", command=clear_entree1
+        boutton_effacer_entree_prompt_principal = tk.Button(
+            button_frame, text="x", command=clear_entree_prompt_principal
         )
-        boutton_effacer_entree1.configure(bg="red", fg=_from_rgb(LIGHT3))
-        boutton_effacer_entree1.pack(side="right")
-        scrollbar1 = tk.Scrollbar(canvas1)
-        scrollbar1.pack(side=tk.RIGHT, fill="both")
-        entree1.tag_configure("italic", font=entree1.cget("font") + " italic")
-        entree1.insert_markdown(
+        boutton_effacer_entree_prompt_principal.configure(
+            bg="red", fg=_from_rgb(LIGHT3)
+        )
+        boutton_effacer_entree_prompt_principal.pack(side="right")
+        scrollbar_prompt_principal = tk.Scrollbar(canvas_principal_prompt)
+        scrollbar_prompt_principal.pack(side=tk.RIGHT, fill="both")
+        entree_prompt_principal.tag_configure(
+            "italic", font=str(entree_prompt_principal.cget("font") + " italic")
+        )
+        entree_prompt_principal.insert_markdown(
             mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
         )
-        entree1.focus_set()
-        entree1.pack(fill="both", expand=True)
-        entree1.configure(yscrollcommand=scrollbar1.set)
-        entree1.bind("<Control-Return>", func=go_submit)
+        entree_prompt_principal.focus_set()
+        entree_prompt_principal.pack(fill="both", expand=True)
+        entree_prompt_principal.configure(yscrollcommand=scrollbar_prompt_principal.set)
+        entree_prompt_principal.bind("<Control-Return>", func=go_submit)
 
         # Création d'un champ de saisie de l'utilisateur
-        boutton_effacer_entree2 = tk.Button(
-            boutons_effacer_canvas2, text="x", command=clear_entree2
+        scrollbar_prompt_principal.configure(
+            command=entree_prompt_principal.yview, bg=_from_rgb(DARK2)
         )
-
-        boutton_effacer_entree2.configure(bg="red", fg=_from_rgb(LIGHT3))
-        boutton_effacer_entree2.pack(side="right")
-        bouton_lire2 = tk.Button(
-            boutons_effacer_canvas2,
-            text="Lire",
-            command=lambda: lire_text_from_object(entree2),
-        )
-        bouton_lire2.configure(bg=_from_rgb(DARK3), fg=_from_rgb(LIGHT3))
-        bouton_lire2.pack(side=tk.RIGHT)
-        bouton_transfere = tk.Button(
-            boutons_effacer_canvas2,
-            text="Transférer",
-            command=lambda: entree1.insert_markdown(self.get_ai_response()),
-            bg=_from_rgb(LIGHT3),
-            fg=_from_rgb(DARK3),
-        )
-        bouton_transfere.pack(side=tk.RIGHT, fill="both")
-        scrollbar2 = tk.Scrollbar(canvas2)
-        scrollbar2.pack(side=tk.RIGHT, fill="both")
-        default_font = tkfont.nametofont("TkDefaultFont")
-        default_font.configure(size=8)
-        entree2 = SimpleMarkdownText(canvas2, height=20, font=default_font)
-        entree2.configure(
-            bg=_from_rgb(LIGHT3),
-            fg=_from_rgb(DARK2),
-            font=("arial ", 12),
-            height=15,
-            wrap="word",
-            padx=10,
-            pady=6,
-            yscrollcommand=scrollbar2.set,
-        )
-        entree2.pack(fill="both", expand=True)
-
-        scrollbar2.configure(command=entree2.yview, bg=_from_rgb(DARK2))
-        scrollbar1.configure(command=entree1.yview, bg=_from_rgb(DARK2))
 
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(
-            button_frame, text="Lire", command=lambda: lire_text_from_object(entree1)
+            button_frame,
+            text="Lire",
+            command=lambda: lire_text_from_object(entree_prompt_principal),
         )
         bouton_lire1.configure(
             bg=_from_rgb(DARK3),
@@ -976,7 +979,7 @@ class Fenetre_entree(tk.Frame):
         bouton_save_to_mp3 = tk.Button(
             button_frame,
             text="texte vers mp3",
-            command=lambda: textwidget_to_mp3(entree1),
+            command=lambda: textwidget_to_mp3(entree_prompt_principal),
         )
         bouton_save_to_mp3.configure(bg=_from_rgb(DARK1), fg=_from_rgb(LIGHT3))
         bouton_save_to_mp3.pack(side="left")
@@ -1153,7 +1156,7 @@ def clean_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
 def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
     default_font = tkfont.nametofont("TkDefaultFont")
     default_font.configure(size=8)
-    canvas_bouton_minimize = tk.Canvas(master=master, bg=_from_rgb(DARK3))
+    canvas_bouton_minimize = tk.Frame(master=master, bg=_from_rgb(DARK3))
     canvas_bouton_minimize.pack(fill="x", expand=True)
     infos_model = SimpleMarkdownText(master, font=default_font)
     bouton_minimize = tk.Button(
@@ -1270,13 +1273,6 @@ def affiche_illustration(
     # Add the image to the canvas, anchored at the top-left (northwest) corner
     canva.create_image(0, 0, anchor="nw", image=image, tags="bg_img")
     canva.pack(fill="x", expand=True)
-
-
-def _from_rgb(rgb):
-    """translates an rgb tuple of int to a tkinter friendly color code
-    You must give a tuplet (r,g,b) like _from_rgb((125,125,125))"""
-    r, g, b = rgb
-    return f"#{r:02x}{g:02x}{b:02x}"
 
 
 async def dire_tt(alire: str):
@@ -1418,6 +1414,7 @@ def main(prompt=False, stop_talking=STOP_TALKING):
     root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
 
     app.title = "MyApp"
+    # app.configure(height=FENETRE_HEIGHT)
 
     app.set_talker(say_txt)
     app.set_engine(rec)
