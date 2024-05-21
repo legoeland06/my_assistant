@@ -330,7 +330,6 @@ class Fenetre_entree(tk.Frame):
     ):
         super().__init__(master)
         self.master = master
-        self.pack()
         self.title = root.winfo_name()
         self.ia = LLAMA3
         self.submission = ""
@@ -342,8 +341,9 @@ class Fenetre_entree(tk.Frame):
         )
         self.image_link = ""
         self.content = ""
-        self.configure(height=800)
+        self.configure(padx=5, pady=5)
         # self.set_client(ollama)
+        self.pack()
         self.creer_fenetre(
             image=self.get_image(),
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
@@ -613,11 +613,11 @@ class Fenetre_entree(tk.Frame):
             self.set_ai_response(readable_ai_response)
 
             fenetre_response = FenetreResponse(
-                master=cnvas,
+                master=canvas_list_of_frames,
                 entree_recup=entree_prompt_principal,
                 ai_response=response_ai,
             )
-            fenetre_response.pack(fill="x", expand=True)
+            fenetre_response.pack(side=tk.BOTTOM, fill="both", expand=True)
             fenetre_response.set_talker(self.get_talker())
 
             # TODO : tester la langue, si elle n'est pas français,
@@ -654,7 +654,7 @@ class Fenetre_entree(tk.Frame):
             )
             fenetre_response.get_entree_response().insert(
                 tk.END,
-                datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n",
+                datetime.datetime.now().isoformat() + " <" + self.get_model() + "> - ",
                 "balise",
             )
             fenetre_response.get_entree_response().insert(
@@ -701,7 +701,7 @@ class Fenetre_entree(tk.Frame):
             )
             fenetre_response.get_entree_question().insert(
                 tk.END,
-                datetime.datetime.now().isoformat() + " <" + self.get_model() + ">\n",
+                datetime.datetime.now().isoformat() + " <" + self.get_model() + "> :: ",
                 "balise",
             )
             fenetre_response.get_entree_question().insert(
@@ -711,7 +711,7 @@ class Fenetre_entree(tk.Frame):
             )
 
             fenetre_response.get_entree_question().insert_markdown(
-                self.get_submission() + "\n\n"
+                self.get_submission() + "\n"
             )
             fenetre_response.get_entree_response().update()
             fenetre_response.get_entree_question().update()
@@ -864,42 +864,62 @@ class Fenetre_entree(tk.Frame):
             fenetre=self,
         )
 
-        canvas_prompts = tk.Frame(self, relief="sunken")
-        canvas_globals_resp = tk.Frame(self, height=400)
-        canvas_globals_resp.pack(fill="both", expand=True)
-        cnvas = tk.Canvas(
-            canvas_globals_resp,
-            bg="#FFFFFF",
-            width=300,
-            height=400,
-            scrollregion=(0, 0, 500, 500),
+        master_frame_actual_prompt = tk.Frame(self, relief="sunken")
+        master_frame_actual_prompt.pack(side=tk.BOTTOM, fill="both", expand=False)
+        button_frame = tk.Frame(
+            master_frame_actual_prompt, relief="sunken", name="button_frame"
+        )
+        button_frame.configure(background=_from_rgb(DARK3))
+        button_frame.pack(fill="x", expand=True)
+
+        master_frame_responses = tk.Canvas(
+            self,
+            bg="yellow",
+            width=BANNIERE_WIDTH - 15,
+            height=RESPONSES_HEIGHT,
+            # scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
+        )
+        master_frame_responses.pack(side=tk.BOTTOM, fill="x", expand=False)
+
+        canvas_of_scrollbar = tk.Canvas(
+            master_frame_responses,
+            bg="red",
+            height=RESPONSES_HEIGHT,
+            # scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
         )
 
-        canvas_prompts.pack(side=tk.BOTTOM, expand=True)
-        button_frame = tk.Frame(canvas_prompts, relief="sunken", name="button_frame")
-        button_frame.configure(background=_from_rgb(DARK3))
+        canvas_list_of_frames = tk.Canvas(
+            master_frame_responses,
+            bg=_from_rgb(LIGHT1),
+            width=BANNIERE_WIDTH - 15,
+            height=RESPONSES_HEIGHT,
+            scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
+        )
+        canvas_of_scrollbar.pack(side=tk.LEFT, expand=False, fill="y")
+        canvas_list_of_frames.pack(side=tk.RIGHT, expand=True, fill="both")
 
-        scrollbar_global_response = tk.Scrollbar(canvas_globals_resp,orient="vertical")
-        scrollbar_global_response.pack(side=tk.RIGHT, fill="y")
-        scrollbar_global_response.configure(command=cnvas.yview, bg=_from_rgb(DARK2))
-        cnvas.config(height=400,yscrollcommand=scrollbar_global_response.set)
-        cnvas.pack(side=tk.RIGHT, expand=True, fill="both")
+        scrollbar_responses = tk.Scrollbar(canvas_of_scrollbar, orient="vertical")
+        scrollbar_responses.config(
+            command=master_frame_responses.yview, bg=_from_rgb(DARK2)
+        )
+        scrollbar_responses.pack(side=tk.RIGHT, fill="y")
 
-        canvas_principal_prompt = tk.Frame(canvas_prompts, relief="sunken")
+        # canvas_of_scrollbar.config(yscrollcommand=scrollbar_responses.set)
+        master_frame_responses.config(yscrollcommand=scrollbar_responses.set)
 
-        button_frame.pack(fill="x", expand=True)
-        canvas_principal_prompt.pack(fill="x", expand=True)
+        frame_actual_prompt = tk.Frame(master_frame_actual_prompt, relief="sunken")
+        frame_actual_prompt.pack(side=tk.BOTTOM, fill="x", expand=True)
 
         default_font = tkfont.nametofont("TkDefaultFont")
         default_font.configure(size=8)
         entree_prompt_principal = SimpleMarkdownText(
-            canvas_principal_prompt, height=5, font=default_font
+            frame_actual_prompt, height=5, font=default_font
         )
 
         # Attention la taille de la police, ici 10, ce parametre
         # tant à changer le cadre d'ouverture de la fenetre
         entree_prompt_principal.configure(
-            bg=_from_rgb(LIGHT2),
+            bg=_from_rgb(LIGHT0),
             fg=_from_rgb(DARK3),
             font=("Arial", 12),
             wrap="word",
@@ -913,7 +933,7 @@ class Fenetre_entree(tk.Frame):
             bg="red", fg=_from_rgb(LIGHT3)
         )
         boutton_effacer_entree_prompt_principal.pack(side="right")
-        scrollbar_prompt_principal = tk.Scrollbar(canvas_principal_prompt)
+        scrollbar_prompt_principal = tk.Scrollbar(frame_actual_prompt)
         scrollbar_prompt_principal.pack(side=tk.RIGHT, fill="both")
         entree_prompt_principal.tag_configure(
             "italic", font=str(entree_prompt_principal.cget("font") + " italic")
