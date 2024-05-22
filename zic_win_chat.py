@@ -7,9 +7,11 @@ import re
 import threading
 import time
 import tkinter as tk
-from tkinter import Event, StringVar, messagebox
-from tkinter import filedialog
+
+# from tkinter import simpledialog
 from tkinter import simpledialog
+from tkinter import messagebox
+from tkinter import filedialog
 import tkinter.font as tkfont
 import tkinter.scrolledtext as tkscroll
 from typing import Any, Mapping
@@ -29,11 +31,11 @@ import subprocess
 from spacy.lang.fr import French
 from spacy.lang.en import English
 from PIL import Image, ImageTk
-from ClassOutils import _from_rgb, lire_text_from_object
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 from FenetreResponse import FenetreResponse
 from Constants import *
+from outils import _from_rgb
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
@@ -303,6 +305,378 @@ def traitement_rapide(texte: str, model_to_use, talking: bool, moteur_diction):
     )
     readable_ai_response = ai_response
     app.get_talker()(readable_ai_response, False)
+
+
+def lire_text_from_object(object: tk.Text, talker: any):
+    texte_to_talk = object.get("1.0", tk.END)
+
+    if texte_to_talk != "":
+        try:
+            texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except:
+            texte_to_talk = object.get("1.0", tk.END)
+        finally:
+            talker(texte_to_talk, False)
+
+
+def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
+    button.destroy()
+    text_area.destroy()
+
+
+def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
+    default_font = tkfont.nametofont("TkDefaultFont")
+    default_font.configure(size=8)
+    canvas_bouton_minimize = tk.Frame(master=master, bg=_from_rgb(DARK3))
+    canvas_bouton_minimize.pack(fill="x", expand=True)
+    infos_model = SimpleMarkdownText(master, font=default_font)
+    bouton_minimize = tk.Button(
+        canvas_bouton_minimize,
+        text="-",
+        command=lambda: close_infos_model(
+            button=canvas_bouton_minimize, text_area=infos_model
+        ),
+        fg=_from_rgb(DARK3),
+        bg="red",
+    )
+    bouton_minimize.pack(side=tk.RIGHT)
+    infos_model.configure(background=_from_rgb(DARK3), fg=_from_rgb(LIGHT3), height=11)
+    print("okok")
+    jsonified = (
+        json.dumps(
+            content["details"],
+            indent=4,
+        )
+        + "\n"
+    )
+
+    print(jsonified)
+    infos_model.pack(fill="x", expand=True)
+    infos_model.insert_markdown(mkd_text=jsonified)
+
+
+def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
+    """
+    ### traitement_du_texte
+    #### si le texte possède plus de <number> caractères :
+        on coupe le texte en plusieurs listes de maximum <number> caractères
+        et on renvois cette liste de liste
+    #### sinon :
+        on envois le texte telquel
+
+    ### RETURN : str ou List
+    """
+    # on découpe le texte par mots
+    liste_of_words = texte.split()
+    if len(liste_of_words) >= number:
+        list_of_large_text: list[list[str]] = []
+        new_list: list[str] = []
+        counter = 0
+        for word in liste_of_words:
+            counter += len(word) + 1
+            new_list.append(word)
+            if counter >= number:
+                list_of_large_text.append(new_list)
+                new_list = []
+                counter = 0
+        return list_of_large_text
+    else:
+        return texte
+
+
+def affiche_ia_list(list_to_check: list):
+    """
+    Display a list of AI you can use
+    * affiche la listebox avec la liste donnée en paramètre list_to_check
+    * click on it cause model AI to change
+    """
+    _listbox: tk.Listbox = traite_listbox(list_to_check)
+    _listbox.bind("<<ListboxSelect>>", func=load_selected_model)
+
+
+def affiche_prepromts(list_to_check: list):
+    """Diplays premprompts
+    * asking for keywords about this subject
+    * enregistre ces mot-cles dans l'attribut motcle de la classe app.
+    * puis les insère dans <motcles_widget> de la fenetre principal
+    * affiche la listebox avec la liste donnée en paramètre list_to_check
+
+    ### TODO : make it possible to display the prompt directly when clic of or when hovering over the prompt categories
+    """
+    # ouvre une boite dialog et récupère la sortie
+    mots_cle = simpledialog.askstring(
+        title="YourAssistant - pré-prompts",
+        initialvalue="Python",
+        prompt="Veuillez entrer le mot-clé à traiter",
+    )
+
+    # on set l'attribut motcle de la classe
+    app.set_motcle(mots_cle.split())
+
+    # on récupère le tk.Entry de la fenetre principale : frame_of_buttons_principal.motcles_widget
+    # on le clean et on y insère le thème récupéré par la simpledialog auparavant
+    _speciality_widget: tk.Entry = app.nametowidget(
+        "frame_of_buttons_principal.motcles_widget"
+    )
+    _speciality_widget.select_range("1.0", tk.END)
+    _speciality_widget.selection_clear()
+    _speciality_widget.insert(0, mots_cle)
+
+    # crée et affiche une _listbox remplie avec la variable list_to_check
+    _listbox: tk.Listbox = traite_listbox(list_to_check)
+
+    # bind sur l'événement sélection d'un item de la liste
+    # vers la fonction charge_preprompt
+    _listbox.bind("<<ListboxSelect>>", func=charge_preprompt)
+
+
+def traite_listbox(list_to_check: list):
+    frame = tk.Tk(className="list_ia")
+    frame.grid_location(root.winfo_x() + 50, root.winfo_y() + 30)
+    _list_box = tk.Listbox(frame)
+    scrollbar_listbox = tk.Scrollbar(frame)
+    scrollbar_listbox.configure(command=_list_box.yview)
+
+    _list_box.pack(side=tk.LEFT, fill="both")
+    for item in list_to_check:
+        _list_box.insert(tk.END, item)
+    _list_box.configure(
+        background="red",
+        foreground=_from_rgb(DARK3),
+        yscrollcommand=scrollbar_listbox.set,
+    )
+    scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
+
+    return _list_box
+
+
+def maximize(object: SimpleMarkdownText):
+    object.configure(height=11)
+
+
+def minimize(object: SimpleMarkdownText):
+    object.destroy()
+
+
+def charge_preprompt(evt: tk.Event):
+    """gère la sélection d'un élément dans une listebox Tkinter,
+    récupère la valeur sélectionnée, obtient un préprompt correspondant,
+      l'ajoute à une application et affiche un message en conséquence."""
+    try:
+        # Note here that Tkinter passes an event object to onselect()
+        w: tk.Listbox = evt.widget
+        idx = w.curselection()
+        print("idx=" + str(idx) + "fin")
+        index = idx[0]
+        value: str = w.get(index)
+
+        print('You selected item : "%s"' % value)
+
+        preprompt = get_pre_prompt(
+            rubrique=value,
+            prompt_name=str(app.get_motcle()).lower(),
+        )
+        app.set_submission(preprompt)
+
+        app.get_talker()("prépromt ajouté : " + preprompt, False)
+
+    except:
+        print("aucun préprompt sélectionné")
+        app.get_talker()("Oups", False)
+    finally:
+        w.focus_get().destroy()
+
+
+def load_selected_model(evt: tk.Event):
+    # Note here that Tkinter passes an event object to onselect()
+    w: tk.Listbox = evt.widget
+    try:
+        index = w.curselection()[0]
+        value = w.get(index)
+        print('You selected item %d: "%s"' % (index, value))
+        app.set_model(name_ia=str(value))
+        _widget: tk.Button = app.nametowidget("cnvs1.cnvs2.btnlist")
+        _widget.configure(text=value)
+        model_info = ollama.show(app.get_model())
+        app.get_talker()("ok", False)
+        display_infos_model(master=app.nametowidget("cnvs1"), content=model_info)
+    except:
+        print("aucune ia sélectionner")
+        app.get_talker()("Oups", False)
+    finally:
+        w.focus_get().destroy()
+
+
+async def dire_tt(alire: str):
+    lecteur.say(alire)
+    lecteur.runAndWait()
+
+    # lecteur.endLoop()
+    return lecteur.stop()
+
+
+# TODO : loop async for saytt
+def start_loop_saying(texte: str):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
+
+
+def say_tt(alire: str):
+    the_thread = threading.Thread(target=start_loop_saying(texte=alire))
+    the_thread.start()
+
+
+def say_txt(alire: str, stop_ecoute: bool):
+    if not STOP_TALKING:
+        if stop_ecoute:
+            arret_ecoute()
+        lecteur.say(alire)
+        lecteur.runAndWait()
+        lecteur.stop()
+
+
+def arret_ecoute():
+    stream.stop_stream()
+
+
+def debut_ecoute(info: str = ""):
+    say_txt(info, False)
+    stream.start_stream()
+    return 0, ""
+
+
+def read_prompt_file(file):
+    with open(file, "r", encoding="utf-8") as file_to_read:
+        content = file_to_read.readlines()
+    return content
+
+
+def changer_ia(self, evt):
+    # Note here that Tkinter passes an event object to onselect()
+    w = evt.widget
+    index = int(w.curselection()[0])
+    value = w.get(index)
+    print('You selected item %d: "%s"' % (index, value))
+    self.set_model(value)
+
+
+def translate_it(text_to_translate: str) -> str:
+    """
+    traduit le text reçu par maximum de 500 caractères. Si le text est une liste, on la traduit une à une str
+    @param text: desired text to translate, maximum de 500 caractères
+    @return: str: translated text
+    """
+
+    # Use any translator you like, in this example GoogleTranslator
+    from deep_translator import GoogleTranslator as _translator
+
+    if not isinstance(text_to_translate, str):
+        reformat_translated = " ".join(str(x) for x in text_to_translate)
+    else:
+        reformat_translated = text_to_translate
+
+    translated = _translator(source="auto", target="fr").translate(
+        text=reformat_translated
+    )  # output -> Weiter so, du bist großartig
+
+    # print(translated)
+    return translated
+
+
+def actualise_index_html(texte: str, question: str, timing: float):
+    if len(question) > 500:
+        question = question[:499] + "..."
+    with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
+        markdown_response = markdown.markdown(texte, output_format="xhtml")
+        markdown_question = markdown.markdown(question, output_format="xhtml")
+        file_to_update.write(
+            "<div id='response_ai'>"
+            + "<div id=question_to_ai>"
+            + "<span class='btn btn-success'> "
+            + app.get_model()
+            + "</span> "
+            + "<span><strong>"
+            + str(timing)
+            + " secodnes "
+            + "</strong></span>"
+            + "<h3>Prompt</h3>"
+            + markdown_question
+            + "\n"
+            + "</div>"
+            + markdown_response
+            + "\n"
+            + "</div>"
+        )
+
+
+def main(prompt=False, stop_talking=STOP_TALKING):
+    """Début du programme principal"""
+    if prompt:
+        model_used = init_model(LLAMA3, prompted=True)
+        return traitement_rapide(
+            prompt,
+            model_to_use=model_used,
+            talking=stop_talking,
+            moteur_diction=say_tt,
+        )
+
+    model_used = init_model(LLAMA3, prompted=False)
+    say_txt("IA initialisée ! ", stop_ecoute=False)
+    print(
+        "ZicChatbotAudio\n"
+        + STARS * WIDTH_TERM
+        + "\nChargement... Veuillez patienter\n"
+        + STARS * WIDTH_TERM
+    )
+
+    # prend beaucoup de temp
+    # passer ça en asynchrone
+    model_ecouteur_micro = engine_ecouteur_init()
+
+    say_txt("micro audio initialisé", False)
+
+    # Create a recognizer
+    rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
+    say_txt("reconnaissance vocale initialisée", False)
+
+    # root = tk.Tk()
+    root.title = "RootTitle - "
+    root.resizable(False, False)
+    root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
+
+    app.title = "MyApp"
+    # app.configure(height=FENETRE_HEIGHT)
+
+    app.set_talker(say_txt)
+    app.set_engine(rec)
+    app.mainloop()
+
+
+def init_main():
+    # Open the microphone stream
+    p = pyaudio.PyAudio()
+    stream = p.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16000,
+        input=True,
+        frames_per_buffer=8192,
+    )
+
+    my_liste = []
+    for element in (ollama.list())["models"]:
+        my_liste.append(element["name"])
+
+    print(my_liste)
+    return my_liste, stream
+
+
+def init_start(engine_lecteur_init, init_main):
+    my_liste, stream = init_main()
+
+    lecteur = engine_lecteur_init()
+    return lecteur, my_liste, stream
 
 
 class Fenetre_entree(tk.Frame):
@@ -856,28 +1230,30 @@ class Fenetre_entree(tk.Frame):
                     translated_text = str(translate_it(text_to_translate=texte_traite))
                 self.talker("fin de la traduction", False)
 
-        affiche_illustration(
-            self,
-            image=image,
-            quitter=lambda: quitter(self=root),
-            message="... Jonathan LivingStone, dit legoeland",
+        affiche_banniere(
             fenetre=self,
+            image_banniere=image,
+            quitter_app=lambda: quitter(self=root),
+            slogan="... Jonathan LivingStone, dit legoeland",
         )
+
+        # préparation de l'espace de saisie des prompts
 
         master_frame_actual_prompt = tk.Frame(self, relief="sunken")
         master_frame_actual_prompt.pack(side=tk.BOTTOM, fill="both", expand=False)
-        button_frame = tk.Frame(
-            master_frame_actual_prompt, relief="sunken", name="button_frame"
+        frame_of_buttons_principal = tk.Frame(
+            master_frame_actual_prompt,
+            relief="sunken",
+            name="frame_of_buttons_principal",
         )
-        button_frame.configure(background=_from_rgb(DARK3))
-        button_frame.pack(fill="x", expand=True)
+        frame_of_buttons_principal.configure(background=_from_rgb(DARK3))
+        frame_of_buttons_principal.pack(fill="x", expand=True)
 
         master_frame_responses = tk.Canvas(
             self,
             bg="yellow",
             width=BANNIERE_WIDTH - 15,
             height=RESPONSES_HEIGHT,
-            # scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
         )
         master_frame_responses.pack(side=tk.BOTTOM, fill="x", expand=False)
 
@@ -885,7 +1261,6 @@ class Fenetre_entree(tk.Frame):
             master_frame_responses,
             bg="red",
             height=RESPONSES_HEIGHT,
-            # scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
         )
 
         canvas_list_of_frames = tk.Canvas(
@@ -904,7 +1279,6 @@ class Fenetre_entree(tk.Frame):
         )
         scrollbar_responses.pack(side=tk.RIGHT, fill="y")
 
-        # canvas_of_scrollbar.config(yscrollcommand=scrollbar_responses.set)
         master_frame_responses.config(yscrollcommand=scrollbar_responses.set)
 
         frame_actual_prompt = tk.Frame(master_frame_actual_prompt, relief="sunken")
@@ -912,6 +1286,7 @@ class Fenetre_entree(tk.Frame):
 
         default_font = tkfont.nametofont("TkDefaultFont")
         default_font.configure(size=8)
+
         entree_prompt_principal = SimpleMarkdownText(
             frame_actual_prompt, height=5, font=default_font
         )
@@ -927,7 +1302,7 @@ class Fenetre_entree(tk.Frame):
             pady=6,
         )
         boutton_effacer_entree_prompt_principal = tk.Button(
-            button_frame, text="x", command=clear_entree_prompt_principal
+            frame_of_buttons_principal, text="x", command=clear_entree_prompt_principal
         )
         boutton_effacer_entree_prompt_principal.configure(
             bg="red", fg=_from_rgb(LIGHT3)
@@ -953,9 +1328,11 @@ class Fenetre_entree(tk.Frame):
 
         # Création d'un bouton pour Lire
         bouton_lire1 = tk.Button(
-            button_frame,
+            frame_of_buttons_principal,
             text="Lire",
-            command=lambda: lire_text_from_object(entree_prompt_principal),
+            command=lambda: lire_text_from_object(
+                entree_prompt_principal, talker=self.talker
+            ),
         )
         bouton_lire1.configure(
             bg=_from_rgb(DARK3),
@@ -968,7 +1345,7 @@ class Fenetre_entree(tk.Frame):
 
         # Création d'un bouton pour traduction_sur_place
         bouton_traduire_sur_place = tk.Button(
-            button_frame, text="Traduire", command=translate_inplace
+            frame_of_buttons_principal, text="Traduire", command=translate_inplace
         )
         bouton_traduire_sur_place.configure(
             bg=_from_rgb(DARK2),
@@ -980,14 +1357,16 @@ class Fenetre_entree(tk.Frame):
 
         # Création d'un bouton pour Dicter
         bouton_commencer_diction = tk.Button(
-            button_frame, text=" ф ", command=lance_ecoute
+            frame_of_buttons_principal, text=" ф ", command=lance_ecoute
         )
         bouton_commencer_diction.configure(bg="red", fg=_from_rgb(LIGHT3))
 
         bouton_commencer_diction.pack(side=tk.LEFT)
 
         # Création d'un bouton pour soumetre
-        bouton_soumetre = tk.Button(button_frame, text="Ask to AI", command=soumettre)
+        bouton_soumetre = tk.Button(
+            frame_of_buttons_principal, text="Ask to AI", command=soumettre
+        )
         bouton_soumetre.configure(
             bg=_from_rgb((120, 120, 120)),
             fg=_from_rgb(LIGHT3),
@@ -997,23 +1376,27 @@ class Fenetre_entree(tk.Frame):
         bouton_soumetre.pack(side=tk.LEFT)
 
         bouton_save_to_mp3 = tk.Button(
-            button_frame,
+            frame_of_buttons_principal,
             text="texte vers mp3",
             command=lambda: textwidget_to_mp3(entree_prompt_principal),
         )
         bouton_save_to_mp3.configure(bg=_from_rgb(DARK1), fg=_from_rgb(LIGHT3))
         bouton_save_to_mp3.pack(side="left")
 
-        bouton_load_pdf = tk.Button(button_frame, text="Charger Pdf", command=load_pdf)
+        bouton_load_pdf = tk.Button(
+            frame_of_buttons_principal, text="Charger Pdf", command=load_pdf
+        )
         bouton_load_pdf.configure(bg=_from_rgb(DARK2), fg=_from_rgb(LIGHT3))
         bouton_load_pdf.pack(side="left")
 
-        bouton_load_txt = tk.Button(button_frame, text="Charger TXT", command=load_txt)
+        bouton_load_txt = tk.Button(
+            frame_of_buttons_principal, text="Charger TXT", command=load_txt
+        )
         bouton_load_txt.configure(bg=_from_rgb(DARK3), fg=_from_rgb((255, 255, 255)))
         bouton_load_txt.pack(side="left")
 
         motcles_widget = tk.Entry(
-            button_frame,
+            frame_of_buttons_principal,
             name="motcles_widget",
             width=30,
             fg="red",
@@ -1022,7 +1405,7 @@ class Fenetre_entree(tk.Frame):
             relief="flat",
         )
         button_keywords = tk.Button(
-            button_frame,
+            frame_of_buttons_principal,
             text="Mot-clé",
             background=_from_rgb(DARK2),
             foreground=_from_rgb(LIGHT3),
@@ -1032,213 +1415,32 @@ class Fenetre_entree(tk.Frame):
         motcles_widget.pack(side="left", padx=2, pady=2)
 
         # TODO NE fonctionne pas pour mettre en pause la lecture à haute voix
-        # bouton_stop=tk.Button(button_frame,text="Stop",command=lecteur.endLoop)
-        # bouton_reprendre=tk.Button(button_frame,text="reprendre",command=lecteur.startLoop)
+        # bouton_stop=tk.Button(frame_of_buttons_principal,text="Stop",command=lecteur.endLoop)
+        # bouton_reprendre=tk.Button(frame_of_buttons_principal,text="reprendre",command=lecteur.startLoop)
         # bouton_stop.pack(side=tk.LEFT)
         # bouton_reprendre.pack(side=tk.LEFT)
 
 
-def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
-    """
-    ### traitement_du_texte
-    #### si le texte possède plus de <number> caractères :
-        on coupe le texte en plusieurs listes de maximum <number> caractères
-        et on renvois cette liste de liste
-    #### sinon :
-        on envois le texte telquel
-
-    ### RETURN : str ou List
-    """
-    # on découpe le texte par mots
-    liste_of_words = texte.split()
-    if len(liste_of_words) >= number:
-        list_of_large_text: list[list[str]] = []
-        new_list: list[str] = []
-        counter = 0
-        for word in liste_of_words:
-            counter += len(word) + 1
-            new_list.append(word)
-            if counter >= number:
-                list_of_large_text.append(new_list)
-                new_list = []
-                counter = 0
-        return list_of_large_text
-    else:
-        return texte
-
-
-def affiche_ia_list(list_to_check: list):
-    """
-    Display a list of AI you can use
-    * affiche la listebox avec la liste donnée en paramètre list_to_check
-    * click on it cause model AI to change
-    """
-    _listbox: tk.Listbox = traite_listbox(list_to_check)
-    _listbox.bind("<<ListboxSelect>>", func=change_model_ia)
-
-
-def affiche_prepromts(list_to_check: list):
-    """Diplays premprompts
-    * asking for keywords about this subject
-    * enregistre ces mot-cles dans l'attribut motcle de la classe app.
-    * puis les insère dans <motcles_widget> de la fenetre principal
-    * affiche la listebox avec la liste donnée en paramètre list_to_check
-
-    ### TODO : make it possible to display the prompt directly when clic of or when hovering over the prompt categories
-    """
-    # ouvre une boite dialog et récupère la sortie
-    mots_cle = simpledialog.askstring(
-        title="YourAssistant - pré-prompts",
-        initialvalue="Python",
-        prompt="Veuillez entrer le mot-clé à traiter",
-    )
-
-    # on set l'attribut motcle de la classe
-    app.set_motcle(mots_cle.split())
-
-    # on récupère le tk.Entry de la fenetre principale : button_frame.motcles_widget
-    # on le clean et on y insère le thème récupéré par la simpledialog auparavant
-    _speciality_widget: tk.Entry = app.nametowidget("button_frame.motcles_widget")
-    _speciality_widget.select_range("1.0", tk.END)
-    _speciality_widget.selection_clear()
-    _speciality_widget.insert(0, mots_cle)
-
-    # crée et affiche une _listbox remplie avec la variable list_to_check
-    _listbox: tk.Listbox = traite_listbox(list_to_check)
-
-    # bind sur l'événement sélection d'un item de la liste
-    # vers la fonction charge_preprompt
-    _listbox.bind("<<ListboxSelect>>", func=charge_preprompt)
-
-
-def traite_listbox(list_to_check: list):
-    frame = tk.Tk(className="list_ia")
-    frame.grid_location(root.winfo_x() + 50, root.winfo_y() + 30)
-    _list_box = tk.Listbox(frame)
-    scrollbar_listbox = tk.Scrollbar(frame)
-    scrollbar_listbox.configure(command=_list_box.yview)
-
-    _list_box.pack(side=tk.LEFT, fill="both")
-    for item in list_to_check:
-        _list_box.insert(tk.END, item)
-    _list_box.configure(
-        background="red",
-        foreground=_from_rgb(DARK3),
-        yscrollcommand=scrollbar_listbox.set,
-    )
-    scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
-
-    return _list_box
-
-
-def maximize(object: SimpleMarkdownText):
-    object.configure(height=11)
-
-
-def minimize(object: SimpleMarkdownText):
-    object.destroy()
-
-
-def charge_preprompt(evt: tk.Event):
-    """gère la sélection d'un élément dans une listebox Tkinter,
-    récupère la valeur sélectionnée, obtient un préprompt correspondant,
-      l'ajoute à une application et affiche un message en conséquence."""
-    try:
-        # Note here that Tkinter passes an event object to onselect()
-        w: tk.Listbox = evt.widget
-        idx = w.curselection()
-        print("idx=" + str(idx) + "fin")
-        index = idx[0]
-        value: str = w.get(index)
-
-        print('You selected item : "%s"' % value)
-
-        preprompt = get_pre_prompt(
-            rubrique=value,
-            prompt_name=str(app.get_motcle()).lower(),
-        )
-        app.set_submission(preprompt)
-
-        app.get_talker()("prépromt ajouté : " + preprompt, False)
-
-    except:
-        print("aucun préprompt sélectionné")
-        app.get_talker()("Oups", False)
-    finally:
-        w.focus_get().destroy()
-
-
-def clean_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
-    button.destroy()
-    text_area.destroy()
-
-
-def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
-    default_font = tkfont.nametofont("TkDefaultFont")
-    default_font.configure(size=8)
-    canvas_bouton_minimize = tk.Frame(master=master, bg=_from_rgb(DARK3))
-    canvas_bouton_minimize.pack(fill="x", expand=True)
-    infos_model = SimpleMarkdownText(master, font=default_font)
-    bouton_minimize = tk.Button(
-        canvas_bouton_minimize,
-        text="-",
-        command=lambda: clean_infos_model(
-            button=canvas_bouton_minimize, text_area=infos_model
-        ),
-        fg=_from_rgb(DARK3),
-        bg="red",
-    )
-    bouton_minimize.pack(side=tk.RIGHT)
-    infos_model.configure(background=_from_rgb(DARK3), fg=_from_rgb(LIGHT3), height=11)
-    print("okok")
-    jsonified = (
-        json.dumps(
-            content["details"],
-            indent=4,
-        )
-        + "\n"
-    )
-
-    print(jsonified)
-    infos_model.pack(fill="x", expand=True)
-    infos_model.insert_markdown(mkd_text=jsonified)
-
-
-def change_model_ia(evt: tk.Event):
-    # Note here that Tkinter passes an event object to onselect()
-    w: tk.Listbox = evt.widget
-    try:
-        index = w.curselection()[0]
-        value = w.get(index)
-        print('You selected item %d: "%s"' % (index, value))
-        app.set_model(name_ia=str(value))
-        _widget: tk.Button = app.nametowidget("cnvs1.cnvs2.btnlist")
-        _widget.configure(text=value)
-        model_info = ollama.show(app.get_model())
-        app.get_talker()("ok", False)
-        display_infos_model(master=app.nametowidget("cnvs1"), content=model_info)
-    except:
-        print("aucune ia sélectionner")
-        app.get_talker()("Oups", False)
-    finally:
-        w.focus_get().destroy()
-
-
-def affiche_illustration(
-    self: Fenetre_entree, image: ImageTk, fenetre, message, quitter
+def affiche_banniere(
+    fenetre: Fenetre_entree, image_banniere: ImageTk, slogan, quitter_app
 ):
-    """affiche l'illustration du goeland ainsi que son slogan"""
+    """affiche l'illustration (la bannière) et les boutons de saisie système
+    * bouton quitter
+    * sélection du clien Ola ou ollama...
+    * sélection du modèle d'ia ...."""
     # ## PRESENTATION DU GOELAND  ####
-    cnvs1 = tk.Frame(fenetre, background=_from_rgb(DARK2), name="cnvs1")
-    cnvs1.pack(fill="x", expand=True)
+    canvas_principal_banniere = tk.Frame(
+        fenetre, background=_from_rgb(DARK2), name="cnvs1"
+    )
+    canvas_principal_banniere.pack(fill="x", expand=True)
     # ################################
-    cnvs2 = tk.Frame(cnvs1, name="cnvs2")
-    cnvs2.configure(bg=_from_rgb(DARK3))
-    cnvs2.pack(fill="x", expand=False)
+    canvas_buttons_banniere = tk.Frame(canvas_principal_banniere, name="cnvs2")
+    canvas_buttons_banniere.configure(bg=_from_rgb(DARK3))
+    canvas_buttons_banniere.pack(fill="x", expand=False)
 
     # Create a canvas
-    canva = tk.Canvas(
-        cnvs1,
+    canvas_image_banniere = tk.Canvas(
+        canvas_principal_banniere,
         height=BANNIERE_HEIGHT,
         width=BANNIERE_WIDTH,
         background=_from_rgb(DARK2),
@@ -1246,14 +1448,16 @@ def affiche_illustration(
     )
 
     # Création d'un bouton pour quitter
-    bouton_quitter = tk.Button(cnvs2, text="Quitter", command=quitter)
+    bouton_quitter = tk.Button(
+        canvas_buttons_banniere, text="Quitter", command=quitter_app
+    )
     bouton_quitter.configure(background=_from_rgb(DARK3), foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
 
     bouton_Ola = tk.Button(
-        cnvs2,
+        canvas_buttons_banniere,
         text="Ola",
-        command=lambda: self.set_client(Ola),
+        command=lambda: fenetre.set_client(Ola),
         highlightthickness=3,
         highlightcolor="yellow",
     )
@@ -1261,17 +1465,19 @@ def affiche_illustration(
     bouton_Ola.pack(side=tk.LEFT)
 
     bouton_Ollama = tk.Button(
-        cnvs2,
+        canvas_buttons_banniere,
         text="Ollama",
-        command=lambda: self.set_client(ollama.Client(host="http://127.0.0.1:11434")),
+        command=lambda: fenetre.set_client(
+            ollama.Client(host="http://127.0.0.1:11434")
+        ),
         highlightthickness=3,
         highlightcolor="yellow",
     )
     bouton_Ollama.configure(background=_from_rgb(LIGHT3), foreground=_from_rgb(DARK3))
     bouton_Ollama.pack(side=tk.LEFT)
 
-    bouton_liste = tk.Button(
-        cnvs2,
+    bouton_display_list_models = tk.Button(
+        canvas_buttons_banniere,
         name="btnlist",
         text="Changer d'IA",
         background="red",
@@ -1279,192 +1485,22 @@ def affiche_illustration(
         command=lambda: affiche_ia_list(my_liste),
     )
 
-    label = tk.Label(
-        cnvs2,
-        text=message,
+    label_slogan = tk.Label(
+        canvas_buttons_banniere,
+        text=slogan,
         font=("Trebuchet", 8),
         fg=_from_rgb(LIGHT3),
         bg=_from_rgb(DARK2),
     )
 
-    label.pack(side=tk.RIGHT, expand=False)
-    bouton_liste.pack(side=tk.RIGHT, expand=False)
+    label_slogan.pack(side=tk.RIGHT, expand=False)
+    bouton_display_list_models.pack(side=tk.RIGHT, expand=False)
 
     # Add the image to the canvas, anchored at the top-left (northwest) corner
-    canva.create_image(0, 0, anchor="nw", image=image, tags="bg_img")
-    canva.pack(fill="x", expand=True)
-
-
-async def dire_tt(alire: str):
-    lecteur.say(alire)
-    lecteur.runAndWait()
-
-    # lecteur.endLoop()
-    return lecteur.stop()
-
-
-# TODO : loop async for saytt
-def start_loop_saying(texte: str):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
-
-
-def say_tt(alire: str):
-    the_thread = threading.Thread(target=start_loop_saying(texte=alire))
-    the_thread.start()
-
-
-def say_txt(alire: str, stop_ecoute: bool):
-    if not STOP_TALKING:
-        if stop_ecoute:
-            arret_ecoute()
-        lecteur.say(alire)
-        lecteur.runAndWait()
-        lecteur.stop()
-
-
-def arret_ecoute():
-    stream.stop_stream()
-
-
-def debut_ecoute(info: str = ""):
-    say_txt(info, False)
-    stream.start_stream()
-    return 0, ""
-
-
-def read_prompt_file(file):
-    with open(file, "r", encoding="utf-8") as file_to_read:
-        content = file_to_read.readlines()
-    return content
-
-
-def changer_ia(self, evt):
-    # Note here that Tkinter passes an event object to onselect()
-    w = evt.widget
-    index = int(w.curselection()[0])
-    value = w.get(index)
-    print('You selected item %d: "%s"' % (index, value))
-    self.set_model(value)
-
-
-def translate_it(text_to_translate: str) -> str:
-    """
-    traduit le text reçu par maximum de 500 caractères. Si le text est une liste, on la traduit une à une str
-    @param text: desired text to translate, maximum de 500 caractères
-    @return: str: translated text
-    """
-
-    # Use any translator you like, in this example GoogleTranslator
-    from deep_translator import GoogleTranslator as _translator
-
-    if not isinstance(text_to_translate, str):
-        reformat_translated = " ".join(str(x) for x in text_to_translate)
-    else:
-        reformat_translated = text_to_translate
-
-    translated = _translator(source="auto", target="fr").translate(
-        text=reformat_translated
-    )  # output -> Weiter so, du bist großartig
-
-    # print(translated)
-    return translated
-
-
-def actualise_index_html(texte: str, question: str, timing: float):
-    if len(question) > 500:
-        question = question[:499] + "..."
-    with open("index" + ".html", "a", encoding="utf-8") as file_to_update:
-        markdown_response = markdown.markdown(texte, output_format="xhtml")
-        markdown_question = markdown.markdown(question, output_format="xhtml")
-        file_to_update.write(
-            "<div id='response_ai'>"
-            + "<div id=question_to_ai>"
-            + "<span class='btn btn-success'> "
-            + app.get_model()
-            + "</span> "
-            + "<span><strong>"
-            + str(timing)
-            + " secodnes "
-            + "</strong></span>"
-            + "<h3>Prompt</h3>"
-            + markdown_question
-            + "\n"
-            + "</div>"
-            + markdown_response
-            + "\n"
-            + "</div>"
-        )
-
-
-def main(prompt=False, stop_talking=STOP_TALKING):
-    """Début du programme principal"""
-    if prompt:
-        model_used = init_model(LLAMA3, prompted=True)
-        return traitement_rapide(
-            prompt,
-            model_to_use=model_used,
-            talking=stop_talking,
-            moteur_diction=say_tt,
-        )
-
-    model_used = init_model(LLAMA3, prompted=False)
-    say_txt("IA initialisée ! ", stop_ecoute=False)
-    print(
-        "ZicChatbotAudio\n"
-        + STARS * WIDTH_TERM
-        + "\nChargement... Veuillez patienter\n"
-        + STARS * WIDTH_TERM
+    canvas_image_banniere.create_image(
+        0, 0, anchor="nw", image=image_banniere, tags="bg_img"
     )
-
-    # prend beaucoup de temp
-    # passer ça en asynchrone
-    model_ecouteur_micro = engine_ecouteur_init()
-
-    say_txt("micro audio initialisé", False)
-
-    # Create a recognizer
-    rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    say_txt("reconnaissance vocale initialisée", False)
-
-    # root = tk.Tk()
-    root.title = "RootTitle - "
-    root.resizable(False, False)
-    root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
-
-    app.title = "MyApp"
-    # app.configure(height=FENETRE_HEIGHT)
-
-    app.set_talker(say_txt)
-    app.set_engine(rec)
-    app.mainloop()
-
-
-def init_main():
-    # Open the microphone stream
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16000,
-        input=True,
-        frames_per_buffer=8192,
-    )
-
-    my_liste = []
-    for element in (ollama.list())["models"]:
-        my_liste.append(element["name"])
-
-    print(my_liste)
-    return my_liste, stream
-
-
-def init_start(engine_lecteur_init, init_main):
-    my_liste, stream = init_main()
-
-    lecteur = engine_lecteur_init()
-    return lecteur, my_liste, stream
+    canvas_image_banniere.pack(fill="x", expand=True)
 
 
 # Début du programme
@@ -1476,6 +1512,7 @@ app = Fenetre_entree(
     stream=stream,
     model_to_use=LLAMA3,
 )
+
 
 if __name__ == "__main__":
     import argparse
