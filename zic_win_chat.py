@@ -35,7 +35,7 @@ from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 from FenetreResponse import FenetreResponse
 from Constants import *
-from outils import _from_rgb
+from outils import from_rgb_to_tkColors, bold_it
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
@@ -327,7 +327,7 @@ def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
 def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
     default_font = tkfont.nametofont("TkDefaultFont")
     default_font.configure(size=8)
-    canvas_bouton_minimize = tk.Frame(master=master, bg=_from_rgb(DARK3))
+    canvas_bouton_minimize = tk.Frame(master=master, bg=from_rgb_to_tkColors(DARK3))
     canvas_bouton_minimize.pack(fill="x", expand=True)
     infos_model = SimpleMarkdownText(master, font=default_font)
     bouton_minimize = tk.Button(
@@ -336,11 +336,15 @@ def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
         command=lambda: close_infos_model(
             button=canvas_bouton_minimize, text_area=infos_model
         ),
-        fg=_from_rgb(DARK3),
+        fg=from_rgb_to_tkColors(DARK3),
         bg="red",
     )
     bouton_minimize.pack(side=tk.RIGHT)
-    infos_model.configure(background=_from_rgb(DARK3), fg=_from_rgb(LIGHT3), height=11)
+    infos_model.configure(
+        background=from_rgb_to_tkColors(DARK3),
+        fg=from_rgb_to_tkColors(LIGHT3),
+        height=11,
+    )
     print("okok")
     jsonified = (
         json.dumps(
@@ -442,7 +446,7 @@ def traite_listbox(list_to_check: list):
         _list_box.insert(tk.END, item)
     _list_box.configure(
         background="red",
-        foreground=_from_rgb(DARK3),
+        foreground=from_rgb_to_tkColors(DARK3),
         yscrollcommand=scrollbar_listbox.set,
     )
     scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
@@ -814,8 +818,11 @@ class Fenetre_entree(tk.Frame):
         async def dialog_ia():
             print("on est dans l'async def dialog_ia")
             terminus = False
+            content_discussion=""
+
             while not terminus:
                 reco_text = ""
+                chating=False
                 data = self.get_stream().read(
                     num_frames=8192, exception_on_overflow=False
                 )  # read in chunks of 4096 bytes
@@ -827,19 +834,12 @@ class Fenetre_entree(tk.Frame):
                     result = json.loads(self.get_engine().Result())
                     reco_text: str = result["text"]
                     print(reco_text)
-                    if "dis-moi" == reco_text.lower():
+                    if "dis-moi" == reco_text.lower() or chating:
                         print("je t'écoute")
-                        self.get_talker("je t'écoute", False)
+                        self.get_talker()("je t'écoute", False)
                         reco_text_real = ""
-                        while not terminus:
-                            if "fin de l'enregistrement" in reco_text_real.lower():
-                                terminus = True
-                                stop_thread = StoppableThread(
-                                    None, threading.current_thread()
-                                )
-                                if not stop_thread.stopped():
-                                    stop_thread.stop()
-                                break
+                        content_discussion=""
+                        while True:
 
                             start_tim_vide = time.perf_counter()
                             start_tim_parlotte = time.perf_counter()
@@ -852,6 +852,14 @@ class Fenetre_entree(tk.Frame):
                                 # Parse the JSON result and get the recognized text
                                 result_real = json.loads(self.get_engine().Result())
                                 reco_text_real: str = result_real["text"]
+                                # if "fin de l'enregistrement" == reco_text_real.lower():
+                                #     # terminus = True
+                                #     stop_thread = StoppableThread(
+                                #         None, threading.current_thread()
+                                #     )
+                                #     if not stop_thread.stopped():
+                                #         stop_thread.stop()
+                                #     break
 
                                 ne_pas_deranger = (
                                     "ne pas déranger" in reco_text_real.lower()
@@ -873,7 +881,8 @@ class Fenetre_entree(tk.Frame):
                                         name="rate",
                                         value=int(engine.getProperty(name="rate")) + 20,
                                     )
-                                    self.get_talker("voix plus rapide", False)
+                                    reco_text_real=""
+                                    self.get_talker()("voix plus rapide", False)
 
                                 if decremente_lecteur:
                                     lecteur.setProperty(
@@ -881,31 +890,37 @@ class Fenetre_entree(tk.Frame):
                                         value=int(lecteur.getProperty(name="rate"))
                                         + -20,
                                     )
-                                    self.get_talker("voix plus lente", False)
+                                    reco_text_real=""
+                                    self.get_talker()("voix plus lente", False)
 
                                 if ne_pas_deranger:
-                                    self.get_talker("ok plus de bruit", False)
+                                    reco_text_real=""
+                                    self.get_talker()("ok plus de bruit", False)
                                     STOP_TALKING = True
 
                                 if activer_parlote:
                                     STOP_TALKING = False
-                                    self.get_talker("ok me re voilà", False)
+                                    reco_text_real=""
+                                    self.get_talker()("ok me re voilà", False)
 
                                 if "quel jour sommes-nous" in reco_text_real.lower():
-                                    self.get_talker(
+                                    reco_text_real=""
+                                    self.get_talker()(
                                         "Nous sommes le " + time.strftime("%Y-%m-%d"),
                                         False,
                                     )
 
                                 if "quelle heure est-il" in reco_text_real.lower():
-                                    self.get_talker(
+                                    reco_text_real=""
+                                    self.get_talker()(
                                         "il est exactement "
                                         + time.strftime("%H:%M:%S"),
                                         False,
                                     )
 
                                 if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                                    self.get_talker(
+                                    reco_text_real=""
+                                    self.get_talker()(
                                         "oui je suis toujours à l'écoute kiki", False
                                     )
 
@@ -918,17 +933,21 @@ class Fenetre_entree(tk.Frame):
                                     == reco_text_real.lower()
                                 ):
                                     reco_text_real = ""
+                                    # terminus = True
+                                    stop_thread = StoppableThread(
+                                        None, threading.current_thread()
+                                    )
+                                    if not stop_thread.stopped():
+                                        stop_thread.stop()
+                                    entree_prompt_principal.insert_markdown(
+                                        mkd_text="\n"+content_discussion + "\n"
+                                    )
                                     break
                                 elif reco_text_real.lower() != "":
                                     start_tim_vide = time.perf_counter()
-                                    entree_prompt_principal.insert_markdown(
-                                        mkd_text=reco_text_real + "\n"
-                                    )
+                                    content_discussion+="\n"+reco_text_real.lower()
                                     print("insertion de texte")
                                     entree_prompt_principal.update()
-                            if "fin de l'enregistrement" in reco_text_real.lower():
-                                terminus = True
-                                break
 
                             time_delta_vide = time.perf_counter() - start_tim_vide
                             time_delta_parlotte = (
@@ -942,11 +961,22 @@ class Fenetre_entree(tk.Frame):
                         if not stop_thread.stopped():
                             stop_thread.stop()
                         entree_prompt_principal.update()
-                    if terminus:
+                    if "validez" == reco_text.lower() or "terminez" == reco_text.lower():
+                        self.set_submission(content=content_discussion)
+                        stop_thread = StoppableThread(None, threading.current_thread())
+                        if not stop_thread.stopped():
+                            stop_thread.stop()
+                        response,timing=ask_to_ai(self.get_client(),self.get_submission(),self.get_model())
+                        fenetre_response=FenetreResponse(master_frame_responses,entree_prompt_principal,response)
+                        # fenetre_response.entree_response.insert_markdown(response)
+                        self.get_talker()(response,False)
+                        chating=True
+                    if "fin de la session" == reco_text.lower():
+                        terminus
+                        chating=False
                         break
-            stop_thread = StoppableThread(None, threading.current_thread())
-            if not stop_thread.stopped():
-                stop_thread.stop()
+                        
+                        
 
         def start_loop():
             loop = asyncio.new_event_loop()
@@ -998,8 +1028,12 @@ class Fenetre_entree(tk.Frame):
             # traduir automatiquement en français
             fenetre_response.get_entree_response().tag_configure(
                 tagName="boldtext",
-                font=fenetre_response.get_entree_response().cget("font") + " bold",
+                font=(
+                    fenetre_response.get_entree_response().cget("font") + " italic",
+                    8,
+                ),
             )
+            #
             fenetre_response.get_entree_response().tag_configure(
                 tagName="response",
                 border=20,
@@ -1016,15 +1050,16 @@ class Fenetre_entree(tk.Frame):
             fenetre_response.get_entree_response().tag_configure(
                 "balise",
                 font=(
-                    fenetre_response.get_entree_response().cget("font") + " italic",
+                    fenetre_response.get_entree_response(),
                     8,
                 ),
-                foreground=_from_rgb((100, 100, 100)),
+                foreground=from_rgb_to_tkColors((100, 100, 100)),
             )
+
             fenetre_response.get_entree_response().tag_configure(
                 "balise_bold",
                 font=(fenetre_response.get_entree_response().cget("font") + " bold", 8),
-                foreground=_from_rgb((100, 100, 100)),
+                foreground=from_rgb_to_tkColors((100, 100, 100)),
             )
             fenetre_response.get_entree_response().insert(
                 tk.END,
@@ -1045,7 +1080,10 @@ class Fenetre_entree(tk.Frame):
             fenetre_response.get_entree_question().configure(font=("Arial", 10))
             fenetre_response.get_entree_question().tag_configure(
                 tagName="boldtext",
-                font=fenetre_response.get_entree_question().cget("font") + " bold",
+                font=(
+                    fenetre_response.get_entree_response().cget("font") + " italic",
+                    8,
+                ),
             )
             fenetre_response.get_entree_question().tag_configure(
                 tagName="response",
@@ -1066,12 +1104,12 @@ class Fenetre_entree(tk.Frame):
                     fenetre_response.get_entree_question().cget("font") + " italic",
                     8,
                 ),
-                foreground=_from_rgb((100, 100, 100)),
+                foreground=from_rgb_to_tkColors((100, 100, 100)),
             )
             fenetre_response.get_entree_question().tag_configure(
                 "balise_bold",
                 font=(fenetre_response.get_entree_question().cget("font") + " bold", 8),
-                foreground=_from_rgb((100, 100, 100)),
+                foreground=from_rgb_to_tkColors((100, 100, 100)),
             )
             fenetre_response.get_entree_question().insert(
                 tk.END,
@@ -1093,23 +1131,37 @@ class Fenetre_entree(tk.Frame):
             return readable_ai_response
 
         def save_to_submission() -> bool:
-            # Afficher une boîte de message de confirmation
-            speciality = motcles_widget.get()
-            if len(speciality) <= 1:
-                speciality = ""
+            """ """
+            # récupère le texte contenu dans le widget_mot_clé
+            speciality = motcles_widget.get()  # if motcles_widget.get() else ""
 
+            # speciality = motcles_widget.get()
+            # if len(speciality) <= 1:
+            #     speciality = ""
+
+            # si une sélection est faite dans le prompt principale,
+            # elle est enregistrée dans la variable <selection>
+            # sinon c'est tout le contenu du prompt qui est enregistré
             try:
                 selection = entree_prompt_principal.get(tk.SEL_FIRST, tk.SEL_LAST)
             except:
                 selection = entree_prompt_principal.get("1.0", tk.END)
             finally:
+                # copie le contenu de la variable <selection>
+                # dans la variable submission de la classe
+                # et renvoi True 
+                # si selection n'est pas vide
+
                 if len(selection) > 1:
                     self.set_submission(
-                        content=self.get_submission() + "\n" + selection + "\n"
+                        content=selection
+                        + "\n",
                     )
                     return True
+                # renvois aussi True si il y avait toujourss quelque chose dans la variable submission
                 elif len(self.get_submission().lower()) > 1:
                     return True
+                # sinon renvoi False
                 else:
                     return False
 
@@ -1246,7 +1298,7 @@ class Fenetre_entree(tk.Frame):
             relief="sunken",
             name="frame_of_buttons_principal",
         )
-        frame_of_buttons_principal.configure(background=_from_rgb(DARK3))
+        frame_of_buttons_principal.configure(background=from_rgb_to_tkColors(DARK3))
         frame_of_buttons_principal.pack(fill="x", expand=True)
 
         master_frame_responses = tk.Canvas(
@@ -1265,7 +1317,7 @@ class Fenetre_entree(tk.Frame):
 
         canvas_list_of_frames = tk.Canvas(
             master_frame_responses,
-            bg=_from_rgb(LIGHT1),
+            bg=from_rgb_to_tkColors(LIGHT1),
             width=BANNIERE_WIDTH - 15,
             height=RESPONSES_HEIGHT,
             scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
@@ -1275,7 +1327,7 @@ class Fenetre_entree(tk.Frame):
 
         scrollbar_responses = tk.Scrollbar(canvas_of_scrollbar, orient="vertical")
         scrollbar_responses.config(
-            command=master_frame_responses.yview, bg=_from_rgb(DARK2)
+            command=master_frame_responses.yview, bg=from_rgb_to_tkColors(DARK2)
         )
         scrollbar_responses.pack(side=tk.RIGHT, fill="y")
 
@@ -1294,8 +1346,8 @@ class Fenetre_entree(tk.Frame):
         # Attention la taille de la police, ici 10, ce parametre
         # tant à changer le cadre d'ouverture de la fenetre
         entree_prompt_principal.configure(
-            bg=_from_rgb(LIGHT0),
-            fg=_from_rgb(DARK3),
+            bg=from_rgb_to_tkColors(LIGHT0),
+            fg=from_rgb_to_tkColors(DARK3),
             font=("Arial", 12),
             wrap="word",
             padx=10,
@@ -1305,7 +1357,7 @@ class Fenetre_entree(tk.Frame):
             frame_of_buttons_principal, text="x", command=clear_entree_prompt_principal
         )
         boutton_effacer_entree_prompt_principal.configure(
-            bg="red", fg=_from_rgb(LIGHT3)
+            bg="red", fg=from_rgb_to_tkColors(LIGHT3)
         )
         boutton_effacer_entree_prompt_principal.pack(side="right")
         scrollbar_prompt_principal = tk.Scrollbar(frame_actual_prompt)
@@ -1323,7 +1375,7 @@ class Fenetre_entree(tk.Frame):
 
         # Création d'un champ de saisie de l'utilisateur
         scrollbar_prompt_principal.configure(
-            command=entree_prompt_principal.yview, bg=_from_rgb(DARK2)
+            command=entree_prompt_principal.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
         # Création d'un bouton pour Lire
@@ -1335,10 +1387,10 @@ class Fenetre_entree(tk.Frame):
             ),
         )
         bouton_lire1.configure(
-            bg=_from_rgb(DARK3),
-            fg=_from_rgb(LIGHT3),
+            bg=from_rgb_to_tkColors(DARK3),
+            fg=from_rgb_to_tkColors(LIGHT3),
             highlightbackground="red",
-            highlightcolor=_from_rgb(LIGHT3),
+            highlightcolor=from_rgb_to_tkColors(LIGHT3),
             activebackground="red",
         )
         bouton_lire1.pack(side=tk.LEFT)
@@ -1348,10 +1400,10 @@ class Fenetre_entree(tk.Frame):
             frame_of_buttons_principal, text="Traduire", command=translate_inplace
         )
         bouton_traduire_sur_place.configure(
-            bg=_from_rgb(DARK2),
-            fg=_from_rgb(LIGHT3),
+            bg=from_rgb_to_tkColors(DARK2),
+            fg=from_rgb_to_tkColors(LIGHT3),
             highlightbackground="red",
-            highlightcolor=_from_rgb(LIGHT3),
+            highlightcolor=from_rgb_to_tkColors(LIGHT3),
         )
         bouton_traduire_sur_place.pack(side=tk.LEFT)
 
@@ -1359,7 +1411,7 @@ class Fenetre_entree(tk.Frame):
         bouton_commencer_diction = tk.Button(
             frame_of_buttons_principal, text=" ф ", command=lance_ecoute
         )
-        bouton_commencer_diction.configure(bg="red", fg=_from_rgb(LIGHT3))
+        bouton_commencer_diction.configure(bg="red", fg=from_rgb_to_tkColors(LIGHT3))
 
         bouton_commencer_diction.pack(side=tk.LEFT)
 
@@ -1368,10 +1420,10 @@ class Fenetre_entree(tk.Frame):
             frame_of_buttons_principal, text="Ask to AI", command=soumettre
         )
         bouton_soumetre.configure(
-            bg=_from_rgb((120, 120, 120)),
-            fg=_from_rgb(LIGHT3),
+            bg=from_rgb_to_tkColors((120, 120, 120)),
+            fg=from_rgb_to_tkColors(LIGHT3),
             highlightbackground="red",
-            highlightcolor=_from_rgb(LIGHT3),
+            highlightcolor=from_rgb_to_tkColors(LIGHT3),
         )
         bouton_soumetre.pack(side=tk.LEFT)
 
@@ -1380,19 +1432,25 @@ class Fenetre_entree(tk.Frame):
             text="texte vers mp3",
             command=lambda: textwidget_to_mp3(entree_prompt_principal),
         )
-        bouton_save_to_mp3.configure(bg=_from_rgb(DARK1), fg=_from_rgb(LIGHT3))
+        bouton_save_to_mp3.configure(
+            bg=from_rgb_to_tkColors(DARK1), fg=from_rgb_to_tkColors(LIGHT3)
+        )
         bouton_save_to_mp3.pack(side="left")
 
         bouton_load_pdf = tk.Button(
             frame_of_buttons_principal, text="Charger Pdf", command=load_pdf
         )
-        bouton_load_pdf.configure(bg=_from_rgb(DARK2), fg=_from_rgb(LIGHT3))
+        bouton_load_pdf.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
         bouton_load_pdf.pack(side="left")
 
         bouton_load_txt = tk.Button(
             frame_of_buttons_principal, text="Charger TXT", command=load_txt
         )
-        bouton_load_txt.configure(bg=_from_rgb(DARK3), fg=_from_rgb((255, 255, 255)))
+        bouton_load_txt.configure(
+            bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors((255, 255, 255))
+        )
         bouton_load_txt.pack(side="left")
 
         motcles_widget = tk.Entry(
@@ -1400,15 +1458,15 @@ class Fenetre_entree(tk.Frame):
             name="motcles_widget",
             width=30,
             fg="red",
-            bg=_from_rgb(DARK3),
+            bg=from_rgb_to_tkColors(DARK3),
             font=("trebuchet", 10, "bold"),
             relief="flat",
         )
         button_keywords = tk.Button(
             frame_of_buttons_principal,
             text="Mot-clé",
-            background=_from_rgb(DARK2),
-            foreground=_from_rgb(LIGHT3),
+            background=from_rgb_to_tkColors(DARK2),
+            foreground=from_rgb_to_tkColors(LIGHT3),
             command=lambda: affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
         )
         button_keywords.pack(side=tk.RIGHT, expand=False)
@@ -1430,12 +1488,12 @@ def affiche_banniere(
     * sélection du modèle d'ia ...."""
     # ## PRESENTATION DU GOELAND  ####
     canvas_principal_banniere = tk.Frame(
-        fenetre, background=_from_rgb(DARK2), name="cnvs1"
+        fenetre, background=from_rgb_to_tkColors(DARK2), name="cnvs1"
     )
     canvas_principal_banniere.pack(fill="x", expand=True)
     # ################################
     canvas_buttons_banniere = tk.Frame(canvas_principal_banniere, name="cnvs2")
-    canvas_buttons_banniere.configure(bg=_from_rgb(DARK3))
+    canvas_buttons_banniere.configure(bg=from_rgb_to_tkColors(DARK3))
     canvas_buttons_banniere.pack(fill="x", expand=False)
 
     # Create a canvas
@@ -1443,7 +1501,7 @@ def affiche_banniere(
         canvas_principal_banniere,
         height=BANNIERE_HEIGHT,
         width=BANNIERE_WIDTH,
-        background=_from_rgb(DARK2),
+        background=from_rgb_to_tkColors(DARK2),
         name="canva",
     )
 
@@ -1451,7 +1509,7 @@ def affiche_banniere(
     bouton_quitter = tk.Button(
         canvas_buttons_banniere, text="Quitter", command=quitter_app
     )
-    bouton_quitter.configure(background=_from_rgb(DARK3), foreground="red")
+    bouton_quitter.configure(background=from_rgb_to_tkColors(DARK3), foreground="red")
     bouton_quitter.pack(side=tk.LEFT)
 
     bouton_Ola = tk.Button(
@@ -1461,7 +1519,9 @@ def affiche_banniere(
         highlightthickness=3,
         highlightcolor="yellow",
     )
-    bouton_Ola.configure(background=_from_rgb(LIGHT3), foreground=_from_rgb(DARK3))
+    bouton_Ola.configure(
+        background=from_rgb_to_tkColors(LIGHT3), foreground=from_rgb_to_tkColors(DARK3)
+    )
     bouton_Ola.pack(side=tk.LEFT)
 
     bouton_Ollama = tk.Button(
@@ -1473,7 +1533,9 @@ def affiche_banniere(
         highlightthickness=3,
         highlightcolor="yellow",
     )
-    bouton_Ollama.configure(background=_from_rgb(LIGHT3), foreground=_from_rgb(DARK3))
+    bouton_Ollama.configure(
+        background=from_rgb_to_tkColors(LIGHT3), foreground=from_rgb_to_tkColors(DARK3)
+    )
     bouton_Ollama.pack(side=tk.LEFT)
 
     bouton_display_list_models = tk.Button(
@@ -1481,7 +1543,7 @@ def affiche_banniere(
         name="btnlist",
         text="Changer d'IA",
         background="red",
-        foreground=_from_rgb(DARK3),
+        foreground=from_rgb_to_tkColors(DARK3),
         command=lambda: affiche_ia_list(my_liste),
     )
 
@@ -1489,8 +1551,8 @@ def affiche_banniere(
         canvas_buttons_banniere,
         text=slogan,
         font=("Trebuchet", 8),
-        fg=_from_rgb(LIGHT3),
-        bg=_from_rgb(DARK2),
+        fg=from_rgb_to_tkColors(LIGHT3),
+        bg=from_rgb_to_tkColors(DARK2),
     )
 
     label_slogan.pack(side=tk.RIGHT, expand=False)

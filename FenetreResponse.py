@@ -1,6 +1,6 @@
 import tkinter as tk
 
-from outils import _from_rgb
+from outils import from_rgb_to_tkColors
 from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3
 from SimpleMarkdownText import SimpleMarkdownText
 import tkinter.font as tkfont
@@ -88,7 +88,7 @@ class FenetreResponse(tk.Frame):
         )
 
         boutton_supprimer_question_response.configure(
-            bg=_from_rgb(DARK2), fg=_from_rgb(LIGHT3)
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
         boutton_supprimer_question_response.pack(side="right")
 
@@ -97,7 +97,7 @@ class FenetreResponse(tk.Frame):
         )
 
         boutton_effacer_entree_response.configure(
-            bg=_from_rgb(DARK2), fg=_from_rgb(LIGHT3)
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
         boutton_effacer_entree_response.pack(side="right")
 
@@ -106,7 +106,9 @@ class FenetreResponse(tk.Frame):
             text="Lire",
             command=lambda: self.lire_text_from_object(entree_response),
         )
-        bouton_lire_responses.configure(bg=_from_rgb(DARK3), fg=_from_rgb(LIGHT3))
+        bouton_lire_responses.configure(
+            bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors(LIGHT3)
+        )
         bouton_lire_responses.pack(side=tk.RIGHT)
 
         canvas_edition.pack(fill="x", expand=True)
@@ -122,8 +124,8 @@ class FenetreResponse(tk.Frame):
             command=lambda: self.entree_prompt_principal.insert_markdown(
                 self.get_ai_response()
             ),
-            bg=_from_rgb(LIGHT1),
-            fg=_from_rgb(DARK3),
+            bg=from_rgb_to_tkColors(LIGHT1),
+            fg=from_rgb_to_tkColors(DARK3),
         )
         bouton_transfere.pack(side=tk.RIGHT, fill="both")
         scrollbar_response = tk.Scrollbar(cnv_response)
@@ -134,8 +136,8 @@ class FenetreResponse(tk.Frame):
         default_font.configure(size=8)
         entree_response = SimpleMarkdownText(cnv_response, font=default_font)
         entree_response.configure(
-            bg=_from_rgb(LIGHT3),
-            fg=_from_rgb(DARK1),
+            bg=from_rgb_to_tkColors(LIGHT3),
+            fg=from_rgb_to_tkColors(DARK1),
             height=5,
             font=("Arial", 12),
             wrap="word",
@@ -145,8 +147,8 @@ class FenetreResponse(tk.Frame):
         )
         entree_question = SimpleMarkdownText(cnv_question, height=5, font=default_font)
         entree_question.configure(
-            bg=_from_rgb(LIGHT2),
-            fg=_from_rgb(DARK3),
+            bg=from_rgb_to_tkColors(LIGHT2),
+            fg=from_rgb_to_tkColors(DARK3),
             height=4,
             wrap="word",
             padx=10,
@@ -157,10 +159,10 @@ class FenetreResponse(tk.Frame):
         entree_question.pack(fill="both", expand=True)
 
         scrollbar_response.configure(
-            command=entree_response.yview, bg=_from_rgb(DARK2)
+            command=entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
         )
         scrollbar_question.configure(
-            command=entree_question.yview, bg=_from_rgb(DARK2)
+            command=entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
         self.entree_response = entree_response
