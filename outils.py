@@ -260,7 +260,4 @@ def engine_lecteur_init():
     lecteur.setProperty("lang", "french")
     lecteur.setProperty("rate", RAPIDITE_VOIX)
 
-    # TODO Rien à faire ici, voir si on peut le déplacer
-    pyttsx3.speak("lancement...")
-
     return lecteur

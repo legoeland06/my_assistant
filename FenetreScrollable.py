@@ -1,8 +1,6 @@
 import datetime
 import tkinter as tk
-from typing import Any
 
-from Constants import BANNIERE_WIDTH
 from FenetreResponse import FenetreResponse
 from SimpleMarkdownText import SimpleMarkdownText
 from outils import from_rgb_to_tkColors

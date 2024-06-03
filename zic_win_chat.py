@@ -1,53 +1,26 @@
 # zic_chat.py
 from argparse import Namespace
 import asyncio
-import datetime
-import json.tool
-import re
-import threading
 import time
 import tkinter as tk
 
 # from tkinter import simpledialog
-from tkinter import simpledialog
 from tkinter import messagebox
-from tkinter import filedialog
-import tkinter.font as tkfont
-import tkinter.scrolledtext as tkscroll
-from typing import Any, Mapping
-import PyPDF2
-from tkhtmlview import HTMLLabel
-from PIL import Image, ImageTk
-import markdown.util
 import vosk
 import pyaudio
-import json
-import pyttsx3
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
-import markdown
 import imageio.v3 as iio
 import subprocess
-from spacy.lang.fr import French
-from spacy.lang.en import English
 from FenetrePrincipale import FenetrePrincipale
-from FenetreScrollable import FenetreScrollable
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
-from FenetreResponse import FenetreResponse
 from Constants import *
 from outils import (
     actualise_index_html,
     append_response_to_file,
     engine_lecteur_init,
-    from_rgb_to_tkColors,
-    bold_it,
-    lire_text_from_object,
-    load_txt,
-    read_pdf,
     say_txt,
-    traitement_du_texte,
-    translate_it,
 )
 
 
@@ -118,54 +91,6 @@ def lire_image(name: str) -> any:
     return im
 
 
-def make_choice(moteur_de_diction, iterable: iter):
-    moteur_de_diction(ASK_TASK)
-    print("\nMENU\n" + STARS * WIDTH_TERM)
-    for question in iterable:
-        print(str(iterable.index(question)) + ". " + question)
-    choix = input(STARS * WIDTH_TERM + "\nVotre choix: ")
-    if choix.isnumeric and len(choix) <= 2:
-        moteur_de_diction(iterable[int(choix)])
-        return iterable[int(choix)]
-    elif choix.isalpha and len(choix) > 2:
-        return choix
-    else:
-        return QUIT_MENU_COMMAND
-
-
-def make_choice_dict(moteur_de_diction, dicto: dict):
-    moteur_de_diction(ASK_TASK)
-    print("\nMENU\n" + STARS * WIDTH_TERM)
-    inc = 0
-    for item in dicto.items():
-        item_in_list = list(item)
-        if len(item_in_list[1]) > 80:
-            print(
-                str(inc)
-                + ". "
-                + item_in_list[0]
-                + " :: "
-                + item_in_list[1][:80]
-                + " ..."
-            )
-        else:
-            print(str(inc) + ". " + item_in_list[0] + " :: " + item_in_list[1])
-        inc += 1
-
-    choix_ecrit = input(STARS * WIDTH_TERM + "\nVotre choix_ecrit: ")
-
-    if choix_ecrit.isnumeric and len(choix_ecrit) <= 2:
-        choix_reel = list(dicto.items())[int(choix_ecrit)]
-        choix_detail = choix_reel[1]
-        choix_intitule = choix_reel[0]
-        moteur_de_diction(choix_intitule)
-        return choix_intitule, choix_detail
-    elif choix_ecrit.isalpha and len(choix_ecrit) > 2:
-        return choix_ecrit, ""
-    else:
-        return QUIT_MENU_COMMAND, ""
-
-
 def veullez_patienter(moteur_de_diction):
     moteur_de_diction(TRAITEMENT_EN_COURS, stop_ecoute=True)
 
@@ -182,46 +107,11 @@ def merci_au_revoir(
     stream_to_stop.close()
     # Terminate the PyAudio object
     pulse_audio_to_stop.terminate()
-    exit(0)
+    au_revoir()
 
 
 def au_revoir():
     exit(0)
-
-
-def traitement_chat(moteur_de_diction):
-    result = mode_chat(moteur_de_diction)
-    if result == QUIT_MENU_COMMAND:
-        return QUIT_MENU_COMMAND, moteur_de_diction
-    if result == "/x":
-        result, _ = mode_Super_chat(moteur_de_diction)
-    return result, moteur_de_diction
-
-
-def mode_chat(moteur_de_diction):
-    moteur_de_diction("Mode tchat activé", False)
-    # print("Mode chat activé")
-    return input(" ==> ")
-
-
-def mode_Super_chat(moteur_de_diction):
-    moteur_de_diction("Mode multilignes activé", False)
-    buffer = []
-    while True:
-        try:
-            line = input()
-            if line == "f.d.c.p":
-                return "\n".join(buffer), moteur_de_diction
-            elif line == EXIT_APPLICATION_COMMAND:
-                au_revoir()
-            elif line == QUIT_MENU_COMMAND:
-                return "", moteur_de_diction
-        except EOFError:
-            break
-        buffer.append(line)
-
-    multiline_string = "\n".join(buffer)
-    return multiline_string, moteur_de_diction
 
 
 def ask_to_ai(agent_appel, prompt, model_to_use):
@@ -286,12 +176,6 @@ def traitement_rapide(texte: str, model_to_use, talking: bool, moteur_diction):
     app.get_talker()(readable_ai_response)
 
 
-def maximize(object: SimpleMarkdownText):
-    object.configure(height=11)
-
-
-def minimize(object: SimpleMarkdownText):
-    object.destroy()
 
 
 async def dire_tt(alire: str):
@@ -379,13 +263,14 @@ def main(prompt=False, stop_talking=STOP_TALKING):
 
     # prend beaucoup de temp
     # passer ça en asynchrone
+    say_txt("initialisation du moteur de reconnaissance vocale ")
     model_ecouteur_micro = engine_ecouteur_init()
-
-    say_txt("micro audio initialisé")
+    say_txt("reconnaissance vocale initialisée")
 
     # Create a recognizer
+    say_txt("initialisation du micro")
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    say_txt("reconnaissance vocale initialisée")
+    say_txt("micro initialisé")
 
     root.title = "RootTitle - "
 
