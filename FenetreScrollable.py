@@ -11,14 +11,14 @@ from outils import from_rgb_to_tkColors
 class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
-        self.configure(height=600,width=750)
-        self.canvas = tk.Canvas(self, borderwidth=0, background="#ffffff",height=600,)
-        self.frame = tk.Frame(self.canvas, background="#ffffff", height=600,)
+        self.configure(height=600,width=800)
+        self.canvas = tk.Canvas(self, borderwidth=0,background="#ffffff",height=600,)
+        self.frame = tk.Frame(self.canvas, background="#ffffff", height=600,width=700)
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.vsb.set)
 
         self.vsb.pack(side="right", fill="y")
-        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.pack( fill="both", expand=False)
         self.canvas.create_window(
             (4, 4), window=self.frame, anchor="nw", tags="self.frame"
         )
@@ -43,7 +43,7 @@ class FenetreScrollable(tk.Frame):
             entree_recup=simple_markdown,
             master=self.frame,
         )
-        self.responses.append(fenetre_response.winfo_id)
+        self.responses.append(fenetre_response)
         fenetre_response.set_talker(talker=talker)
         fenetre_response.get_entree_response().tag_configure(
             tagName="boldtext",

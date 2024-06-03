@@ -24,11 +24,11 @@ class FenetreResponse(tk.Frame):
     ):
         super().__init__(master)
         self.master = master
-        self.pack()
+        self.pack(expand=False)
         self.title = "title"
         self.ai_response = ai_response
         self.entree_prompt_principal: SimpleMarkdownText = entree_recup
-        self.canvas_edition = tk.Canvas(master=master, relief="sunken")
+        self.canvas_edition = tk.Canvas(master=master, relief="sunken",width=700)
 
         self.boutons_cnv_response = tk.Frame(self.canvas_edition)
         self.cnv_globals_responses = tk.Frame(self.canvas_edition)
@@ -39,7 +39,7 @@ class FenetreResponse(tk.Frame):
         # de plusieurs question_tk_text et reponse_tk_text
 
         self.bouton_supprimer_question_response = tk.Button(
-            self.boutons_cnv_response, text=" X ", command=self.destroy
+            self.boutons_cnv_response, text=" X ", command=lambda:self.nametowidget(self.widgetName).destroy()
         )
 
         self.bouton_supprimer_question_response.configure(
@@ -68,12 +68,12 @@ class FenetreResponse(tk.Frame):
         )
         self.bouton_lire_responses.pack(side=tk.RIGHT)
 
-        self.canvas_edition.pack(fill="x", expand=True)
-        self.boutons_cnv_response.pack(fill="x", expand=True)
+        self.canvas_edition.pack(fill="y", expand=True)
+        self.boutons_cnv_response.pack(fill="x", expand=False)
 
-        self.cnv_globals_responses.pack(fill="x", expand=True)
-        self.cnv_response.pack(fill="x", expand=True)
-        self.cnv_question.pack(fill="x", expand=True)
+        self.cnv_globals_responses.pack(fill="x", expand=False)
+        self.cnv_response.pack(fill="x", expand=False)
+        self.cnv_question.pack(fill="x", expand=False)
 
         self.bouton_transfere = tk.Button(
             self.boutons_cnv_response,
@@ -114,8 +114,8 @@ class FenetreResponse(tk.Frame):
             pady=6,
             yscrollcommand=scrollbar_question.set,
         )
-        self.entree_response.pack(fill="both", expand=True)
-        self.entree_question.pack(fill="both", expand=True)
+        self.entree_response.pack(fill="both", expand=False)
+        self.entree_question.pack(fill="both", expand=False)
 
         scrollbar_response.configure(
             command=self.entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
