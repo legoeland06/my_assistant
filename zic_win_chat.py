@@ -30,7 +30,7 @@ import imageio.v3 as iio
 import subprocess
 from spacy.lang.fr import French
 from spacy.lang.en import English
-from PIL import Image, ImageTk
+from FenetreScrollable import FenetreScrollable
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 from FenetreResponse import FenetreResponse
@@ -268,28 +268,44 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
     app.set_timer(time.perf_counter_ns())
 
     if isinstance(agent_appel, ollama.Client):
-        llm: ollama.Client = agent_appel.chat(
-            model=model_to_use,
-            messages=[
-                {
-                    "role": ROLE_TYPE,
-                    "content": prompt,
-                },
-            ],
-        )
-        ai_response = llm["message"]["content"]
+        try:
+            llm: ollama.Client = agent_appel.chat(
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": ROLE_TYPE,
+                        "content": prompt,
+                        "num_ctx": 4096,
+                        "num_predict": 40,
+                        "keep_alive": -1,
+                    },
+                ],
+            )
+            ai_response = llm["message"]["content"]
+        except ollama.RequestError as requestError:
+            print("OOps aucun model chargé : ", requestError)
+        except ollama.ResponseError as responseError:
+            print("OOps la requête ne s'est pas bien déroulée", responseError)
 
     elif isinstance(agent_appel, Ola.__class__):
-        llm: Ola = agent_appel(
-            base_url="http://localhost:11434",
-            model=model_to_use,
-            request_timeout=REQUEST_TIMEOUT_DEFAULT,
-            additional_kwargs={"num_predict": 1024, "keep_alive": -1},
-        )
-        ai_response = llm.complete(prompt).text
+        try:
+            llm: Ola = agent_appel(
+                base_url="http://localhost:11434",
+                model=model_to_use,
+                request_timeout=REQUEST_TIMEOUT_DEFAULT,
+                additional_kwargs={
+                    "num_ctx": 4096,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            )
+            ai_response = llm.chat(prompt).message.content
+        except:
+            messagebox.Message("OOps, ")
 
     # calcul le temps écoulé par la thread
     timing: float = (time.perf_counter_ns() - app.get_timer()) / 1_000_000_000.0
+    print(ai_response)
     print("Type_agent_appel::" + str(type(agent_appel)))
     print("Type_ai_réponse::" + str(type(ai_response)))
 
@@ -304,10 +320,10 @@ def traitement_rapide(texte: str, model_to_use, talking: bool, moteur_diction):
         agent_appel=ollama.Client, prompt=texte, model_to_use=model_to_use
     )
     readable_ai_response = ai_response
-    app.get_talker()(readable_ai_response, False)
+    app.get_talker()(readable_ai_response)
 
 
-def lire_text_from_object(object: tk.Text, talker: any):
+def lire_text_from_object(object: tk.Text):
     texte_to_talk = object.get("1.0", tk.END)
 
     if texte_to_talk != "":
@@ -316,7 +332,7 @@ def lire_text_from_object(object: tk.Text, talker: any):
         except:
             texte_to_talk = object.get("1.0", tk.END)
         finally:
-            talker(texte_to_talk, False)
+            app.get_talker()(texte_to_talk)
 
 
 def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
@@ -482,11 +498,11 @@ def charge_preprompt(evt: tk.Event):
         )
         app.set_submission(preprompt)
 
-        app.get_talker()("prépromt ajouté : " + preprompt, False)
+        app.get_talker()("prépromt ajouté : " + preprompt)
 
     except:
         print("aucun préprompt sélectionné")
-        app.get_talker()("Oups", False)
+        app.get_talker()("Oups")
     finally:
         w.focus_get().destroy()
 
@@ -502,21 +518,24 @@ def load_selected_model(evt: tk.Event):
         _widget: tk.Button = app.nametowidget("cnvs1.cnvs2.btnlist")
         _widget.configure(text=value)
         model_info = ollama.show(app.get_model())
-        app.get_talker()("ok", False)
+        app.get_talker()("ok")
         display_infos_model(master=app.nametowidget("cnvs1"), content=model_info)
     except:
         print("aucune ia sélectionner")
-        app.get_talker()("Oups", False)
+        app.get_talker()("Oups")
     finally:
         w.focus_get().destroy()
 
 
 async def dire_tt(alire: str):
+    if lecteur.isBusy():
+        lecteur.stop()
+
+    if lecteur._inLoop:
+        lecteur.endLoop()
+
     lecteur.say(alire)
     lecteur.runAndWait()
-
-    # lecteur.endLoop()
-    return lecteur.stop()
 
 
 # TODO : loop async for saytt
@@ -527,17 +546,40 @@ def start_loop_saying(texte: str):
 
 
 def say_tt(alire: str):
-    the_thread = threading.Thread(target=start_loop_saying(texte=alire))
+    """
+    lit le texte en passant par un thread.
+    ne bloque pas l'execution du programme
+    """
+
+    the_thread = app.get_thread()
+    print("<SAYTT>récupéré : " + "ok" if the_thread.name else "pasok")
+    if not the_thread.stopped():
+        print("<SAYTT> à stopper : " + the_thread.name)
+        the_thread.stop()
+    else:
+        print("<SAYTT> inutile à stopper : " + the_thread.name)
+
+    the_thread = StoppableThread(None, target=start_loop_saying(alire))
+    print("</SAYTT> nouvelle thread started: " + the_thread.name)
+    app.set_thread(the_thread)
     the_thread.start()
 
+    # TODO : intégrer ici un moyen de controle de la diction
+    # bouton lecture, stop, pause, effacer
+    the_thread.join()
+    the_thread.stop()
 
-def say_txt(alire: str, stop_ecoute: bool):
-    if not STOP_TALKING:
-        if stop_ecoute:
-            arret_ecoute()
-        lecteur.say(alire)
-        lecteur.runAndWait()
-        lecteur.stop()
+
+def say_txt(alire: str):
+    """
+    lit le texte sans passer par un thread
+    """
+    # if not STOP_TALKING:
+    #     if stop_ecoute:
+    #         arret_ecoute()
+    lecteur.say(alire)
+    lecteur.runAndWait()
+    lecteur.stop()
 
 
 def arret_ecoute():
@@ -616,6 +658,7 @@ def actualise_index_html(texte: str, question: str, timing: float):
 
 def main(prompt=False, stop_talking=STOP_TALKING):
     """Début du programme principal"""
+    # thread_name=the_thread.name
     if prompt:
         model_used = init_model(LLAMA3, prompted=True)
         return traitement_rapide(
@@ -626,7 +669,7 @@ def main(prompt=False, stop_talking=STOP_TALKING):
         )
 
     model_used = init_model(LLAMA3, prompted=False)
-    say_txt("IA initialisée ! ", stop_ecoute=False)
+    say_txt("IA initialisée ! ")
     print(
         "ZicChatbotAudio\n"
         + STARS * WIDTH_TERM
@@ -638,23 +681,25 @@ def main(prompt=False, stop_talking=STOP_TALKING):
     # passer ça en asynchrone
     model_ecouteur_micro = engine_ecouteur_init()
 
-    say_txt("micro audio initialisé", False)
+    say_txt("micro audio initialisé")
 
     # Create a recognizer
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    say_txt("reconnaissance vocale initialisée", False)
+    say_txt("reconnaissance vocale initialisée")
 
     # root = tk.Tk()
     root.title = "RootTitle - "
-    root.resizable(False, False)
-    root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
+    # root.resizable(False, False)
+    # root.geometry(str(FENETRE_WIDTH) + "x" + str(FENETRE_HEIGHT))
 
     app.title = "MyApp"
     # app.configure(height=FENETRE_HEIGHT)
 
-    app.set_talker(say_txt)
+    the_thread = StoppableThread()
+    app.set_thread(the_thread)
+    app.set_talker(say_tt)
     app.set_engine(rec)
-    app.mainloop()
+    app.mainloop(0)
 
 
 def init_main():
@@ -699,6 +744,7 @@ class Fenetre_entree(tk.Frame):
     client: any = None
     ai_response: str
     timer: float
+    thread: threading.Thread
 
     def __init__(
         self,
@@ -719,13 +765,21 @@ class Fenetre_entree(tk.Frame):
         )
         self.image_link = ""
         self.content = ""
-        self.configure(padx=5, pady=5)
-        # self.set_client(ollama)
+        self.configure(padx=5, pady=5,height=1000,width=FENETRE_WIDTH+10)
         self.pack()
         self.creer_fenetre(
             image=self.get_image(),
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
         )
+        self.fenetre_scrollable = FenetreScrollable(self)
+        self.fenetre_scrollable.configure(width=BANNIERE_WIDTH-50)
+        self.fenetre_scrollable.pack(side="bottom", fill="both", expand=True)
+
+    def set_thread(self, thread: StoppableThread):
+        self.thread = thread
+
+    def get_thread(self) -> StoppableThread:
+        return self.thread
 
     def set_timer(self, timer: float):
         self.timer = timer
@@ -740,11 +794,11 @@ class Fenetre_entree(tk.Frame):
         return self.ai_response
 
     # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
-    def set_client(self, client: ollama.Client):
+    def set_client(self, client: Any):
         self.client = client
-        pyttsx3.speak("changement du client : " + str(type(self.client)))
+        self.get_talker()("changement du client : " + str(type(self.client)))
 
-    def get_client(self) -> ollama.Client:
+    def get_client(self) -> Any:
         return self.client
 
     def set_motcle(self, motcle: list[str]):
@@ -762,7 +816,7 @@ class Fenetre_entree(tk.Frame):
     def get_talker(self) -> pyttsx3.Engine:
         return self.talker
 
-    def set_talker(self, talker):
+    def set_talker(self, talker: pyttsx3.Engine):
         self.talker = talker
 
     def set_submission(self, content: str):
@@ -779,7 +833,7 @@ class Fenetre_entree(tk.Frame):
 
     def set_model(self, name_ia: str) -> bool:
         self.model_to_use = name_ia
-        pyttsx3.speak("changement d'ia: " + self.model_to_use)
+        self.get_talker()("changement d'ia: " + self.model_to_use)
 
     def get_model(self) -> str:
         return self.model_to_use
@@ -818,11 +872,11 @@ class Fenetre_entree(tk.Frame):
         async def dialog_ia():
             print("on est dans l'async def dialog_ia")
             terminus = False
-            content_discussion=""
+            content_discussion = ""
 
             while not terminus:
                 reco_text = ""
-                chating=False
+                chating = False
                 data = self.get_stream().read(
                     num_frames=8192, exception_on_overflow=False
                 )  # read in chunks of 4096 bytes
@@ -836,9 +890,9 @@ class Fenetre_entree(tk.Frame):
                     print(reco_text)
                     if "dis-moi" == reco_text.lower() or chating:
                         print("je t'écoute")
-                        self.get_talker()("je t'écoute", False)
+                        say_txt("je t'écoute")
                         reco_text_real = ""
-                        content_discussion=""
+                        content_discussion = ""
                         while True:
 
                             start_tim_vide = time.perf_counter()
@@ -881,8 +935,8 @@ class Fenetre_entree(tk.Frame):
                                         name="rate",
                                         value=int(engine.getProperty(name="rate")) + 20,
                                     )
-                                    reco_text_real=""
-                                    self.get_talker()("voix plus rapide", False)
+                                    reco_text_real = ""
+                                    say_txt("voix plus rapide")
 
                                 if decremente_lecteur:
                                     lecteur.setProperty(
@@ -890,39 +944,35 @@ class Fenetre_entree(tk.Frame):
                                         value=int(lecteur.getProperty(name="rate"))
                                         + -20,
                                     )
-                                    reco_text_real=""
-                                    self.get_talker()("voix plus lente", False)
+                                    reco_text_real = ""
+                                    say_txt("voix plus lente")
 
                                 if ne_pas_deranger:
-                                    reco_text_real=""
-                                    self.get_talker()("ok plus de bruit", False)
+                                    reco_text_real = ""
+                                    say_txt("ok plus de bruit")
                                     STOP_TALKING = True
 
                                 if activer_parlote:
                                     STOP_TALKING = False
-                                    reco_text_real=""
-                                    self.get_talker()("ok me re voilà", False)
+                                    reco_text_real = ""
+                                    say_txt("ok me re voilà")
 
                                 if "quel jour sommes-nous" in reco_text_real.lower():
-                                    reco_text_real=""
-                                    self.get_talker()(
+                                    reco_text_real = ""
+                                    say_txt(
                                         "Nous sommes le " + time.strftime("%Y-%m-%d"),
-                                        False,
                                     )
 
                                 if "quelle heure est-il" in reco_text_real.lower():
-                                    reco_text_real=""
-                                    self.get_talker()(
+                                    reco_text_real = ""
+                                    say_txt(
                                         "il est exactement "
                                         + time.strftime("%H:%M:%S"),
-                                        False,
                                     )
 
                                 if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                                    reco_text_real=""
-                                    self.get_talker()(
-                                        "oui je suis toujours à l'écoute kiki", False
-                                    )
+                                    reco_text_real = ""
+                                    say_txt("oui je suis toujours à l'écoute kiki")
 
                                 if (
                                     "terminer l'enregistrement"
@@ -940,12 +990,12 @@ class Fenetre_entree(tk.Frame):
                                     if not stop_thread.stopped():
                                         stop_thread.stop()
                                     entree_prompt_principal.insert_markdown(
-                                        mkd_text="\n"+content_discussion + "\n"
+                                        mkd_text="\n" + content_discussion + "\n"
                                     )
                                     break
                                 elif reco_text_real.lower() != "":
                                     start_tim_vide = time.perf_counter()
-                                    content_discussion+="\n"+reco_text_real.lower()
+                                    content_discussion += "\n" + reco_text_real.lower()
                                     print("insertion de texte")
                                     entree_prompt_principal.update()
 
@@ -961,34 +1011,46 @@ class Fenetre_entree(tk.Frame):
                         if not stop_thread.stopped():
                             stop_thread.stop()
                         entree_prompt_principal.update()
-                    if "validez" == reco_text.lower() or "terminez" == reco_text.lower():
+                    if (
+                        "validez" == reco_text.lower()
+                        or "terminez" == reco_text.lower()
+                    ):
                         self.set_submission(content=content_discussion)
                         stop_thread = StoppableThread(None, threading.current_thread())
                         if not stop_thread.stopped():
                             stop_thread.stop()
-                        response,timing=ask_to_ai(self.get_client(),self.get_submission(),self.get_model())
-                        fenetre_response=FenetreResponse(master_frame_responses,entree_prompt_principal,response)
-                        # fenetre_response.entree_response.insert_markdown(response)
-                        self.get_talker()(response,False)
-                        chating=True
+                        response, timing = ask_to_ai(
+                            self.get_client(), self.get_submission(), self.get_model()
+                        )
+                        fenetre_response = FenetreResponse(
+                            master=self.fenetre_scrollable(self),
+                            entree_recup=entree_prompt_principal,
+                            ai_response=response,
+                        )
+                        fenetre_response.pack(side=tk.BOTTOM, fill="both", expand=True)
+                        fenetre_response.entree_response.insert_markdown(response)
+                        say_txt(response)
+                        # on sort du tchat une fois répondu
+                        # sinon des erreurs sont levées
+                        chating = False
                     if "fin de la session" == reco_text.lower():
                         terminus
-                        chating=False
+                        chating = False
                         break
-                        
-                        
 
         def start_loop():
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            print("LOOOOOOOOOOOOOOOOOOOPPPPEEEEEEEEEERRRRRRRRR")
             loop.run_until_complete(loop.create_task(asking()))
+            loop.close()
 
         def go_submit(evt):
             soumettre()
 
         def soumettre() -> str:
             if save_to_submission():
-                self.talker("un instant s'il vous plait", False)
+                self.get_talker()("un instant s'il vous plait")
                 threading.Thread(target=start_loop).start()
 
             elif not threading.current_thread().is_alive():
@@ -1016,117 +1078,126 @@ class Fenetre_entree(tk.Frame):
             readable_ai_response = response_ai
             self.set_ai_response(readable_ai_response)
 
-            fenetre_response = FenetreResponse(
-                master=canvas_list_of_frames,
-                entree_recup=entree_prompt_principal,
+            self.fenetre_scrollable.addthing(
+                _timing=_timing,
+                agent_appel=agent_appel,
+                simple_markdown=entree_prompt_principal,
                 ai_response=response_ai,
-            )
-            fenetre_response.pack(side=tk.BOTTOM, fill="both", expand=True)
-            fenetre_response.set_talker(self.get_talker())
-
-            # TODO : tester la langue, si elle n'est pas français,
-            # traduir automatiquement en français
-            fenetre_response.get_entree_response().tag_configure(
-                tagName="boldtext",
-                font=(
-                    fenetre_response.get_entree_response().cget("font") + " italic",
-                    8,
-                ),
-            )
-            #
-            fenetre_response.get_entree_response().tag_configure(
-                tagName="response",
-                border=20,
-                wrap="word",
-                spacing1=10,
-                spacing3=10,
-                lmargin1=10,
-                lmargin2=10,
-                lmargincolor="green",
-                rmargin=10,
-                rmargincolor="green",
-                selectbackground="red",
-            )
-            fenetre_response.get_entree_response().tag_configure(
-                "balise",
-                font=(
-                    fenetre_response.get_entree_response(),
-                    8,
-                ),
-                foreground=from_rgb_to_tkColors((100, 100, 100)),
+                talker=self.get_talker(),
+                model=self.get_model(),
             )
 
-            fenetre_response.get_entree_response().tag_configure(
-                "balise_bold",
-                font=(fenetre_response.get_entree_response().cget("font") + " bold", 8),
-                foreground=from_rgb_to_tkColors((100, 100, 100)),
-            )
-            fenetre_response.get_entree_response().insert(
-                tk.END,
-                datetime.datetime.now().isoformat() + " <" + self.get_model() + "> - ",
-                "balise",
-            )
-            fenetre_response.get_entree_response().insert(
-                tk.END,
-                str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
-                "balise_bold",
-            )
-            # fenetre_response.get_entree_response().insert(tk.END, readable_ai_response, "response")
-            fenetre_response.get_entree_response().insert_markdown(
-                readable_ai_response + "\n\n"
-            )
-            # fenetre_response.get_entree_response().insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
+            # fenetre_response = FenetreResponse(
+            #     master=sisi,
+            #     entree_recup=entree_prompt_principal,
+            #     ai_response=response_ai,
+            # )
+            # fenetre_response.pack(side=tk.BOTTOM, fill="both", expand=True)
+            # fenetre_response.set_talker(self.get_talker())
 
-            fenetre_response.get_entree_question().configure(font=("Arial", 10))
-            fenetre_response.get_entree_question().tag_configure(
-                tagName="boldtext",
-                font=(
-                    fenetre_response.get_entree_response().cget("font") + " italic",
-                    8,
-                ),
-            )
-            fenetre_response.get_entree_question().tag_configure(
-                tagName="response",
-                border=20,
-                wrap="word",
-                spacing1=10,
-                spacing3=10,
-                lmargin1=10,
-                lmargin2=10,
-                lmargincolor="green",
-                rmargin=10,
-                rmargincolor="green",
-                selectbackground="red",
-            )
-            fenetre_response.get_entree_question().tag_configure(
-                "balise",
-                font=(
-                    fenetre_response.get_entree_question().cget("font") + " italic",
-                    8,
-                ),
-                foreground=from_rgb_to_tkColors((100, 100, 100)),
-            )
-            fenetre_response.get_entree_question().tag_configure(
-                "balise_bold",
-                font=(fenetre_response.get_entree_question().cget("font") + " bold", 8),
-                foreground=from_rgb_to_tkColors((100, 100, 100)),
-            )
-            fenetre_response.get_entree_question().insert(
-                tk.END,
-                datetime.datetime.now().isoformat() + " <" + self.get_model() + "> :: ",
-                "balise",
-            )
-            fenetre_response.get_entree_question().insert(
-                tk.END,
-                str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
-                "balise_bold",
-            )
+            # # TODO : tester la langue, si elle n'est pas français,
+            # # traduir automatiquement en français
+            # fenetre_response.get_entree_response().tag_configure(
+            #     tagName="boldtext",
+            #     font=(
+            #         fenetre_response.get_entree_response().cget("font") + " italic",
+            #         8,
+            #     ),
+            # )
+            # #
+            # fenetre_response.get_entree_response().tag_configure(
+            #     tagName="response",
+            #     border=20,
+            #     wrap="word",
+            #     spacing1=10,
+            #     spacing3=10,
+            #     lmargin1=10,
+            #     lmargin2=10,
+            #     lmargincolor="green",
+            #     rmargin=10,
+            #     rmargincolor="green",
+            #     selectbackground="red",
+            # )
+            # fenetre_response.get_entree_response().tag_configure(
+            #     "balise",
+            #     font=(
+            #         fenetre_response.get_entree_response(),
+            #         8,
+            #     ),
+            #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+            # )
 
-            fenetre_response.get_entree_question().insert_markdown(
-                self.get_submission() + "\n"
-            )
-            fenetre_response.get_entree_response().update()
-            fenetre_response.get_entree_question().update()
+            # fenetre_response.get_entree_response().tag_configure(
+            #     "balise_bold",
+            #     font=(fenetre_response.get_entree_response().cget("font") + " bold", 8),
+            #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+            # )
+            # fenetre_response.get_entree_response().insert(
+            #     tk.END,
+            #     datetime.datetime.now().isoformat() + " <" + self.get_model() + "> - ",
+            #     "balise",
+            # )
+            # fenetre_response.get_entree_response().insert(
+            #     tk.END,
+            #     str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
+            #     "balise_bold",
+            # )
+            # # fenetre_response.get_entree_response().insert(tk.END, readable_ai_response, "response")
+            # fenetre_response.get_entree_response().insert_markdown(
+            #     readable_ai_response + "\n\n"
+            # )
+            # # fenetre_response.get_entree_response().insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
+
+            # fenetre_response.get_entree_question().configure(font=("Arial", 10))
+            # fenetre_response.get_entree_question().tag_configure(
+            #     tagName="boldtext",
+            #     font=(
+            #         fenetre_response.get_entree_response().cget("font") + " italic",
+            #         8,
+            #     ),
+            # )
+            # fenetre_response.get_entree_question().tag_configure(
+            #     tagName="response",
+            #     border=20,
+            #     wrap="word",
+            #     spacing1=10,
+            #     spacing3=10,
+            #     lmargin1=10,
+            #     lmargin2=10,
+            #     lmargincolor="green",
+            #     rmargin=10,
+            #     rmargincolor="green",
+            #     selectbackground="red",
+            # )
+            # fenetre_response.get_entree_question().tag_configure(
+            #     "balise",
+            #     font=(
+            #         fenetre_response.get_entree_question().cget("font") + " italic",
+            #         8,
+            #     ),
+            #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+            # )
+            # fenetre_response.get_entree_question().tag_configure(
+            #     "balise_bold",
+            #     font=(fenetre_response.get_entree_question().cget("font") + " bold", 8),
+            #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+            # )
+            # fenetre_response.get_entree_question().insert(
+            #     tk.END,
+            #     datetime.datetime.now().isoformat() + " <" + self.get_model() + "> :: ",
+            #     "balise",
+            # )
+            # fenetre_response.get_entree_question().insert(
+            #     tk.END,
+            #     str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
+            #     "balise_bold",
+            # )
+
+            # fenetre_response.get_entree_question().insert_markdown(
+            #     self.get_submission() + "\n"
+            # )
+            # fenetre_response.get_entree_response().update()
+            # fenetre_response.get_entree_question().update()
 
             return readable_ai_response
 
@@ -1149,13 +1220,12 @@ class Fenetre_entree(tk.Frame):
             finally:
                 # copie le contenu de la variable <selection>
                 # dans la variable submission de la classe
-                # et renvoi True 
+                # et renvoi True
                 # si selection n'est pas vide
 
                 if len(selection) > 1:
                     self.set_submission(
-                        content=selection
-                        + "\n",
+                        content=selection + "\n",
                     )
                     return True
                 # renvois aussi True si il y avait toujourss quelque chose dans la variable submission
@@ -1171,6 +1241,7 @@ class Fenetre_entree(tk.Frame):
                 "Confirmation", "Êtes-vous sûr de vouloir quitter ?"
             ):
                 save_to_submission()
+                app.get_thread().stop()
                 self.destroy()
             else:
                 print("L'utilisateur a annulé.")
@@ -1189,7 +1260,7 @@ class Fenetre_entree(tk.Frame):
                 )
                 print(file_to_read.name)
                 resultat_txt = read_prompt_file(file_to_read.name)
-                self.talker("Fin de l'extraction", False)
+                self.get_talker()("Fin de l'extraction")
 
                 # on prepare le text pour le présenter à la méthode insert_markdown
                 # qui demande un texte fait de lignes séparées par des \n
@@ -1209,9 +1280,9 @@ class Fenetre_entree(tk.Frame):
                     mode="r",
                     initialdir=".",
                 )
-                self.talker("Extraction du PDF", False)
+                self.get_talker()("Extraction du PDF")
                 resultat_txt = read_pdf(file_to_read.name)
-                self.talker("Fin de l'extraction", False)
+                self.get_talker()("Fin de l'extraction")
                 entree_prompt_principal.insert_markdown(mkd_text=resultat_txt)
             except:
                 messagebox("Problème avec ce fichier pdf")
@@ -1225,7 +1296,7 @@ class Fenetre_entree(tk.Frame):
                 except:
                     texte_to_save_to_mp3 = object.get("1.0", tk.END)
                 finally:
-                    self.talker("transcription du texte vers un fichier mp3", False)
+                    self.get_talker()("transcription du texte vers un fichier mp3")
                     simple_dialog = simpledialog.askstring(
                         parent=self,
                         prompt="Enregistrement : veuillez choisir un nom au fichier",
@@ -1234,9 +1305,9 @@ class Fenetre_entree(tk.Frame):
                     lecteur.save_to_file(
                         texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
                     )
-                    self.talker("terminé", False)
+                    self.get_talker()("terminé")
             else:
-                self.talker("Désolé, Il n'y a pas de texte à enregistrer en mp3", False)
+                self.get_talker()("Désolé, Il n'y a pas de texte à enregistrer en mp3")
 
         def replace_in_place(
             texte: str, index1: str, index2: str, ponctuel: bool = True
@@ -1280,7 +1351,7 @@ class Fenetre_entree(tk.Frame):
                     translated_text = str(translate_it(text_to_translate=texte_traite))
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
-                self.talker("fin de la traduction", False)
+                self.get_talker()("fin de la traduction")
 
         affiche_banniere(
             fenetre=self,
@@ -1291,8 +1362,8 @@ class Fenetre_entree(tk.Frame):
 
         # préparation de l'espace de saisie des prompts
 
-        master_frame_actual_prompt = tk.Frame(self, relief="sunken")
-        master_frame_actual_prompt.pack(side=tk.BOTTOM, fill="both", expand=False)
+        master_frame_actual_prompt = tk.Canvas(self, relief="sunken")
+        master_frame_actual_prompt.pack(side=tk.BOTTOM,fill="both",expand=False)
         frame_of_buttons_principal = tk.Frame(
             master_frame_actual_prompt,
             relief="sunken",
@@ -1301,40 +1372,40 @@ class Fenetre_entree(tk.Frame):
         frame_of_buttons_principal.configure(background=from_rgb_to_tkColors(DARK3))
         frame_of_buttons_principal.pack(fill="x", expand=True)
 
-        master_frame_responses = tk.Canvas(
-            self,
-            bg="yellow",
-            width=BANNIERE_WIDTH - 15,
-            height=RESPONSES_HEIGHT,
-        )
-        master_frame_responses.pack(side=tk.BOTTOM, fill="x", expand=False)
+        # master_frame_responses = tk.Canvas(
+        #     self,
+        #     bg="yellow",
+        #     width=BANNIERE_WIDTH - 15,
+        #     height=RESPONSES_HEIGHT,
+        # )
+        # master_frame_responses.pack(fill="both", expand=False)
 
-        canvas_of_scrollbar = tk.Canvas(
-            master_frame_responses,
-            bg="red",
-            height=RESPONSES_HEIGHT,
-        )
+        # canvas_of_scrollbar = tk.Canvas(
+        #     master_frame_responses,
+        #     bg="red",
+        #     height=RESPONSES_HEIGHT,
+        # )
 
-        canvas_list_of_frames = tk.Canvas(
-            master_frame_responses,
-            bg=from_rgb_to_tkColors(LIGHT1),
-            width=BANNIERE_WIDTH - 15,
-            height=RESPONSES_HEIGHT,
-            scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
-        )
-        canvas_of_scrollbar.pack(side=tk.LEFT, expand=False, fill="y")
-        canvas_list_of_frames.pack(side=tk.RIGHT, expand=True, fill="both")
+        # canvas_list_of_frames = tk.Canvas(
+        #     master_frame_responses,
+        #     bg=from_rgb_to_tkColors(LIGHT1),
+        #     width=BANNIERE_WIDTH - 15,
+        #     height=RESPONSES_HEIGHT,
+        #     scrollregion=(0, 0, BANNIERE_WIDTH, RESPONSES_HEIGHT),
+        # )
+        # canvas_of_scrollbar.pack(side=tk.LEFT, expand=False, fill="y")
+        # canvas_list_of_frames.pack(side=tk.RIGHT, expand=True, fill="both")
 
-        scrollbar_responses = tk.Scrollbar(canvas_of_scrollbar, orient="vertical")
-        scrollbar_responses.config(
-            command=master_frame_responses.yview, bg=from_rgb_to_tkColors(DARK2)
-        )
-        scrollbar_responses.pack(side=tk.RIGHT, fill="y")
+        # scrollbar_responses = tk.Scrollbar(canvas_of_scrollbar, orient="vertical")
+        # scrollbar_responses.config(
+        #     command=master_frame_responses.yview, bg=from_rgb_to_tkColors(DARK2)
+        # )
+        # scrollbar_responses.pack(side=tk.RIGHT, fill="y")
 
-        master_frame_responses.config(yscrollcommand=scrollbar_responses.set)
+        # master_frame_responses.config(yscrollcommand=scrollbar_responses.set)
 
         frame_actual_prompt = tk.Frame(master_frame_actual_prompt, relief="sunken")
-        frame_actual_prompt.pack(side=tk.BOTTOM, fill="x", expand=True)
+        frame_actual_prompt.pack(side=tk.BOTTOM)
 
         default_font = tkfont.nametofont("TkDefaultFont")
         default_font.configure(size=8)
@@ -1369,7 +1440,7 @@ class Fenetre_entree(tk.Frame):
             mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
         )
         entree_prompt_principal.focus_set()
-        entree_prompt_principal.pack(fill="both", expand=True)
+        entree_prompt_principal.pack(side=tk.BOTTOM)
         entree_prompt_principal.configure(yscrollcommand=scrollbar_prompt_principal.set)
         entree_prompt_principal.bind("<Control-Return>", func=go_submit)
 
@@ -1382,9 +1453,7 @@ class Fenetre_entree(tk.Frame):
         bouton_lire1 = tk.Button(
             frame_of_buttons_principal,
             text="Lire",
-            command=lambda: lire_text_from_object(
-                entree_prompt_principal, talker=self.talker
-            ),
+            command=lambda: lire_text_from_object(entree_prompt_principal),
         )
         bouton_lire1.configure(
             bg=from_rgb_to_tkColors(DARK3),
@@ -1569,11 +1638,27 @@ def affiche_banniere(
 lecteur, my_liste, stream = init_start(engine_lecteur_init, init_main)
 
 root = tk.Tk(className="YourAssistant")
+# sisi=tk.Toplevel(class_="ResponsesReceiver")
+# canvas_sisi=tk.Canvas(sisi)
+# the_frame=tk.Frame(sisi,container=False)
+# the_frame.pack(fill="y",side=tk.LEFT,expand=False)
+
+# # ScrolledWindow.scrollwindow
+
+
+# sisi_scroll=tk.Scrollbar(the_frame,orient='vertical')
+# sisi_scroll.configure(command=canvas_sisi.yview)
+# canvas_sisi.pack(fill="y",side=tk.RIGHT,expand=False)
+# sisi_scroll.pack(fill="y",expand=False)
+# canvas_sisi.configure(yscrollcommand=sisi_scroll.set)
+# sisi.wm_minsize()
+
 app = Fenetre_entree(
     master=root,
     stream=stream,
     model_to_use=LLAMA3,
 )
+# sisi.mainloop(1)
 
 
 if __name__ == "__main__":

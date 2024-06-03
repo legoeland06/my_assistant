@@ -16,15 +16,113 @@ class FenetreResponse(tk.Frame):
     validarion de prompt principal
     """
 
-    entree_prompt_principal: SimpleMarkdownText
-    ai_response: str
+    def __init__(
+        self,
+        master: tk.Frame,
+        entree_recup: SimpleMarkdownText,
+        ai_response: str,
+    ):
+        super().__init__(master)
+        self.master = master
+        self.pack()
+        self.title = "title"
+        self.ai_response = ai_response
+        self.entree_prompt_principal: SimpleMarkdownText = entree_recup
+        self.canvas_edition = tk.Canvas(master=master, relief="sunken")
 
-    boutton_effacer_entree_response: tk.Button
-    bouton_lire_responses: tk.Button
-    bouton_transfere: tk.Button
-    entree_response: SimpleMarkdownText
-    entree_question: SimpleMarkdownText
-    talker: any
+        self.boutons_cnv_response = tk.Frame(self.canvas_edition)
+        self.cnv_globals_responses = tk.Frame(self.canvas_edition)
+        self.cnv_response = tk.Frame(self.cnv_globals_responses, relief="sunken")
+        self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="sunken")
+
+        # TODO : transformer les entree_prompt_principal et entree_response en liste
+        # de plusieurs question_tk_text et reponse_tk_text
+
+        self.bouton_supprimer_question_response = tk.Button(
+            self.boutons_cnv_response, text=" X ", command=self.destroy
+        )
+
+        self.bouton_supprimer_question_response.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
+        self.bouton_supprimer_question_response.pack(side="left")
+
+        self.boutton_effacer_entree_response = tk.Button(
+            self.boutons_cnv_response,
+            text="Effacer",
+            command=self.clear_entree_response,
+        )
+
+        self.boutton_effacer_entree_response.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
+        self.boutton_effacer_entree_response.pack(side="right")
+
+        self.bouton_lire_responses = tk.Button(
+            self.boutons_cnv_response,
+            text="Lire",
+            command=lambda: self.lire_text_from_object(self.entree_response),
+        )
+        self.bouton_lire_responses.configure(
+            bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors(LIGHT3)
+        )
+        self.bouton_lire_responses.pack(side=tk.RIGHT)
+
+        self.canvas_edition.pack(fill="x", expand=True)
+        self.boutons_cnv_response.pack(fill="x", expand=True)
+
+        self.cnv_globals_responses.pack(fill="x", expand=True)
+        self.cnv_response.pack(fill="x", expand=True)
+        self.cnv_question.pack(fill="x", expand=True)
+
+        self.bouton_transfere = tk.Button(
+            self.boutons_cnv_response,
+            text="Transférer",
+            command=lambda: self.entree_prompt_principal.insert_markdown(
+                self.get_ai_response()
+            ),
+            bg=from_rgb_to_tkColors(LIGHT1),
+            fg=from_rgb_to_tkColors(DARK3),
+        )
+        self.bouton_transfere.pack(side=tk.RIGHT, fill="both")
+        scrollbar_response = tk.Scrollbar(self.cnv_response)
+        scrollbar_response.pack(side=tk.RIGHT, fill="both")
+        scrollbar_question = tk.Scrollbar(self.cnv_question)
+        scrollbar_question.pack(side=tk.RIGHT, fill="both")
+        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font.configure(size=8)
+        self.entree_response = SimpleMarkdownText(self.cnv_response, font=default_font)
+        self.entree_response.configure(
+            bg=from_rgb_to_tkColors(LIGHT3),
+            fg=from_rgb_to_tkColors(DARK1),
+            height=5,
+            font=("Arial", 12),
+            wrap="word",
+            padx=10,
+            pady=6,
+            yscrollcommand=scrollbar_response.set,
+        )
+        self.entree_question = SimpleMarkdownText(
+            self.cnv_question, height=5, font=default_font
+        )
+        self.entree_question.configure(
+            bg=from_rgb_to_tkColors(LIGHT2),
+            fg=from_rgb_to_tkColors(DARK3),
+            height=4,
+            wrap="word",
+            padx=10,
+            pady=6,
+            yscrollcommand=scrollbar_question.set,
+        )
+        self.entree_response.pack(fill="both", expand=True)
+        self.entree_question.pack(fill="both", expand=True)
+
+        scrollbar_response.configure(
+            command=self.entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
+        )
+        scrollbar_question.configure(
+            command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
+        )
 
     def set_talker(self, talker):
         self.talker = talker
@@ -60,110 +158,3 @@ class FenetreResponse(tk.Frame):
                 texte_to_talk = object.get("1.0", tk.END)
             finally:
                 self.talker(texte_to_talk, False)
-
-    def __init__(
-        self,
-        master: tk.Frame,
-        entree_recup: SimpleMarkdownText,
-        ai_response: str,
-    ):
-        super().__init__(master)
-        self.master = master
-        self.pack()
-        self.title = "title"
-        self.ai_response = ai_response
-        self.entree_prompt_principal = entree_recup
-        canvas_edition = tk.Canvas(master=master, relief="sunken")
-
-        boutons_cnv_response = tk.Frame(canvas_edition)
-        cnv_globals_responses = tk.Frame(canvas_edition)
-        cnv_response = tk.Frame(cnv_globals_responses, relief="sunken")
-        cnv_question = tk.Frame(cnv_globals_responses, relief="sunken")
-
-        # TODO : transformer les entree_prompt_principal et entree_response en liste
-        # de plusieurs question_tk_text et reponse_tk_text
-
-        boutton_supprimer_question_response = tk.Button(
-            boutons_cnv_response, text=" X ", command=self.destroy
-        )
-
-        boutton_supprimer_question_response.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
-        )
-        boutton_supprimer_question_response.pack(side="right")
-
-        boutton_effacer_entree_response = tk.Button(
-            boutons_cnv_response, text="Effacer", command=self.clear_entree_response
-        )
-
-        boutton_effacer_entree_response.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
-        )
-        boutton_effacer_entree_response.pack(side="right")
-
-        bouton_lire_responses = tk.Button(
-            boutons_cnv_response,
-            text="Lire",
-            command=lambda: self.lire_text_from_object(entree_response),
-        )
-        bouton_lire_responses.configure(
-            bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors(LIGHT3)
-        )
-        bouton_lire_responses.pack(side=tk.RIGHT)
-
-        canvas_edition.pack(fill="x", expand=True)
-        boutons_cnv_response.pack(fill="x", expand=True)
-
-        cnv_globals_responses.pack(fill="x", expand=True)
-        cnv_response.pack(fill="x", expand=True)
-        cnv_question.pack(fill="x", expand=True)
-
-        bouton_transfere = tk.Button(
-            boutons_cnv_response,
-            text="Transférer",
-            command=lambda: self.entree_prompt_principal.insert_markdown(
-                self.get_ai_response()
-            ),
-            bg=from_rgb_to_tkColors(LIGHT1),
-            fg=from_rgb_to_tkColors(DARK3),
-        )
-        bouton_transfere.pack(side=tk.RIGHT, fill="both")
-        scrollbar_response = tk.Scrollbar(cnv_response)
-        scrollbar_response.pack(side=tk.RIGHT, fill="both")
-        scrollbar_question = tk.Scrollbar(cnv_question)
-        scrollbar_question.pack(side=tk.RIGHT, fill="both")
-        default_font = tkfont.nametofont("TkDefaultFont")
-        default_font.configure(size=8)
-        entree_response = SimpleMarkdownText(cnv_response, font=default_font)
-        entree_response.configure(
-            bg=from_rgb_to_tkColors(LIGHT3),
-            fg=from_rgb_to_tkColors(DARK1),
-            height=5,
-            font=("Arial", 12),
-            wrap="word",
-            padx=10,
-            pady=6,
-            yscrollcommand=scrollbar_response.set,
-        )
-        entree_question = SimpleMarkdownText(cnv_question, height=5, font=default_font)
-        entree_question.configure(
-            bg=from_rgb_to_tkColors(LIGHT2),
-            fg=from_rgb_to_tkColors(DARK3),
-            height=4,
-            wrap="word",
-            padx=10,
-            pady=6,
-            yscrollcommand=scrollbar_question.set,
-        )
-        entree_response.pack(fill="both", expand=True)
-        entree_question.pack(fill="both", expand=True)
-
-        scrollbar_response.configure(
-            command=entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
-        )
-        scrollbar_question.configure(
-            command=entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
-        )
-
-        self.entree_response = entree_response
-        self.entree_question = entree_question
