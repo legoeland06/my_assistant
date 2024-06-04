@@ -9,9 +9,9 @@ from outils import from_rgb_to_tkColors
 class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
-        self.configure(height=600,width=800)
-        self.canvas = tk.Canvas(self, borderwidth=0,background="#ffffff",height=600,)
-        self.frame = tk.Frame(self.canvas, background="#ffffff", height=600,width=700)
+        # self.configure(height=600,width=800)
+        self.canvas = tk.Canvas(self, borderwidth=0,background="#ffffff",height=600)
+        self.frame = tk.Frame(self.canvas, background="#ffffff", height=600)
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.vsb.set)
 
@@ -43,6 +43,7 @@ class FenetreScrollable(tk.Frame):
         )
         self.responses.append(fenetre_response)
         fenetre_response.set_talker(talker=talker)
+        fenetre_response.get_entree_response().configure(width=96,font=("Arial", 10))
         fenetre_response.get_entree_response().tag_configure(
             tagName="boldtext",
             font=(
@@ -92,7 +93,7 @@ class FenetreScrollable(tk.Frame):
         fenetre_response.get_entree_response().insert_markdown(ai_response + "\n\n")
         # fenetre_response.get_entree_response().insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
 
-        fenetre_response.get_entree_question().configure(font=("Arial", 10))
+        fenetre_response.get_entree_question().configure(width=96,font=("Arial", 10))
         fenetre_response.get_entree_question().tag_configure(
             tagName="boldtext",
             font=(

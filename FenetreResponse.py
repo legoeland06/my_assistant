@@ -28,7 +28,7 @@ class FenetreResponse(tk.Frame):
         self.title = "title"
         self.ai_response = ai_response
         self.entree_prompt_principal: SimpleMarkdownText = entree_recup
-        self.canvas_edition = tk.Canvas(master=master, relief="sunken",width=700)
+        self.canvas_edition = tk.Canvas(master=master, relief="sunken",)
 
         self.boutons_cnv_response = tk.Frame(self.canvas_edition)
         self.cnv_globals_responses = tk.Frame(self.canvas_edition)
@@ -39,13 +39,37 @@ class FenetreResponse(tk.Frame):
         # de plusieurs question_tk_text et reponse_tk_text
 
         self.bouton_supprimer_question_response = tk.Button(
-            self.boutons_cnv_response, text=" X ", command=lambda:self.nametowidget(self.widgetName).destroy()
+            self.boutons_cnv_response, text=" X ", command=self.canvas_edition.destroy
         )
 
         self.bouton_supprimer_question_response.configure(
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
         self.bouton_supprimer_question_response.pack(side="left")
+
+        self.bouton_maximize_me=tk.Button(
+            self.boutons_cnv_response, text=" + ", command=self.maximize_me
+        )
+        self.bouton_maximize_me.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
+        self.bouton_maximize_me.pack(side="left")
+
+        self.bouton_normalize_me=tk.Button(
+            self.boutons_cnv_response, text=" || ", command=self.normalize_me
+        )
+        self.bouton_normalize_me.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
+        self.bouton_normalize_me.pack(side="left")
+
+        self.bouton_minimize_me=tk.Button(
+            self.boutons_cnv_response, text=" - ", command=self.minimize_me
+        )
+        self.bouton_minimize_me.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
+        self.bouton_minimize_me.pack(side="left")
 
         self.boutton_effacer_entree_response = tk.Button(
             self.boutons_cnv_response,
@@ -96,6 +120,7 @@ class FenetreResponse(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors(DARK1),
             height=5,
+            width=80,
             font=("Arial", 12),
             wrap="word",
             padx=10,
@@ -109,6 +134,7 @@ class FenetreResponse(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors(DARK3),
             height=4,
+            width=80,
             wrap="word",
             padx=10,
             pady=6,
@@ -124,6 +150,24 @@ class FenetreResponse(tk.Frame):
             command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
+    def maximize_me(self):
+        self.entree_response.configure(height=30,width=80)
+        self.entree_question.configure(height=5,width=80)
+        self.entree_question.pack_propagate()
+        self.entree_response.pack_propagate()
+    
+    def normalize_me(self):
+        self.entree_response.configure(height=5,width=80)
+        self.entree_question.configure(height=5,width=80)
+        self.entree_question.pack_propagate()
+        self.entree_response.pack_propagate()
+
+    def minimize_me(self):
+        self.entree_response.configure(height=0,width=80)
+        self.entree_question.configure(height=0,width=80)
+        self.entree_response.pack_propagate()
+        self.entree_question.pack_propagate()
+    
     def set_talker(self, talker):
         self.talker = talker
 

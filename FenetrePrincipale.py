@@ -72,7 +72,7 @@ class FenetrePrincipale(tk.Frame):
         )
         self.image_link = ""
         self.content = ""
-        self.configure(padx=5, pady=5, height=1000, width=FENETRE_WIDTH + 10)
+        self.configure(padx=5, pady=5, width=FENETRE_WIDTH + 10)
         self.pack()
         self.creer_fenetre(
             image=self.get_image(),
@@ -199,7 +199,7 @@ class FenetrePrincipale(tk.Frame):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
             self.get_thread().stop()
-            self.destroy()
+            self.master.destroy()
         else:
             print("L'utilisateur a annulé.")
 
@@ -715,6 +715,7 @@ class FenetrePrincipale(tk.Frame):
         def traduit_maintenant():
             was_a_list = False
             try:
+                # TRANSLATE IN PLACE
                 texte_initial = self.entree_prompt_principal.get(
                     tk.SEL_FIRST, tk.SEL_LAST
                 )
@@ -738,16 +739,47 @@ class FenetrePrincipale(tk.Frame):
                     )
 
             except:
+                # TRANSLATE COMPLETE
                 texte_initial = self.entree_prompt_principal.get("1.0", tk.END)
+                texte_brut_initial = texte_initial.replace("\n", " ")
                 texte_traite = traitement_du_texte(texte_initial, 500)
+
                 if isinstance(texte_traite, list):
+                    sortie = ""
                     for element in texte_traite:
                         translated_text = str(translate_it(text_to_translate=element))
+                        sortie += translated_text
                     was_a_list = True
+
+                    self.fenetre_scrollable.addthing(
+                        _timing=0,
+                        agent_appel=any,
+                        simple_markdown=self.entree_prompt_principal,
+                        ai_response=sortie,
+                        talker=self.get_talker(),
+                        model=self.get_model(),
+                    )
                 elif was_a_list == True:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
+                    self.fenetre_scrollable.addthing(
+                        _timing=0,
+                        agent_appel=any,
+                        simple_markdown=self.entree_prompt_principal,
+                        ai_response=translated_text,
+                        talker=self.get_talker(),
+                        model=self.get_model(),
+                    )
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
+                    self.fenetre_scrollable.addthing(
+                        _timing=0,
+                        agent_appel=any,
+                        simple_markdown=self.entree_prompt_principal,
+                        ai_response=translated_text,
+                        talker=self.get_talker(),
+                        model=self.get_model(),
+                    )
+
                 self.get_talker()("fin de la traduction")
 
         # préparation de l'espace de saisie des prompts
