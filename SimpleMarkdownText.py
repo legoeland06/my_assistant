@@ -41,6 +41,9 @@ class SimpleMarkdownText(tkinter.Text):
 
         self.numbered_index = 1
 
+    def get_text(self)->str:
+        return self.get("1.0",tkinter.END)
+
     def insert_bullet(self, position, text):
         self.insert(position, f"\u2022 {text}", "bullet")
 

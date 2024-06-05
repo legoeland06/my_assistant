@@ -9,11 +9,9 @@ from tkinter import messagebox
 import vosk
 import pyaudio
 import ollama
+from groq import Groq
 from llama_index.llms.ollama import Ollama as Ola
-import imageio.v3 as iio
-import subprocess
 from FenetrePrincipale import FenetrePrincipale
-from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 from Constants import *
 from outils import (
@@ -22,30 +20,6 @@ from outils import (
     engine_lecteur_init,
     say_txt,
 )
-
-
-def affiche_preprompts():
-    print(INFOS_PROMPTS)
-    print(STARS * WIDTH_TERM)
-    for preprompt in PREPROMPTS:
-        print(str(PREPROMPTS.index(preprompt)) + ". " + preprompt)
-
-
-def lancer_chrome(url: str) -> subprocess.Popen[str]:
-    return subprocess.Popen(
-        GOOGLECHROME_APP + url,
-        text=True,
-        shell=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-
-def tester_appellation(appelation: str) -> str:
-    for lien in LIENS_CHROME:
-        if lien in appelation:
-            chrome_pid = lancer_chrome(url=LIENS_CHROME[lien])
-            return lien
 
 
 def engine_ecouteur_init():
@@ -68,50 +42,6 @@ def init_model(model_to_use: str, prompted: bool = False):
         lecteur.runAndWait()
         lecteur.stop()
     return model_to_use
-
-
-def lire_fichier(file_name: str) -> str:
-
-    with open(file_name + ".txt", "r", encoding="utf-8") as file:
-        if file.readable():
-            data_file = file.read().rstrip()
-            return "fais moi un résumé de ce texte: " + data_file
-        else:
-            return ""
-
-
-def lire_url(url: str) -> str:
-    return url
-
-
-def lire_image(name: str) -> any:
-    # Load a single image
-    im = iio.imread(name)
-    print(im.shape)  # Shape of the image (height, width, channels)
-    return im
-
-
-def veullez_patienter(moteur_de_diction):
-    moteur_de_diction(TRAITEMENT_EN_COURS, stop_ecoute=True)
-
-
-def merci_au_revoir(
-    moteur_de_diction,
-    stream_to_stop: pyaudio.Stream,
-    pulse_audio_to_stop: pyaudio.PyAudio,
-):
-    # Stop and close the stream_to_stop
-    moteur_de_diction(BYEBYE, False)
-    lecteur.stop()
-    stream_to_stop.stop_stream()
-    stream_to_stop.close()
-    # Terminate the PyAudio object
-    pulse_audio_to_stop.terminate()
-    au_revoir()
-
-
-def au_revoir():
-    exit(0)
 
 
 def ask_to_ai(agent_appel, prompt, model_to_use):
@@ -176,8 +106,6 @@ def traitement_rapide(texte: str, model_to_use, talking: bool, moteur_diction):
     app.get_talker()(readable_ai_response)
 
 
-
-
 async def dire_tt(alire: str):
     if lecteur.isBusy():
         lecteur.stop()
@@ -219,25 +147,6 @@ def say_tt(alire: str):
     # bouton lecture, stop, pause, effacer
     the_thread.join()
     the_thread.stop()
-
-
-def arret_ecoute():
-    stream.stop_stream()
-
-
-def debut_ecoute(info: str = ""):
-    say_txt(info, False)
-    stream.start_stream()
-    return 0, ""
-
-
-def changer_ia(self, evt):
-    # Note here that Tkinter passes an event object to onselect()
-    w = evt.widget
-    index = int(w.curselection()[0])
-    value = w.get(index)
-    print('You selected item %d: "%s"' % (index, value))
-    self.set_model(value)
 
 
 def main(prompt=False, stop_talking=STOP_TALKING):

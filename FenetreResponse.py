@@ -1,6 +1,7 @@
 import tkinter as tk
+from typing import Any
 
-from outils import from_rgb_to_tkColors
+from outils import askToAi, from_rgb_to_tkColors
 from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3
 from SimpleMarkdownText import SimpleMarkdownText
 import tkinter.font as tkfont
@@ -21,19 +22,26 @@ class FenetreResponse(tk.Frame):
         master: tk.Frame,
         entree_recup: SimpleMarkdownText,
         ai_response: str,
+        submit,
+        agent_appel,
+        model_to_use,
     ):
+        self.submit=submit
         super().__init__(master)
         self.master = master
+        self.agent_appel=agent_appel
+        self.model_to_use=model_to_use
         self.pack(expand=False)
         self.title = "title"
         self.ai_response = ai_response
-        self.entree_prompt_principal: SimpleMarkdownText = entree_recup
         self.canvas_edition = tk.Canvas(master=master, relief="sunken",)
+        self.entree_prompt=entree_recup
 
         self.boutons_cnv_response = tk.Frame(self.canvas_edition)
         self.cnv_globals_responses = tk.Frame(self.canvas_edition)
         self.cnv_response = tk.Frame(self.cnv_globals_responses, relief="sunken")
         self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="sunken")
+
 
         # TODO : transformer les entree_prompt_principal et entree_response en liste
         # de plusieurs question_tk_text et reponse_tk_text
@@ -102,7 +110,7 @@ class FenetreResponse(tk.Frame):
         self.bouton_transfere = tk.Button(
             self.boutons_cnv_response,
             text="Transférer",
-            command=lambda: self.entree_prompt_principal.insert_markdown(
+            command=lambda: self.entree_prompt.insert_markdown(
                 self.get_ai_response()
             ),
             bg=from_rgb_to_tkColors(LIGHT1),
@@ -120,7 +128,7 @@ class FenetreResponse(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors(DARK1),
             height=5,
-            width=80,
+            width=98,
             font=("Arial", 12),
             wrap="word",
             padx=10,
@@ -134,12 +142,13 @@ class FenetreResponse(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors(DARK3),
             height=4,
-            width=80,
+            width=98,
             wrap="word",
             padx=10,
             pady=6,
             yscrollcommand=scrollbar_question.set,
         )
+        self.entree_question.bind("<Control-Return>", func=self.submission)
         self.entree_response.pack(fill="both", expand=False)
         self.entree_question.pack(fill="both", expand=False)
 
@@ -150,21 +159,31 @@ class FenetreResponse(tk.Frame):
             command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
+    def submission(self,evt):
+        submission_texte=self.entree_question.get_text()
+        response_ai,_timing=askToAi(
+            agent_appel=self.agent_appel,
+            prompt=submission_texte,
+            model_to_use=self.model_to_use,
+        )
+        self.entree_response.insert_markdown(response_ai)
+
+
     def maximize_me(self):
-        self.entree_response.configure(height=30,width=80)
-        self.entree_question.configure(height=5,width=80)
+        self.entree_response.configure(height=int(self.entree_response.cget("height"))+2,width=98)
+        self.entree_question.configure(height=5,width=98)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
     
     def normalize_me(self):
-        self.entree_response.configure(height=5,width=80)
-        self.entree_question.configure(height=5,width=80)
+        self.entree_response.configure(height=5,width=98)
+        self.entree_question.configure(height=5,width=98)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
     def minimize_me(self):
-        self.entree_response.configure(height=0,width=80)
-        self.entree_question.configure(height=0,width=80)
+        self.entree_response.configure(height=int(self.entree_response.cget("height"))-2,width=98)
+        self.entree_question.configure(height=0,width=98)
         self.entree_response.pack_propagate()
         self.entree_question.pack_propagate()
     
@@ -201,4 +220,4 @@ class FenetreResponse(tk.Frame):
             except:
                 texte_to_talk = object.get("1.0", tk.END)
             finally:
-                self.talker(texte_to_talk, False)
+                self.talker(texte_to_talk)

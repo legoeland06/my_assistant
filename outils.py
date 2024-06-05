@@ -1,3 +1,8 @@
+import asyncio
+import subprocess
+import threading
+import time
+import pyaudio
 import pyttsx3
 import datetime
 import json
@@ -6,11 +11,45 @@ from tkinter import filedialog
 from tkinter import messagebox
 import tkinter.font as tkfont
 from typing import Any, Mapping
-
+import imageio.v3 as iio
+import ollama
+from llama_index.llms.ollama import Ollama as Ola
 import PyPDF2
 import markdown
-from Constants import DARK3, LIGHT3, PROMPTS_SYSTEMIQUES, RAPIDITE_VOIX
+from Constants import (
+    BYEBYE,
+    DARK3,
+    GOOGLECHROME_APP,
+    INFOS_PROMPTS,
+    LIENS_CHROME,
+    LIGHT3,
+    PREPROMPTS,
+    PROMPTS_SYSTEMIQUES,
+    RAPIDITE_VOIX,
+    REQUEST_TIMEOUT_DEFAULT,
+    RESUME_WEB,
+    ROLE_TYPE,
+    STARS,
+    TRAITEMENT_EN_COURS,
+    WIDTH_TERM,
+)
 from SimpleMarkdownText import SimpleMarkdownText
+from StoppableThread import StoppableThread
+
+
+async def say_text(alire: str):
+    """
+    lit le texte sans passer par un thread
+    """
+    # stop_thread = StoppableThread(None, threading.current_thread())
+    # if not stop_thread.stopped():
+    #     stop_thread.stop()
+
+    lecteur = engine_lecteur_init()
+    lecteur.say(alire)
+    lecteur.runAndWait()
+    lecteur.stop()
+    return True
 
 
 def say_txt(alire: str):
@@ -194,15 +233,22 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
 
 def lire_text_from_object(object: tk.Text):
     texte_to_talk = object.get("1.0", tk.END)
+    valide_function = None
+    def lire_ceci(texte_to_talk):
+        asyncio.run(say_text(texte_to_talk))
+        return True
+    
+    if texte_to_talk == "":
+        return None
 
-    if texte_to_talk != "":
-        try:
-            texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-        except:
-            texte_to_talk = object.get("1.0", tk.END)
-        finally:
-            say_txt(texte_to_talk)
-            return texte_to_talk
+    try:
+        texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+    except:
+        texte_to_talk = object.get("1.0", tk.END)
+    finally:
+        valide_function = lire_ceci(texte_to_talk)
+        # return texte_to_talk
+    return valide_function
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
@@ -261,3 +307,142 @@ def engine_lecteur_init():
     lecteur.setProperty("rate", RAPIDITE_VOIX)
 
     return lecteur
+
+
+def affiche_preprompts():
+    print(INFOS_PROMPTS)
+    print(STARS * WIDTH_TERM)
+    for preprompt in PREPROMPTS:
+        print(str(PREPROMPTS.index(preprompt)) + ". " + preprompt)
+
+
+def lancer_chrome(url: str) -> subprocess.Popen[str]:
+    return subprocess.Popen(
+        GOOGLECHROME_APP + url,
+        text=True,
+        shell=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def tester_appellation(appelation: str) -> str:
+    for lien in LIENS_CHROME:
+        if lien in appelation:
+            chrome_pid = lancer_chrome(url=LIENS_CHROME[lien])
+            return lien
+
+
+def lire_fichier(file_name: str) -> str:
+
+    with open(file_name + ".txt", "r", encoding="utf-8") as file:
+        if file.readable():
+            data_file = file.read().rstrip()
+            return "fais moi un résumé de ce texte: " + data_file
+        else:
+            return ""
+
+
+def lire_url(url: str) -> str:
+    return url
+
+
+def lire_image(name: str) -> any:
+    # Load a single image
+    im = iio.imread(name)
+    print(im.shape)  # Shape of the image (height, width, channels)
+    return im
+
+
+def veullez_patienter(moteur_de_diction):
+    moteur_de_diction(TRAITEMENT_EN_COURS, stop_ecoute=True)
+
+
+def merci_au_revoir(
+    lecteur: pyttsx3.Engine,
+    stream_to_stop: pyaudio.Stream,
+):
+    # Stop and close the stream_to_stop
+    lecteur.say(BYEBYE, False)
+    lecteur.stop()
+    stream_to_stop.stop_stream()
+    stream_to_stop.close()
+    au_revoir()
+
+
+def au_revoir():
+    exit(0)
+
+
+def arret_ecoute(stream: pyaudio.Stream):
+    stream.stop_stream()
+
+
+def debut_ecoute(stream: pyaudio.Stream, info: str = ""):
+    say_txt(info, False)
+    stream.start_stream()
+    return 0, ""
+
+
+def changer_ia(application: any, evt: tk.Event):
+    # Note here that Tkinter passes an event object to onselect()
+    w: tk.Listbox = evt.widget
+    if type(w) is tk.Listbox:
+        index = int(w.curselection()[0])
+        value = w.get(index)
+        print('You selected item %d: "%s"' % (index, value))
+        application.set_model(value)
+
+
+def askToAi(agent_appel, prompt, model_to_use):
+
+    time0 = time.perf_counter_ns()
+
+    if isinstance(agent_appel, ollama.Client):
+        try:
+            llm: ollama.Client = agent_appel.chat(
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": ROLE_TYPE,
+                        "content": prompt,
+                        "num_ctx": 4096,
+                        "num_predict": 40,
+                        "keep_alive": -1,
+                    },
+                ],
+            )
+            ai_response = llm["message"]["content"]
+        except ollama.RequestError as requestError:
+            print("OOps aucun model chargé : ", requestError)
+        except ollama.ResponseError as responseError:
+            print("OOps la requête ne s'est pas bien déroulée", responseError)
+
+    elif isinstance(agent_appel, Ola.__class__):
+        try:
+            llm: Ola = agent_appel(
+                base_url="http://localhost:11434",
+                model=model_to_use,
+                request_timeout=REQUEST_TIMEOUT_DEFAULT,
+                additional_kwargs={
+                    "num_ctx": 4096,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            )
+            ai_response = llm.chat(prompt).message.content
+        except:
+            messagebox.Message("OOps, ")
+
+    # calcul le temps écoulé par la thread
+    timing: float = (time.perf_counter_ns() - time0) / 1_000_000_000.0
+    print(ai_response)
+    print("Type_agent_appel::" + str(type(agent_appel)))
+    print("Type_ai_réponse::" + str(type(ai_response)))
+
+    append_response_to_file(RESUME_WEB, ai_response)
+    actualise_index_html(
+        texte=ai_response, question=prompt, timing=timing, model=model_to_use
+    )
+
+    return ai_response, timing

@@ -1,6 +1,7 @@
 import datetime
 import tkinter as tk
 
+from Constants import DARK2
 from FenetreResponse import FenetreResponse
 from SimpleMarkdownText import SimpleMarkdownText
 from outils import from_rgb_to_tkColors
@@ -9,16 +10,28 @@ from outils import from_rgb_to_tkColors
 class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
         tk.Frame.__init__(self, parent)
-        # self.configure(height=600,width=800)
-        self.canvas = tk.Canvas(self, borderwidth=0,background="#ffffff",height=600)
-        self.frame = tk.Frame(self.canvas, background="#ffffff", height=600)
+        self.canvas = tk.Canvas(
+            self,
+            borderwidth=0,
+            height=int(parent.winfo_reqheight()) + 400,
+            # width=int(parent.winfo_reqwidth()) - 30,
+            width=self.master.winfo_reqwidth()-20,
+            background=from_rgb_to_tkColors(DARK2),
+  )
+        self.frame = tk.Frame(
+            self.canvas,
+            height=int(parent.winfo_reqheight()) + 400,
+            # width=int(parent.winfo_reqwidth()) - 30,
+            width=self.master.winfo_reqwidth()-20,
+            background=from_rgb_to_tkColors(DARK2),
+        )
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
         self.canvas.configure(yscrollcommand=self.vsb.set)
 
         self.vsb.pack(side="right", fill="y")
-        self.canvas.pack( fill="both", expand=False)
+        self.canvas.pack(fill="both", expand=False)
         self.canvas.create_window(
-            (4, 4), window=self.frame, anchor="nw", tags="self.frame"
+            (4, 4), window=self.frame, anchor="center", tags="self.frame"
         )
 
         self.frame.bind("<Configure>", self.onFrameConfigure)
@@ -30,20 +43,24 @@ class FenetreScrollable(tk.Frame):
         self,
         _timing,
         agent_appel,
-        simple_markdown: SimpleMarkdownText,
+        simple_markdown_text: SimpleMarkdownText,
         ai_response,
         talker,
         model,
+        submit_func,
     ):
-        self.model=model
+        self.model = model
         fenetre_response = FenetreResponse(
             ai_response=ai_response,
-            entree_recup=simple_markdown,
+            entree_recup=simple_markdown_text,
             master=self.frame,
+            submit=submit_func,
+            agent_appel=agent_appel,
+            model_to_use=model
         )
         self.responses.append(fenetre_response)
         fenetre_response.set_talker(talker=talker)
-        fenetre_response.get_entree_response().configure(width=96,font=("Arial", 10))
+        fenetre_response.get_entree_response().configure( font=("Arial", 10))
         fenetre_response.get_entree_response().tag_configure(
             tagName="boldtext",
             font=(
@@ -89,11 +106,9 @@ class FenetreScrollable(tk.Frame):
             str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
             "balise_bold",
         )
-        # fenetre_response.get_entree_response().insert(tk.END, readable_ai_response, "response")
         fenetre_response.get_entree_response().insert_markdown(ai_response + "\n\n")
-        # fenetre_response.get_entree_response().insert(tk.END, "\n\n" + "</" + self.get_model() + ">\n\n", "balise")
 
-        fenetre_response.get_entree_question().configure(width=96,font=("Arial", 10))
+        fenetre_response.get_entree_question().configure( font=("Arial", 10))
         fenetre_response.get_entree_question().tag_configure(
             tagName="boldtext",
             font=(
@@ -138,9 +153,9 @@ class FenetreScrollable(tk.Frame):
             "balise_bold",
         )
 
-        # fenetre_response.set_entree_question(simple_markdown)
         fenetre_response.get_entree_question().insert_markdown(
-            simple_markdown.get("1.0", tk.END) + "\n"
+            simple_markdown_text.get_text()+"\n"
+            # simple_markdown.get("1.0", tk.END) + "\n"
         )
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()

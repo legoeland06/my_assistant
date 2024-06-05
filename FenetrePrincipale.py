@@ -1,10 +1,13 @@
 import asyncio
 import json
+import os
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any
+from groq import Groq
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
+from openai import ChatCompletion
 import pyaudio
 from Constants import *
 import tkinter.font as tkfont
@@ -28,6 +31,7 @@ from outils import (
     lire_text_from_object,
     load_pdf,
     load_txt,
+    merci_au_revoir,
     read_prompt_file,
     say_txt,
     traitement_du_texte,
@@ -72,15 +76,16 @@ class FenetrePrincipale(tk.Frame):
         )
         self.image_link = ""
         self.content = ""
-        self.configure(padx=5, pady=5, width=FENETRE_WIDTH + 10)
+        self.configure(padx=5, pady=5, width=96 + 10)
         self.pack()
         self.creer_fenetre(
             image=self.get_image(),
             msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
         )
         self.fenetre_scrollable = FenetreScrollable(self)
-        self.fenetre_scrollable.configure(width=BANNIERE_WIDTH)
-        self.fenetre_scrollable.pack(side="bottom", fill="both", expand=False)
+        self.fenetre_scrollable.configure(width=self.master.winfo_reqwidth() - 20)
+        self.fenetre_scrollable.configure(height=self.master.winfo_reqheight() - 20)
+        self.fenetre_scrollable.pack(side="bottom", fill="x", expand=True)
         self.my_liste = []
         for element in (ollama.list())["models"]:
             self.my_liste.append(element["name"])
@@ -199,6 +204,7 @@ class FenetrePrincipale(tk.Frame):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
             self.get_thread().stop()
+            merci_au_revoir(lecteur=self.lecteur, stream_to_stop=self.get_stream())
             self.master.destroy()
         else:
             print("L'utilisateur a annulé.")
@@ -249,6 +255,23 @@ class FenetrePrincipale(tk.Frame):
             foreground=from_rgb_to_tkColors(DARK3),
         )
         bouton_Ola.pack(side=tk.LEFT)
+
+        bouton_Groq = tk.Button(
+            canvas_buttons_banniere,
+            text="CLient_groq",
+            command=lambda: self.set_client(
+                Groq(
+                    api_key=os.environ.get("GROQ_API_KEY"),
+                )
+            ),
+            highlightthickness=3,
+            highlightcolor="yellow",
+        )
+        bouton_Groq.configure(
+            background=from_rgb_to_tkColors(LIGHT3),
+            foreground=from_rgb_to_tkColors(DARK3),
+        )
+        bouton_Groq.pack(side=tk.LEFT)
 
         bouton_Ollama = tk.Button(
             canvas_buttons_banniere,
@@ -452,14 +475,18 @@ class FenetrePrincipale(tk.Frame):
                     response, timing = self.ask_to_ai(
                         self.get_client(), self.get_submission(), self.get_model()
                     )
-                    fenetre_response = FenetreResponse(
-                        master=self.fenetre_scrollable(self),
-                        entree_recup=self.entree_prompt_principal,
+
+                    self.fenetre_scrollable.addthing(
+                        _timing=timing,
+                        agent_appel=self.get_client(),
+                        simple_markdown_text=self.entree_prompt_principal,
                         ai_response=response,
+                        talker=self.get_talker(),
+                        model=self.get_model(),
+                        submit_func=self.go_submit,
                     )
-                    fenetre_response.pack(side=tk.BOTTOM, fill="both", expand=True)
-                    fenetre_response.entree_response.insert_markdown(response)
                     say_txt(response)
+
                     # on sort du tchat une fois répondu
                     # sinon des erreurs sont levées
                     chating = False
@@ -501,6 +528,21 @@ class FenetrePrincipale(tk.Frame):
                 print("OOps aucun model chargé : ", requestError)
             except ollama.ResponseError as responseError:
                 print("OOps la requête ne s'est pas bien déroulée", responseError)
+        elif isinstance(agent_appel, Groq):
+            self.affiche_ia_list(agent_appel.models.list())
+            try:
+                llm: ChatCompletion = agent_appel.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    model="Llama3-70b-8192",
+                )
+                ai_response = llm.choices[0].message.content
+            except:
+                messagebox.Message("OOps, ")
 
         elif isinstance(agent_appel, Ola.__class__):
             try:
@@ -553,10 +595,11 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.addthing(
             _timing=_timing,
             agent_appel=agent_appel,
-            simple_markdown=self.entree_prompt_principal,
+            simple_markdown_text=self.entree_prompt_principal,
             ai_response=response_ai,
             talker=self.get_talker(),
             model=self.get_model(),
+            submit_func=self.go_submit,
         )
 
         return readable_ai_response
@@ -713,6 +756,7 @@ class FenetrePrincipale(tk.Frame):
             traduit_maintenant()
 
         def traduit_maintenant():
+            self.set_timer(float(time.perf_counter_ns()))
             was_a_list = False
             try:
                 # TRANSLATE IN PLACE
@@ -748,36 +792,48 @@ class FenetrePrincipale(tk.Frame):
                     sortie = ""
                     for element in texte_traite:
                         translated_text = str(translate_it(text_to_translate=element))
-                        sortie += translated_text
+                        sortie += "\n" + translated_text
                     was_a_list = True
 
+                    timing: float = (
+                        time.perf_counter_ns() - self.get_timer()
+                    ) / 1_000_000_000.0
                     self.fenetre_scrollable.addthing(
-                        _timing=0,
-                        agent_appel=any,
-                        simple_markdown=self.entree_prompt_principal,
+                        _timing=timing,
+                        agent_appel=self.get_client(),
+                        simple_markdown_text=self.entree_prompt_principal,
                         ai_response=sortie,
                         talker=self.get_talker(),
                         model=self.get_model(),
+                        submit_func=self.go_submit,
                     )
                 elif was_a_list == True:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
+                    timing: float = (
+                        time.perf_counter_ns() - self.get_timer()
+                    ) / 1_000_000_000.0
                     self.fenetre_scrollable.addthing(
-                        _timing=0,
-                        agent_appel=any,
-                        simple_markdown=self.entree_prompt_principal,
+                        _timing=timing,
+                        agent_appel=self.get_client(),
+                        simple_markdown_text=self.entree_prompt_principal,
                         ai_response=translated_text,
                         talker=self.get_talker(),
                         model=self.get_model(),
+                        submit_func=self.go_submit,
                     )
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
+                    timing: float = (
+                        time.perf_counter_ns() - self.get_timer()
+                    ) / 1_000_000_000.0
                     self.fenetre_scrollable.addthing(
-                        _timing=0,
-                        agent_appel=any,
-                        simple_markdown=self.entree_prompt_principal,
+                        _timing=timing,
+                        agent_appel=self.get_client(),
+                        simple_markdown_text=self.entree_prompt_principal,
                         ai_response=translated_text,
                         talker=self.get_talker(),
                         model=self.get_model(),
+                        submit_func=self.go_submit,
                     )
 
                 self.get_talker()("fin de la traduction")
@@ -810,6 +866,7 @@ class FenetrePrincipale(tk.Frame):
         self.entree_prompt_principal = SimpleMarkdownText(
             self.frame_actual_prompt, height=15, font=self.default_font
         )
+        self.entree_prompt_principal.widgetName = "entree_prompt_principal"
 
         # Attention la taille de la police, ici 10, ce parametre
         # tant à changer le cadre d'ouverture de la fenetre
@@ -889,7 +946,7 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour soumetre
         self.bouton_soumetre = tk.Button(
-            self.frame_of_buttons_principal, text="Ask to AI", command=self.soumettre
+            self.frame_of_buttons_principal, text="Ask to AI", command=self.go_submit
         )
         self.bouton_soumetre.configure(
             bg=from_rgb_to_tkColors((120, 120, 120)),
