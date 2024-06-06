@@ -14,14 +14,12 @@ class FenetreScrollable(tk.Frame):
             self,
             borderwidth=0,
             height=int(parent.winfo_reqheight()) + 400,
-            # width=int(parent.winfo_reqwidth()) - 30,
             width=self.master.winfo_reqwidth()-20,
             background=from_rgb_to_tkColors(DARK2),
   )
         self.frame = tk.Frame(
             self.canvas,
             height=int(parent.winfo_reqheight()) + 400,
-            # width=int(parent.winfo_reqwidth()) - 30,
             width=self.master.winfo_reqwidth()-20,
             background=from_rgb_to_tkColors(DARK2),
         )
@@ -155,7 +153,6 @@ class FenetreScrollable(tk.Frame):
 
         fenetre_response.get_entree_question().insert_markdown(
             simple_markdown_text.get_text()+"\n"
-            # simple_markdown.get("1.0", tk.END) + "\n"
         )
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()

@@ -42,10 +42,6 @@ class FenetreResponse(tk.Frame):
         self.cnv_response = tk.Frame(self.cnv_globals_responses, relief="sunken")
         self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="sunken")
 
-
-        # TODO : transformer les entree_prompt_principal et entree_response en liste
-        # de plusieurs question_tk_text et reponse_tk_text
-
         self.bouton_supprimer_question_response = tk.Button(
             self.boutons_cnv_response, text=" X ", command=self.canvas_edition.destroy
         )
@@ -110,9 +106,7 @@ class FenetreResponse(tk.Frame):
         self.bouton_transfere = tk.Button(
             self.boutons_cnv_response,
             text="Transférer",
-            command=lambda: self.entree_prompt.insert_markdown(
-                self.get_ai_response()
-            ),
+            command=self.transferer,
             bg=from_rgb_to_tkColors(LIGHT1),
             fg=from_rgb_to_tkColors(DARK3),
         )
@@ -128,7 +122,7 @@ class FenetreResponse(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors(DARK1),
             height=5,
-            width=98,
+            width=100,
             font=("Arial", 12),
             wrap="word",
             padx=10,
@@ -142,7 +136,7 @@ class FenetreResponse(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors(DARK3),
             height=4,
-            width=98,
+            width=100,
             wrap="word",
             padx=10,
             pady=6,
@@ -159,6 +153,17 @@ class FenetreResponse(tk.Frame):
             command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
+    def transferer(self):
+        try :
+            content=self.get_entree_response().get(tk.SEL_FIRST,tk.SEL_LAST)
+            self.entree_prompt.insert_markdown(
+                content
+            )
+        except : 
+            self.entree_prompt.insert_markdown(
+                self.get_entree_response().get_text()
+            )
+
     def submission(self,evt):
         submission_texte=self.entree_question.get_text()
         response_ai,_timing=askToAi(
@@ -170,20 +175,20 @@ class FenetreResponse(tk.Frame):
 
 
     def maximize_me(self):
-        self.entree_response.configure(height=int(self.entree_response.cget("height"))+2,width=98)
-        self.entree_question.configure(height=5,width=98)
+        self.entree_response.configure(height=int(self.entree_response.cget("height"))+2,width=100)
+        self.entree_question.configure(height=5,width=100)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
     
     def normalize_me(self):
-        self.entree_response.configure(height=5,width=98)
-        self.entree_question.configure(height=5,width=98)
+        self.entree_response.configure(height=5,width=100)
+        self.entree_question.configure(height=5,width=100)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
     def minimize_me(self):
-        self.entree_response.configure(height=int(self.entree_response.cget("height"))-2,width=98)
-        self.entree_question.configure(height=0,width=98)
+        self.entree_response.configure(height=int(self.entree_response.cget("height"))-2,width=100)
+        self.entree_question.configure(height=0,width=100)
         self.entree_response.pack_propagate()
         self.entree_question.pack_propagate()
     

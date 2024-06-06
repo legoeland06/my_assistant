@@ -9,7 +9,6 @@ from tkinter import messagebox
 import vosk
 import pyaudio
 import ollama
-from groq import Groq
 from llama_index.llms.ollama import Ollama as Ola
 from FenetrePrincipale import FenetrePrincipale
 from StoppableThread import StoppableThread

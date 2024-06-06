@@ -1,6 +1,5 @@
 import asyncio
 import subprocess
-import threading
 import time
 import pyaudio
 import pyttsx3
@@ -34,17 +33,12 @@ from Constants import (
     WIDTH_TERM,
 )
 from SimpleMarkdownText import SimpleMarkdownText
-from StoppableThread import StoppableThread
 
 
 async def say_text(alire: str):
     """
     lit le texte sans passer par un thread
     """
-    # stop_thread = StoppableThread(None, threading.current_thread())
-    # if not stop_thread.stopped():
-    #     stop_thread.stop()
-
     lecteur = engine_lecteur_init()
     lecteur.say(alire)
     lecteur.runAndWait()
@@ -115,7 +109,6 @@ def load_pdf(parent) -> str:
         say_txt("Extraction du PDF")
         resultat_txt = read_pdf(file_to_read.name)
         say_txt("Fin de l'extraction")
-        # self.entree_prompt_principal.insert_markdown(mkd_text=resultat_txt)
         return resultat_txt
     except:
         messagebox("Problème avec ce fichier pdf")
@@ -231,23 +224,21 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
         )
 
 
-def lire_text_from_object(object: tk.Text):
-    texte_to_talk = object.get("1.0", tk.END)
+def lire_text_from_object(object: SimpleMarkdownText | tk.Text):
+    texte_to_talk = object.get_text()
     valide_function = None
+
     def lire_ceci(texte_to_talk):
         asyncio.run(say_text(texte_to_talk))
         return True
-    
+
     if texte_to_talk == "":
         return None
 
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-    except:
-        texte_to_talk = object.get("1.0", tk.END)
     finally:
         valide_function = lire_ceci(texte_to_talk)
-        # return texte_to_talk
     return valide_function
 
 

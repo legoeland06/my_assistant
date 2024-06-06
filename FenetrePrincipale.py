@@ -1,9 +1,10 @@
+from secret import GROQ_API_KEY
 import asyncio
 import json
 import os
 import time
 from tkinter import filedialog, messagebox, simpledialog
-from typing import Any
+from typing import Generator, Any
 from groq import Groq
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -259,11 +260,7 @@ class FenetrePrincipale(tk.Frame):
         bouton_Groq = tk.Button(
             canvas_buttons_banniere,
             text="CLient_groq",
-            command=lambda: self.set_client(
-                Groq(
-                    api_key=os.environ.get("GROQ_API_KEY"),
-                )
-            ),
+            command=lambda: self.set_client(Groq(api_key=GROQ_API_KEY)),
             highlightthickness=3,
             highlightcolor="yellow",
         )
@@ -463,9 +460,6 @@ class FenetrePrincipale(tk.Frame):
                         time_delta_parlotte = time.perf_counter() - start_tim_parlotte
                         print(str(time_delta_vide) + " :: " + str(time_delta_parlotte))
 
-                    stop_thread = StoppableThread(None, threading.current_thread())
-                    if not stop_thread.stopped():
-                        stop_thread.stop()
                     self.entree_prompt_principal.update()
                 if "validez" == reco_text.lower() or "terminez" == reco_text.lower():
                     self.set_submission(content=content_discussion)
@@ -494,6 +488,9 @@ class FenetrePrincipale(tk.Frame):
                     terminus
                     chating = False
                     break
+            stop_thread = StoppableThread(None, threading.current_thread())
+            if not stop_thread.stopped():
+                stop_thread.stop()
 
     def start_loop(self):
         loop = asyncio.new_event_loop()
@@ -538,8 +535,14 @@ class FenetrePrincipale(tk.Frame):
                             "content": prompt,
                         }
                     ],
-                    model="Llama3-70b-8192",
+                    model="Llama3-8b-8192",
+                    temperature=1,
+                    max_tokens=1024,
+                    top_p=1,
+                    stream=False,
+                    stop=None,
                 )
+
                 ai_response = llm.choices[0].message.content
             except:
                 messagebox.Message("OOps, ")
