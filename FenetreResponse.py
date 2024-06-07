@@ -26,16 +26,19 @@ class FenetreResponse(tk.Frame):
         agent_appel,
         model_to_use,
     ):
-        self.submit=submit
+        self.submit = submit
         super().__init__(master)
         self.master = master
-        self.agent_appel=agent_appel
-        self.model_to_use=model_to_use
+        self.agent_appel = agent_appel
+        self.model_to_use = model_to_use
         self.pack(expand=False)
         self.title = "title"
         self.ai_response = ai_response
-        self.canvas_edition = tk.Canvas(master=master, relief="sunken",)
-        self.entree_prompt=entree_recup
+        self.canvas_edition = tk.Canvas(
+            master=master,
+            relief="sunken",
+        )
+        self.entree_prompt = entree_recup
 
         self.boutons_cnv_response = tk.Frame(self.canvas_edition)
         self.cnv_globals_responses = tk.Frame(self.canvas_edition)
@@ -51,7 +54,7 @@ class FenetreResponse(tk.Frame):
         )
         self.bouton_supprimer_question_response.pack(side="left")
 
-        self.bouton_maximize_me=tk.Button(
+        self.bouton_maximize_me = tk.Button(
             self.boutons_cnv_response, text=" + ", command=self.maximize_me
         )
         self.bouton_maximize_me.configure(
@@ -59,7 +62,7 @@ class FenetreResponse(tk.Frame):
         )
         self.bouton_maximize_me.pack(side="left")
 
-        self.bouton_normalize_me=tk.Button(
+        self.bouton_normalize_me = tk.Button(
             self.boutons_cnv_response, text=" || ", command=self.normalize_me
         )
         self.bouton_normalize_me.configure(
@@ -67,7 +70,7 @@ class FenetreResponse(tk.Frame):
         )
         self.bouton_normalize_me.pack(side="left")
 
-        self.bouton_minimize_me=tk.Button(
+        self.bouton_minimize_me = tk.Button(
             self.boutons_cnv_response, text=" - ", command=self.minimize_me
         )
         self.bouton_minimize_me.configure(
@@ -154,44 +157,49 @@ class FenetreResponse(tk.Frame):
         )
 
     def transferer(self):
-        try :
-            content=self.get_entree_response().get(tk.SEL_FIRST,tk.SEL_LAST)
-            self.entree_prompt.insert_markdown(
-                content
-            )
-        except : 
-            self.entree_prompt.insert_markdown(
-                self.get_entree_response().get_text()
+        try:
+            content = self.get_entree_response().get(tk.SEL_FIRST, tk.SEL_LAST)
+            self.entree_prompt.insert_markdown(content)
+        except:
+            (
+                self.entree_prompt.insert_markdown(
+                    self.get_entree_response().get_text()
+                )
+                if self.get_entree_response().get_text() != ""
+                else print("Oups, il n'y a rien à transférer")
             )
 
-    def submission(self,evt):
-        submission_texte=self.entree_question.get_text()
-        response_ai,_timing=askToAi(
+    def submission(self, evt):
+        submission_texte = self.entree_question.get_text()
+        response_ai, _timing = askToAi(
             agent_appel=self.agent_appel,
             prompt=submission_texte,
             model_to_use=self.model_to_use,
         )
         self.entree_response.insert_markdown(response_ai)
 
-
     def maximize_me(self):
-        self.entree_response.configure(height=int(self.entree_response.cget("height"))+2,width=100)
-        self.entree_question.configure(height=5,width=100)
+        self.entree_response.configure(
+            height=int(self.entree_response.cget("height")) + 2, width=100
+        )
+        self.entree_question.configure(height=5, width=100)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
-    
+
     def normalize_me(self):
-        self.entree_response.configure(height=5,width=100)
-        self.entree_question.configure(height=5,width=100)
+        self.entree_response.configure(height=5, width=100)
+        self.entree_question.configure(height=5, width=100)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
     def minimize_me(self):
-        self.entree_response.configure(height=int(self.entree_response.cget("height"))-2,width=100)
-        self.entree_question.configure(height=0,width=100)
+        self.entree_response.configure(
+            height=int(self.entree_response.cget("height")) - 2, width=100
+        )
+        self.entree_question.configure(height=0, width=100)
         self.entree_response.pack_propagate()
         self.entree_question.pack_propagate()
-    
+
     def set_talker(self, talker):
         self.talker = talker
 

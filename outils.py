@@ -225,21 +225,12 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
 
 
 def lire_text_from_object(object: SimpleMarkdownText | tk.Text):
-    texte_to_talk = object.get_text()
-    valide_function = None
-
-    def lire_ceci(texte_to_talk):
-        asyncio.run(say_text(texte_to_talk))
-        return True
-
-    if texte_to_talk == "":
-        return None
-
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+    except :
+        texte_to_talk = object.get_text()
     finally:
-        valide_function = lire_ceci(texte_to_talk)
-    return valide_function
+        say_txt(texte_to_talk) if texte_to_talk != "" else None
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):

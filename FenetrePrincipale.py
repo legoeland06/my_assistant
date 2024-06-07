@@ -57,6 +57,7 @@ class FenetrePrincipale(tk.Frame):
     ai_response: str
     timer: float
     thread: threading.Thread
+    start_tim_vide: float
 
     def __init__(
         self,
@@ -87,6 +88,7 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.configure(width=self.master.winfo_reqwidth() - 20)
         self.fenetre_scrollable.configure(height=self.master.winfo_reqheight() - 20)
         self.fenetre_scrollable.pack(side="bottom", fill="x", expand=True)
+        self.start_tim_vide = 0
         self.my_liste = []
         for element in (ollama.list())["models"]:
             self.my_liste.append(element["name"])
@@ -205,7 +207,7 @@ class FenetrePrincipale(tk.Frame):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
             self.get_thread().stop()
-            merci_au_revoir(lecteur=self.lecteur, stream_to_stop=self.get_stream())
+            # merci_au_revoir(lecteur=self.lecteur, stream_to_stop=self.get_stream())
             self.master.destroy()
         else:
             print("L'utilisateur a annulé.")
@@ -237,7 +239,7 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour quitter
         bouton_quitter = tk.Button(
-            canvas_buttons_banniere, text="Quitter", command=quitter_app
+            canvas_buttons_banniere, text="Quitter", command=self.master.quit
         )
         bouton_quitter.configure(
             background=from_rgb_to_tkColors(DARK3), foreground="red"
@@ -345,129 +347,142 @@ class FenetrePrincipale(tk.Frame):
         print("on est dans l'async def dialog_ia")
         terminus = False
         content_discussion = ""
-
+        isHumanIsTalking = False
+        print("je t'écoute")
+        say_txt("je t'écoute")
+        self.start_tim_vide = 0
+        self.get_stream().start_stream()
         while not terminus:
-            reco_text = ""
-            chating = False
-            data = self.get_stream().read(
+            if isHumanIsTalking:
+                self.start_tim_vide = time.perf_counter()
+            else:
+                None
+            print(
+                " :: "
+                + str(
+                    round(
+                        (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
+                    )
+                )
+                + " ::secondes "
+            )
+            data_real = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
-            if self.get_engine().AcceptWaveform(data):  # accept waveform of input voice
-
+            if self.get_engine().AcceptWaveform(
+                data_real
+            ):  # accept waveform of input voice
                 # Parse the JSON result and get the recognized text
-                result = json.loads(self.get_engine().Result())
-                reco_text: str = result["text"]
-                print(reco_text)
-                if "dis-moi" == reco_text.lower() or chating:
-                    print("je t'écoute")
-                    say_txt("je t'écoute")
+
+                result_real = json.loads(self.get_engine().Result())
+                reco_text_real: str = result_real["text"]
+
+                ne_pas_deranger = "ne pas déranger" in reco_text_real.lower()
+                activer_parlote = "activer la voix" in reco_text_real.lower()
+                incremente_lecteur = (
+                    "la voie soit plus rapide" in reco_text_real.lower()
+                )
+                decremente_lecteur = (
+                    "la voie soit moins rapide" in reco_text_real.lower()
+                )
+
+                if incremente_lecteur:
+
+                    self.lecteur.setProperty(
+                        name="rate",
+                        value=int(self.lecteur.getProperty(name="rate")) + 20,
+                    )
                     reco_text_real = ""
-                    content_discussion = ""
-                    while True:
+                    say_txt("voix plus rapide")
 
-                        start_tim_vide = time.perf_counter()
-                        start_tim_parlotte = time.perf_counter()
-                        data_real = self.get_stream().read(
-                            num_frames=8192, exception_on_overflow=False
-                        )  # read in chunks of 4096 bytes
-                        if self.get_engine().AcceptWaveform(
-                            data_real
-                        ):  # accept waveform of input voice
-                            # Parse the JSON result and get the recognized text
-                            result_real = json.loads(self.get_engine().Result())
-                            reco_text_real: str = result_real["text"]
+                if decremente_lecteur:
+                    self.lecteur.setProperty(
+                        name="rate",
+                        value=int(self.lecteur.getProperty(name="rate")) + -20,
+                    )
+                    reco_text_real = ""
+                    say_txt("voix plus lente")
 
-                            ne_pas_deranger = (
-                                "ne pas déranger" in reco_text_real.lower()
-                            )
-                            activer_parlote = (
-                                "activer la voix" in reco_text_real.lower()
-                            )
-                            incremente_lecteur = (
-                                "la voie soit plus rapide" in reco_text_real.lower()
-                            )
-                            decremente_lecteur = (
-                                "la voie soit moins rapide" in reco_text_real.lower()
-                            )
+                if ne_pas_deranger:
+                    reco_text_real = ""
+                    say_txt("ok plus de bruit")
+                    STOP_TALKING = True
 
-                            if incremente_lecteur:
-                                engine = self.lecteur
-                                engine.setProperty(
-                                    name="rate",
-                                    value=int(engine.getProperty(name="rate")) + 20,
-                                )
-                                reco_text_real = ""
-                                say_txt("voix plus rapide")
+                if activer_parlote:
+                    STOP_TALKING = False
+                    reco_text_real = ""
+                    say_txt("ok me re voilà")
 
-                            if decremente_lecteur:
-                                self.lecteur.setProperty(
-                                    name="rate",
-                                    value=int(self.lecteur.getProperty(name="rate"))
-                                    + -20,
-                                )
-                                reco_text_real = ""
-                                say_txt("voix plus lente")
+                if "quel jour sommes-nous" in reco_text_real.lower():
+                    reco_text_real = ""
+                    say_txt(
+                        "Nous sommes le " + time.strftime("%Y-%m-%d"),
+                    )
 
-                            if ne_pas_deranger:
-                                reco_text_real = ""
-                                say_txt("ok plus de bruit")
-                                STOP_TALKING = True
+                if "quelle heure est-il" in reco_text_real.lower():
+                    reco_text_real = ""
+                    say_txt(
+                        "il est exactement " + time.strftime("%H:%M:%S"),
+                    )
 
-                            if activer_parlote:
-                                STOP_TALKING = False
-                                reco_text_real = ""
-                                say_txt("ok me re voilà")
+                if "est-ce que tu m'écoutes" in reco_text_real.lower():
+                    reco_text_real = ""
+                    say_txt("oui je suis toujours à l'écoute kiki")
 
-                            if "quel jour sommes-nous" in reco_text_real.lower():
-                                reco_text_real = ""
-                                say_txt(
-                                    "Nous sommes le " + time.strftime("%Y-%m-%d"),
-                                )
+                if "fin de la session" == reco_text_real.lower():
+                    terminus = True
+                    say_txt("merci")
+                    stop_thread = StoppableThread(None, threading.current_thread())
+                    if not stop_thread.stopped():
+                        stop_thread.stop()
+                    self.get_stream().stop_stream()
+                    break
 
-                            if "quelle heure est-il" in reco_text_real.lower():
-                                reco_text_real = ""
-                                say_txt(
-                                    "il est exactement " + time.strftime("%H:%M:%S"),
-                                )
+                if reco_text_real.lower() != "":
+                    if not isHumanIsTalking:
+                        self.start_tim_vide = 0
+                    isHumanIsTalking = True
+                    content_discussion += "\n" + reco_text_real.lower()
+                    print("insertion de texte")
 
-                            if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                                reco_text_real = ""
-                                say_txt("oui je suis toujours à l'écoute kiki")
+                if isHumanIsTalking and (
+                    round(
+                        (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
+                    )
+                    >= 1
+                    or "validez" == reco_text_real.lower()
+                    or "terminez" == reco_text_real.lower()
+                ):
+                    isHumanIsTalking = False
 
-                            if (
-                                "terminer l'enregistrement" == reco_text_real.lower()
-                                or "fin de l'enregistrement" == reco_text_real.lower()
-                                or "arrêter l'enregistrement" == reco_text_real.lower()
-                            ):
-                                reco_text_real = ""
-                                # terminus = True
-                                stop_thread = StoppableThread(
-                                    None, threading.current_thread()
-                                )
-                                if not stop_thread.stopped():
-                                    stop_thread.stop()
-                                self.entree_prompt_principal.insert_markdown(
-                                    mkd_text="\n" + content_discussion + "\n"
-                                )
-                                break
-                            elif reco_text_real.lower() != "":
-                                start_tim_vide = time.perf_counter()
-                                content_discussion += "\n" + reco_text_real.lower()
-                                print("insertion de texte")
-                                self.entree_prompt_principal.update()
+                    # prononce "entendu" mais c'est un peu redondant
+                    # say_txt("entendu")
 
-                        time_delta_vide = time.perf_counter() - start_tim_vide
-                        time_delta_parlotte = time.perf_counter() - start_tim_parlotte
-                        print(str(time_delta_vide) + " :: " + str(time_delta_parlotte))
-
-                    self.entree_prompt_principal.update()
-                if "validez" == reco_text.lower() or "terminez" == reco_text.lower():
+                    reco_text_real = ""
                     self.set_submission(content=content_discussion)
+                    self.entree_prompt_principal.insert_markdown(
+                        mkd_text="\n" + content_discussion + "\n"
+                    )
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
                         stop_thread.stop()
                     response, timing = self.ask_to_ai(
                         self.get_client(), self.get_submission(), self.get_model()
+                    )
+
+                    # imprime la réponse dans le terminal
+                    print(response)
+
+                    # insert la réponse dans la sauvegarde des conversations
+                    append_response_to_file(RESUME_WEB, self.get_submission())
+                    append_response_to_file(RESUME_WEB, response)
+
+                    # actualise le fichier index.html
+                    actualise_index_html(
+                        texte=response,
+                        question=self.get_submission(),
+                        timing=timing,
+                        model=self.get_model(),
                     )
 
                     self.fenetre_scrollable.addthing(
@@ -479,18 +494,8 @@ class FenetrePrincipale(tk.Frame):
                         model=self.get_model(),
                         submit_func=self.go_submit,
                     )
+                    content_discussion = ""
                     say_txt(response)
-
-                    # on sort du tchat une fois répondu
-                    # sinon des erreurs sont levées
-                    chating = False
-                if "fin de la session" == reco_text.lower():
-                    terminus
-                    chating = False
-                    break
-            stop_thread = StoppableThread(None, threading.current_thread())
-            if not stop_thread.stopped():
-                stop_thread.stop()
 
     def start_loop(self):
         loop = asyncio.new_event_loop()
@@ -499,7 +504,7 @@ class FenetrePrincipale(tk.Frame):
         loop.run_until_complete(loop.create_task(self.asking()))
         loop.close()
 
-    def go_submit(self, evt):
+    def go_submit(self, _evt):
         self.soumettre()
 
     def ask_to_ai(self, agent_appel, prompt, model_to_use):
@@ -531,9 +536,13 @@ class FenetrePrincipale(tk.Frame):
                 llm: ChatCompletion = agent_appel.chat.completions.create(
                     messages=[
                         {
+                            "role": "system",
+                            "content": "You are kiki, an french assistant who talks in french a nd keep conversations alive",
+                        },
+                        {
                             "role": "user",
                             "content": prompt,
-                        }
+                        },
                     ],
                     model="Llama3-8b-8192",
                     temperature=1,
@@ -565,14 +574,13 @@ class FenetrePrincipale(tk.Frame):
 
         # calcul le temps écoulé par la thread
         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
-        print(ai_response)
         print("Type_agent_appel::" + str(type(agent_appel)))
         print("Type_ai_réponse::" + str(type(ai_response)))
-
-        append_response_to_file(RESUME_WEB, ai_response)
-        actualise_index_html(
-            texte=ai_response, question=prompt, timing=timing, model=self.get_model()
-        )
+        # print(ai_response)
+        # append_response_to_file(RESUME_WEB, ai_response)
+        # actualise_index_html(
+        #     texte=ai_response, question=prompt, timing=timing, model=self.get_model()
+        # )
 
         return ai_response, timing
 
@@ -854,7 +862,7 @@ class FenetrePrincipale(tk.Frame):
             name="frame_of_buttons_principal",
         )
         self.frame_of_buttons_principal.configure(
-            background=from_rgb_to_tkColors(DARK3)
+            background=from_rgb_to_tkColors(DARK3), width=10
         )
         self.frame_of_buttons_principal.pack(fill="x", expand=True)
 

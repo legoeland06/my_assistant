@@ -144,7 +144,7 @@ def say_tt(alire: str):
 
     # TODO : intégrer ici un moyen de controle de la diction
     # bouton lecture, stop, pause, effacer
-    the_thread.join()
+    # the_thread.join()
     the_thread.stop()
 
 
@@ -186,7 +186,7 @@ def main(prompt=False, stop_talking=STOP_TALKING):
 
     the_thread = StoppableThread()
     app.set_thread(the_thread)
-    app.set_talker(say_tt)
+    app.set_talker(say_txt)
     app.set_engine(rec)
     app.mainloop(0)
 
