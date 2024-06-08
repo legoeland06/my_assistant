@@ -46,7 +46,9 @@ class FenetreResponse(tk.Frame):
         self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="sunken")
 
         self.bouton_supprimer_question_response = tk.Button(
-            self.boutons_cnv_response, text=" X ", command=self.canvas_edition.destroy
+            self.boutons_cnv_response,
+            text=" X ",
+            command=self.supprimer_conversation,
         )
 
         self.bouton_supprimer_question_response.configure(
@@ -156,6 +158,12 @@ class FenetreResponse(tk.Frame):
             command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
+    def supprimer_conversation(self):
+        # TODO : supprimer la covnersation visuellement mais aussi dans la liste des conversations
+        self.canvas_edition.destroy()
+        self.destroy()
+
+        pass
     def transferer(self):
         try:
             content = self.get_entree_response().get(tk.SEL_FIRST, tk.SEL_LAST)

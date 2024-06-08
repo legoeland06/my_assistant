@@ -449,7 +449,7 @@ class FenetrePrincipale(tk.Frame):
                     round(
                         (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
                     )
-                    >= 1
+                    >= 3
                     or "validez" == reco_text_real.lower()
                     or "terminez" == reco_text_real.lower()
                 ):
@@ -507,8 +507,14 @@ class FenetrePrincipale(tk.Frame):
     def go_submit(self, _evt):
         self.soumettre()
 
+
+    def insert_conversation_history_to_prompt(self,prompt)->str:
+        return "Anciennes conversations:\n"+str(self.fenetre_scrollable.get_prompts_history())+"\Prompt Actuel:\n"+prompt+"\n"
+    
     def ask_to_ai(self, agent_appel, prompt, model_to_use):
 
+        new_prompt=self.insert_conversation_history_to_prompt(prompt)
+        print(new_prompt)
         self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, ollama.Client):
@@ -518,7 +524,7 @@ class FenetrePrincipale(tk.Frame):
                     messages=[
                         {
                             "role": ROLE_TYPE,
-                            "content": prompt,
+                            "content": new_prompt,
                             "num_ctx": 4096,
                             "num_predict": 40,
                             "keep_alive": -1,
@@ -537,11 +543,11 @@ class FenetrePrincipale(tk.Frame):
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are kiki, an french assistant who talks in french a nd keep conversations alive",
+                            "content": "You are kiki, an french assistant who talks in french and keep conversations alive",
                         },
                         {
                             "role": "user",
-                            "content": prompt,
+                            "content": new_prompt,
                         },
                     ],
                     model="Llama3-8b-8192",
@@ -568,7 +574,7 @@ class FenetrePrincipale(tk.Frame):
                         "keep_alive": -1,
                     },
                 )
-                ai_response = llm.chat(prompt).message.content
+                ai_response = llm.chat(new_prompt).message.content
             except:
                 messagebox.Message("OOps, ")
 

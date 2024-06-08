@@ -8,19 +8,29 @@ from outils import from_rgb_to_tkColors
 
 
 class FenetreScrollable(tk.Frame):
+
+    prompts_history = [
+        {
+            "fenetre_name": "prompt_0",
+            "prompt": "Bonjour",
+            "response": "bonjour, comment allez vous ?",
+        },
+    ]
+
     def __init__(self, parent):
+        self.parent = parent
         tk.Frame.__init__(self, parent)
         self.canvas = tk.Canvas(
             self,
             borderwidth=0,
             height=int(parent.winfo_reqheight()) + 400,
-            width=self.master.winfo_reqwidth()-20,
+            width=self.master.winfo_reqwidth() - 20,
             background=from_rgb_to_tkColors(DARK2),
-  )
+        )
         self.frame = tk.Frame(
             self.canvas,
             height=int(parent.winfo_reqheight()) + 400,
-            width=self.master.winfo_reqwidth()-20,
+            width=self.master.winfo_reqwidth() - 20,
             background=from_rgb_to_tkColors(DARK2),
         )
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
@@ -37,12 +47,23 @@ class FenetreScrollable(tk.Frame):
 
         # self.populate()
 
+    def get_prompts_history(self) -> list:
+        return self.prompts_history
+
+    def supprimer_conversation(self, evt: tk.Event):
+        widgt: tk.Widget = evt.widget
+        print("Effacement de la fenetre ::" + widgt.winfo_name() + "::")
+        for mini_dict in self.get_prompts_history():
+            if widgt.winfo_name() in mini_dict["fenetre_name"]:
+                self.get_prompts_history().remove(mini_dict)
+                break
+
     def addthing(
         self,
         _timing,
         agent_appel,
         simple_markdown_text: SimpleMarkdownText,
-        ai_response,
+        ai_response: str,
         talker,
         model,
         submit_func,
@@ -54,11 +75,19 @@ class FenetreScrollable(tk.Frame):
             master=self.frame,
             submit=submit_func,
             agent_appel=agent_appel,
-            model_to_use=model
+            model_to_use=model,
         )
-        self.responses.append(fenetre_response)
+        self.responses.append(fenetre_response.winfo_name())
+
+        self.save_to_history(
+            fenetre_response.winfo_name(), simple_markdown_text.get_text(), ai_response
+        )
+        fenetre_response.bind(
+            "<Destroy>",
+            func=self.supprimer_conversation,
+        )
         fenetre_response.set_talker(talker=talker)
-        fenetre_response.get_entree_response().configure( font=("Arial", 10))
+        fenetre_response.get_entree_response().configure(font=("Arial", 10))
         fenetre_response.get_entree_response().tag_configure(
             tagName="boldtext",
             font=(
@@ -106,7 +135,7 @@ class FenetreScrollable(tk.Frame):
         )
         fenetre_response.get_entree_response().insert_markdown(ai_response + "\n\n")
 
-        fenetre_response.get_entree_question().configure( font=("Arial", 10))
+        fenetre_response.get_entree_question().configure(font=("Arial", 10))
         fenetre_response.get_entree_question().tag_configure(
             tagName="boldtext",
             font=(
@@ -152,10 +181,38 @@ class FenetreScrollable(tk.Frame):
         )
 
         fenetre_response.get_entree_question().insert_markdown(
-            simple_markdown_text.get_text()+"\n"
+            simple_markdown_text.get_text() + "\n"
         )
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()
+
+        print("liste des conversations\n************************************")
+        for item in self.get_prompts_history():
+            print(
+                item["fenetre_name"] + ":: " + item["prompt"][:60]
+                if len(item["prompt"]) >= 59
+                else item["prompt"]
+            )
+        print("************************************")
+
+    def save_to_history(self, fenetre_name, question, ai_response):
+        """
+        ## crée une sauvegarde des anciens échanges:
+        Lorsque les conversations sont effacées de la fenêtre scrollable,
+        la conversation correspondande est effacée aussi de la liste.
+        cela permet de gerer la continuite de la conversation avec
+        une certaie profondeur (à la discrétions de l'utilisateur) tout
+        en évitant d'engorger la mémoire et les tokens utilisé
+        """
+        prompt = question[:499] if len(question) >= 500 else question
+        response = ai_response[:499] if len(ai_response) >= 500 else ai_response
+        self.get_prompts_history().append(
+            {
+                "fenetre_name": fenetre_name,
+                "prompt": prompt,
+                "response": response,
+            },
+        )
 
     def onFrameConfigure(self, event):
         """Reset the scroll region to encompass the inner frame"""
