@@ -186,12 +186,23 @@ class FenetreScrollable(tk.Frame):
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()
 
+        self.print_liste_des_conversations()
+
+    def print_liste_des_conversations(self):
         print("liste des conversations\n************************************")
         for item in self.get_prompts_history():
             print(
-                item["fenetre_name"] + ":: " + item["prompt"][:60]
-                if len(item["prompt"]) >= 59
-                else item["prompt"]
+                item["fenetre_name"]
+                + ":: "
+                + "\nPrompt:: "+ str(
+                    item["prompt"][:60] + "... "
+                    if len(item["prompt"]) >= 59
+                    else item["prompt"]
+                )
+                + "\nResponse:: " + str(item["response"][:59]
+                + "..."
+                if len(item["response"]) >= 60
+                else item["response"])
             )
         print("************************************")
 

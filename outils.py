@@ -226,7 +226,7 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
         )
 
 
-def lire_text_from_object(object: SimpleMarkdownText | tk.Text):
+def lire_text_from_object(object: SimpleMarkdownText | tk.Text|tk.Listbox):
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
     except:
@@ -243,6 +243,9 @@ def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
     button.destroy()
     text_area.destroy()
 
+def lire_ligne(evt:tk.Event):
+    widget_to_read:tk.Listbox=evt.widget
+    say_txt(str(widget_to_read.get(widget_to_read.curselection(),widget_to_read.curselection()+1)))
 
 def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
     default_font = tkfont.nametofont("TkDefaultFont")
@@ -389,7 +392,7 @@ def changer_ia(application: any, evt: tk.Event):
         application.set_model(value)
 
 
-def askToAi(agent_appel, prompt, model_to_use):
+def askToAi(agent_appel, prompt, model_to_use)->tuple:
 
     time0 = time.perf_counter_ns()
 

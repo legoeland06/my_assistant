@@ -1,10 +1,12 @@
+from datetime import datetime
+from llama_index_client import BasePromptTemplate
 from secret import GROQ_API_KEY
 import asyncio
 import json
 import os
 import time
 from tkinter import filedialog, messagebox, simpledialog
-from typing import Generator, Any
+from typing import Any
 from groq import Groq
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -25,7 +27,6 @@ from StoppableThread import StoppableThread
 from outils import (
     actualise_index_html,
     append_response_to_file,
-    display_infos_model,
     engine_lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
@@ -33,7 +34,6 @@ from outils import (
     lire_text_from_object,
     load_pdf,
     load_txt,
-    merci_au_revoir,
     read_prompt_file,
     say_txt,
     traitement_du_texte,
@@ -59,6 +59,8 @@ class FenetrePrincipale(tk.Frame):
     timer: float
     thread: threading.Thread
     start_tim_vide: float
+    messages: list
+    actual_chat_completion: ChatCompletion
 
     def __init__(
         self,
@@ -91,8 +93,18 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.pack(side="bottom", fill="x", expand=True)
         self.start_tim_vide = 0
         self.my_liste = []
+        self.messages = [
+            {
+                "role": "user",
+                "content": "Bonjour présente toi, très succinctement",
+            },
+        ]
+        self.actual_chat_completion = []
         for element in (ollama.list())["models"]:
             self.my_liste.append(element["name"])
+
+    def get_actual_chat_completion(self) -> list:
+        return self.actual_chat_completion
 
     def set_thread(self, thread: StoppableThread):
         self.thread = thread
@@ -328,9 +340,6 @@ class FenetrePrincipale(tk.Frame):
         models = get_groq_ia_list(api_key=GROQ_API_KEY)
         self.affiche_ia_list(models)
 
-        # _list_groq_ai:tk.Listbox=self.traite_listbox(get_groq_ia_list(api_key=GROQ_API_KEY))
-        # _list_groq_ai.bind("<Select>",func=lambda:self.set_model(_list_groq_ai.))
-
     def soumettre(self) -> str:
         if self.save_to_submission():
             self.get_talker()("un instant s'il vous plait")
@@ -357,13 +366,20 @@ class FenetrePrincipale(tk.Frame):
     async def dialog_ia(self):
         print("on est dans l'async def dialog_ia")
         terminus = False
+        mode_ecoute=False
+        im_listening=True
         content_discussion = ""
         isHumanIsTalking = False
-        print("je t'écoute")
-        say_txt("je t'écoute")
+
+        
         self.start_tim_vide = 0
         self.get_stream().start_stream()
         while not terminus:
+            if im_listening:
+                print("je t'écoute")
+                say_txt("je t'écoute")
+                im_listening=not im_listening
+
             if isHumanIsTalking:
                 self.start_tim_vide = time.perf_counter()
             else:
@@ -398,7 +414,7 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 if incremente_lecteur:
-
+                    say_txt("ok")
                     self.lecteur.setProperty(
                         name="rate",
                         value=int(self.lecteur.getProperty(name="rate")) + 20,
@@ -407,6 +423,7 @@ class FenetrePrincipale(tk.Frame):
                     say_txt("voix plus rapide")
 
                 if decremente_lecteur:
+                    say_txt("ok")
                     self.lecteur.setProperty(
                         name="rate",
                         value=int(self.lecteur.getProperty(name="rate")) + -20,
@@ -424,41 +441,59 @@ class FenetrePrincipale(tk.Frame):
                     reco_text_real = ""
                     say_txt("ok me re voilà")
 
+                if "passe en mode écoute" == reco_text_real.lower():
+                    say_txt("passage en mode écoute")
+                    reco_text_real=""
+                    mode_ecoute=True
+
+                if mode_ecoute:
+                    self.entree_prompt_principal.insert_markdown(
+                        mkd_text=reco_text_real
+                    )
+                
+                if "passe rn mode auto" ==  reco_text_real.lower():
+                    say_txt("fin du mode écoute")
+                    reco_text_real=""
+                    mode_ecoute=False
+
                 if "quel jour sommes-nous" in reco_text_real.lower():
-                    reco_text_real = ""
                     say_txt(
                         "Nous sommes le " + time.strftime("%Y-%m-%d"),
                     )
+                    reco_text_real = ""
 
                 if "quelle heure est-il" in reco_text_real.lower():
-                    reco_text_real = ""
                     say_txt(
                         "il est exactement " + time.strftime("%H:%M:%S"),
                     )
+                    reco_text_real = ""
 
                 if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                    reco_text_real = ""
                     say_txt("oui je suis toujours à l'écoute kiki")
-
-                if ("effacer l'historique des conversations" in reco_text_real.lower()
-                or "effacer l'historique des discussions" in reco_text_real.lower()
-                ):
                     reco_text_real = ""
+
+                if (
+                    "effacer l'historique des conversations" in reco_text_real.lower()
+                    or "effacer l'historique des discussions" in reco_text_real.lower()
+                ):
                     for resp in self.fenetre_scrollable.responses:
                         resp.destroy()
                     say_txt("historique effacé !")
+                    reco_text_real = ""
 
                 if (
                     "effacer la dernière conversation" in reco_text_real.lower()
                     or "effacer la dernière discussion" in reco_text_real.lower()
                 ):
-                    reco_text_real = ""
                     kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
                     kiki.destroy()
                     say_txt("c'est fait !")
+                    reco_text_real = ""
 
                 if "affiche la liste des conversations" == reco_text_real.lower():
-                    self.traite_listbox(self.fenetre_scrollable.get_prompts_history())
+                    _listbox: tk.Listbox = self.traite_listbox(self.fenetre_scrollable.get_prompts_history())
+                    _listbox.bind("<<ListboxSelect>>",func=lire_text_from_object)
+                    reco_text_real = ""
 
                 if "fin de la session" == reco_text_real.lower():
                     terminus = True
@@ -467,20 +502,24 @@ class FenetrePrincipale(tk.Frame):
                     if not stop_thread.stopped():
                         stop_thread.stop()
                     self.get_stream().stop_stream()
+                    reco_text_real = ""
                     break
 
                 if reco_text_real.lower() != "":
                     if not isHumanIsTalking:
                         self.start_tim_vide = 0
                     isHumanIsTalking = True
-                    content_discussion += "\n" + reco_text_real.lower()
+                    content_discussion += "\n" + reco_text_real
+                    # self.entree_prompt_principal.insert_markdown(
+                    #     mkd_text=reco_text_real
+                    # )
                     print("insertion de texte")
 
                 if isHumanIsTalking and (
                     round(
                         (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
                     )
-                    >= 3
+                    >= 3 and not mode_ecoute
                     or "validez" == reco_text_real.lower()
                     or "terminez" == reco_text_real.lower()
                 ):
@@ -528,30 +567,40 @@ class FenetrePrincipale(tk.Frame):
                     )
                     content_discussion = ""
                     say_txt(response)
+                    im_listening=True
 
     def start_loop(self):
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        print("LOOOOOOOOOOOOOOOOOOOPPPPEEEEEEEEEERRRRRRRRR")
         loop.run_until_complete(loop.create_task(self.asking()))
         loop.close()
 
-    def go_submit(self,_evt):
+    def go_submit(self, _evt):
         self.soumettre()
 
-    def insert_conversation_history_to_prompt(self, prompt) -> str:
-        return (
-            "Anciennes conversations:\n"
-            + str(self.fenetre_scrollable.get_prompts_history())
-            + "\nPrompt Actuel:\n"
-            + prompt
-            + "\n"
-        )
+    def prompt_history_to_textlines(self, history) -> list:
+        sortie = []
+        for element in history:
+            sortie.append(
+                str(
+                    datetime.now().ctime()
+                    + "\n"
+                    + "NameOfPrompt:: "
+                    + element["fenetre_name"]
+                    + "\n"
+                    + "Prompt:: "
+                    + element["prompt"]
+                    + "\n"
+                    + "Response:: "
+                    + element["response"]
+                    + "\n"
+                )
+            )
+        sortie
 
     def ask_to_ai(self, agent_appel, prompt, model_to_use):
 
-        new_prompt = self.insert_conversation_history_to_prompt(prompt)
-        print(new_prompt)
+        print("PROMPT:: \n" + prompt)
         self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, ollama.Client):
@@ -561,7 +610,7 @@ class FenetrePrincipale(tk.Frame):
                     messages=[
                         {
                             "role": ROLE_TYPE,
-                            "content": new_prompt,
+                            "content": prompt,
                             "num_ctx": 4096,
                             "num_predict": 40,
                             "keep_alive": -1,
@@ -574,23 +623,33 @@ class FenetrePrincipale(tk.Frame):
             except ollama.ResponseError as responseError:
                 print("OOps la requête ne s'est pas bien déroulée", responseError)
         elif isinstance(agent_appel, Groq):
-            # self.affiche_ia_list(agent_appel.models.list())
+
+            this_message = [
+                {
+                    "role": "system",
+                    "content": "Always use french language, use Markdown format. You are french and your name is 'Le Goëland'. You are a french bird who loves french riviera and life and sun and the sea..., and keep conversations alive",
+                },
+                # {
+                #     "role": "assistant",
+                #     "content": self.prompt_history_to_textlines(
+                #         self.fenetre_scrollable.get_prompts_history()
+                #     ),
+                # },
+                {
+                    "role": "user",
+                    "content": prompt,
+                },
+            ]
+
+            for element in self.fenetre_scrollable.get_prompts_history():
+                this_message.append({
+                    "role":"assistant",
+                    "content":"Prompt:: "+element["prompt"]+"\n"+"Response:: "+element["response"],
+                })
+
             try:
                 llm: ChatCompletion = agent_appel.chat.completions.create(
-                    messages=[
-                        {
-                            "role": "system",
-                            "content": "You are kiki, an french assistant who talks in french and keep conversations alive",
-                        },
-                        {
-                            "role": "assistant",
-                            "content": "Your answers must not exceed 500 words",
-                        },
-                        {
-                            "role": "user",
-                            "content": new_prompt,
-                        },
-                    ],
+                    messages=this_message,
                     model=model_to_use,
                     temperature=1,
                     max_tokens=1024,
@@ -600,6 +659,8 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 ai_response = llm.choices[0].message.content
+                print(str(type(ai_response)))
+
             except:
                 messagebox.Message("OOps, ")
 
@@ -615,14 +676,15 @@ class FenetrePrincipale(tk.Frame):
                         "keep_alive": -1,
                     },
                 )
-                ai_response = llm.chat(new_prompt).message.content
+
+                ai_response = llm.chat(prompt).message.content
+
             except:
                 messagebox.Message("OOps, ")
 
         # calcul le temps écoulé par la thread
         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
-        print("Type_agent_appel::" + str(type(agent_appel)))
-        print("Type_ai_réponse::" + str(type(ai_response)))
+       
         # TODO
         print(ai_response)
         append_response_to_file(RESUME_WEB, ai_response)
