@@ -1,6 +1,7 @@
 import asyncio
 import subprocess
 import time
+from groq import Groq
 import pyaudio
 import pyttsx3
 import datetime
@@ -15,6 +16,7 @@ import ollama
 from llama_index.llms.ollama import Ollama as Ola
 import PyPDF2
 import markdown
+import requests
 from Constants import (
     BYEBYE,
     DARK3,
@@ -227,7 +229,7 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
 def lire_text_from_object(object: SimpleMarkdownText | tk.Text):
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-    except :
+    except:
         texte_to_talk = object.get_text()
     finally:
         say_txt(texte_to_talk) if texte_to_talk != "" else None
@@ -354,6 +356,17 @@ def merci_au_revoir(
 
 def au_revoir():
     exit(0)
+
+
+def get_groq_ia_list(api_key):
+    sortie=[]
+    url = "https://api.groq.com/openai/v1/models"
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    response = requests.get(url, headers=headers)
+    for item in response.json()["data"]:
+        sortie.append(item["id"])
+    print(str(sortie))
+    return sortie
 
 
 def arret_ecoute(stream: pyaudio.Stream):

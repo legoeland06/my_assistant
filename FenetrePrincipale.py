@@ -28,6 +28,7 @@ from outils import (
     display_infos_model,
     engine_lecteur_init,
     from_rgb_to_tkColors,
+    get_groq_ia_list,
     get_pre_prompt,
     lire_text_from_object,
     load_pdf,
@@ -262,7 +263,8 @@ class FenetrePrincipale(tk.Frame):
         bouton_Groq = tk.Button(
             canvas_buttons_banniere,
             text="CLient_groq",
-            command=lambda: self.set_client(Groq(api_key=GROQ_API_KEY)),
+            command=self.groq_choix_ia,
+            # command=lambda: self.set_client(Groq(api_key=GROQ_API_KEY)),
             highlightthickness=3,
             highlightcolor="yellow",
         )
@@ -320,6 +322,15 @@ class FenetrePrincipale(tk.Frame):
             slogan="... Jonathan LivingStone, dit legoeland",
         )
 
+    def groq_choix_ia(self):
+        groq_client = Groq(api_key=GROQ_API_KEY)
+        self.set_client(groq_client)
+        models = get_groq_ia_list(api_key=GROQ_API_KEY)
+        self.affiche_ia_list(models)
+
+        # _list_groq_ai:tk.Listbox=self.traite_listbox(get_groq_ia_list(api_key=GROQ_API_KEY))
+        # _list_groq_ai.bind("<Select>",func=lambda:self.set_model(_list_groq_ai.))
+
     def soumettre(self) -> str:
         if self.save_to_submission():
             self.get_talker()("un instant s'il vous plait")
@@ -333,7 +344,7 @@ class FenetrePrincipale(tk.Frame):
 
     def lance_ecoute(self):
         self.bouton_commencer_diction.flash()
-        my_thread = threading.Thread(name="my_thread", target=self.ecouter)
+        my_thread = StoppableThread(None, name="my_thread", target=self.ecouter)
         my_thread.start()
 
     def ecouter(self):
@@ -429,6 +440,26 @@ class FenetrePrincipale(tk.Frame):
                     reco_text_real = ""
                     say_txt("oui je suis toujours à l'écoute kiki")
 
+                if ("effacer l'historique des conversations" in reco_text_real.lower()
+                or "effacer l'historique des discussions" in reco_text_real.lower()
+                ):
+                    reco_text_real = ""
+                    for resp in self.fenetre_scrollable.responses:
+                        resp.destroy()
+                    say_txt("historique effacé !")
+
+                if (
+                    "effacer la dernière conversation" in reco_text_real.lower()
+                    or "effacer la dernière discussion" in reco_text_real.lower()
+                ):
+                    reco_text_real = ""
+                    kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
+                    kiki.destroy()
+                    say_txt("c'est fait !")
+
+                if "affiche la liste des conversations" == reco_text_real.lower():
+                    self.traite_listbox(self.fenetre_scrollable.get_prompts_history())
+
                 if "fin de la session" == reco_text_real.lower():
                     terminus = True
                     say_txt("merci")
@@ -460,8 +491,9 @@ class FenetrePrincipale(tk.Frame):
 
                     reco_text_real = ""
                     self.set_submission(content=content_discussion)
+                    self.entree_prompt_principal.replace("1.0", tk.END, "")
                     self.entree_prompt_principal.insert_markdown(
-                        mkd_text="\n" + content_discussion + "\n"
+                        mkd_text=content_discussion
                     )
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
@@ -492,7 +524,7 @@ class FenetrePrincipale(tk.Frame):
                         ai_response=response,
                         talker=self.get_talker(),
                         model=self.get_model(),
-                        submit_func=self.go_submit,
+                        submit_func=self.soumettre,
                     )
                     content_discussion = ""
                     say_txt(response)
@@ -504,16 +536,21 @@ class FenetrePrincipale(tk.Frame):
         loop.run_until_complete(loop.create_task(self.asking()))
         loop.close()
 
-    def go_submit(self, _evt):
+    def go_submit(self,_evt):
         self.soumettre()
 
+    def insert_conversation_history_to_prompt(self, prompt) -> str:
+        return (
+            "Anciennes conversations:\n"
+            + str(self.fenetre_scrollable.get_prompts_history())
+            + "\nPrompt Actuel:\n"
+            + prompt
+            + "\n"
+        )
 
-    def insert_conversation_history_to_prompt(self,prompt)->str:
-        return "Anciennes conversations:\n"+str(self.fenetre_scrollable.get_prompts_history())+"\Prompt Actuel:\n"+prompt+"\n"
-    
     def ask_to_ai(self, agent_appel, prompt, model_to_use):
 
-        new_prompt=self.insert_conversation_history_to_prompt(prompt)
+        new_prompt = self.insert_conversation_history_to_prompt(prompt)
         print(new_prompt)
         self.set_timer(time.perf_counter_ns())
 
@@ -537,7 +574,7 @@ class FenetrePrincipale(tk.Frame):
             except ollama.ResponseError as responseError:
                 print("OOps la requête ne s'est pas bien déroulée", responseError)
         elif isinstance(agent_appel, Groq):
-            self.affiche_ia_list(agent_appel.models.list())
+            # self.affiche_ia_list(agent_appel.models.list())
             try:
                 llm: ChatCompletion = agent_appel.chat.completions.create(
                     messages=[
@@ -546,11 +583,15 @@ class FenetrePrincipale(tk.Frame):
                             "content": "You are kiki, an french assistant who talks in french and keep conversations alive",
                         },
                         {
+                            "role": "assistant",
+                            "content": "Your answers must not exceed 500 words",
+                        },
+                        {
                             "role": "user",
                             "content": new_prompt,
                         },
                     ],
-                    model="Llama3-8b-8192",
+                    model=model_to_use,
                     temperature=1,
                     max_tokens=1024,
                     top_p=1,
@@ -582,11 +623,12 @@ class FenetrePrincipale(tk.Frame):
         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
         print("Type_agent_appel::" + str(type(agent_appel)))
         print("Type_ai_réponse::" + str(type(ai_response)))
-        # print(ai_response)
-        # append_response_to_file(RESUME_WEB, ai_response)
-        # actualise_index_html(
-        #     texte=ai_response, question=prompt, timing=timing, model=self.get_model()
-        # )
+        # TODO
+        print(ai_response)
+        append_response_to_file(RESUME_WEB, ai_response)
+        actualise_index_html(
+            texte=ai_response, question=prompt, timing=timing, model=self.get_model()
+        )
 
         return ai_response, timing
 
@@ -616,7 +658,7 @@ class FenetrePrincipale(tk.Frame):
             ai_response=response_ai,
             talker=self.get_talker(),
             model=self.get_model(),
-            submit_func=self.go_submit,
+            submit_func=self.soumettre,
         )
 
         return readable_ai_response
@@ -666,6 +708,7 @@ class FenetrePrincipale(tk.Frame):
             _list_box.insert(tk.END, item)
         _list_box.configure(
             background="red",
+            width=40,
             foreground=from_rgb_to_tkColors(DARK3),
             yscrollcommand=scrollbar_listbox.set,
         )
@@ -822,7 +865,7 @@ class FenetrePrincipale(tk.Frame):
                         ai_response=sortie,
                         talker=self.get_talker(),
                         model=self.get_model(),
-                        submit_func=self.go_submit,
+                        submit_func=self.soumettre,
                     )
                 elif was_a_list == True:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
@@ -836,7 +879,7 @@ class FenetrePrincipale(tk.Frame):
                         ai_response=translated_text,
                         talker=self.get_talker(),
                         model=self.get_model(),
-                        submit_func=self.go_submit,
+                        submit_func=self.soumettre,
                     )
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
@@ -850,7 +893,7 @@ class FenetrePrincipale(tk.Frame):
                         ai_response=translated_text,
                         talker=self.get_talker(),
                         model=self.get_model(),
-                        submit_func=self.go_submit,
+                        submit_func=self.soumettre,
                     )
 
                 self.get_talker()("fin de la traduction")
@@ -963,7 +1006,7 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour soumetre
         self.bouton_soumetre = tk.Button(
-            self.frame_of_buttons_principal, text="Ask to AI", command=self.go_submit
+            self.frame_of_buttons_principal, text="Ask to AI", command=self.soumettre
         )
         self.bouton_soumetre.configure(
             bg=from_rgb_to_tkColors((120, 120, 120)),
@@ -1038,9 +1081,9 @@ class FenetrePrincipale(tk.Frame):
             self.set_model(name_ia=str(value))
             _widget: tk.Button = self.nametowidget("cnvs1.cnvs2.btnlist")
             _widget.configure(text=value)
-            model_info = ollama.show(self.get_model())
+            # model_info = ollama.show(self.get_model())
             self.get_talker()("ok")
-            display_infos_model(master=self.nametowidget("cnvs1"), content=model_info)
+            # display_infos_model(master=self.nametowidget("cnvs1"), content=model_info)
         except:
             print("aucune ia sélectionner")
             self.get_talker()("Oups")

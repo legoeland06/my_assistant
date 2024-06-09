@@ -10,11 +10,11 @@ from outils import from_rgb_to_tkColors
 class FenetreScrollable(tk.Frame):
 
     prompts_history = [
-        {
-            "fenetre_name": "prompt_0",
-            "prompt": "Bonjour",
-            "response": "bonjour, comment allez vous ?",
-        },
+        # {
+        #     "fenetre_name": "prompt_0",
+        #     "prompt": "Bonjour",
+        #     "response": "bonjour, comment allez vous ?",
+        # },
     ]
 
     def __init__(self, parent):
@@ -77,7 +77,7 @@ class FenetreScrollable(tk.Frame):
             agent_appel=agent_appel,
             model_to_use=model,
         )
-        self.responses.append(fenetre_response.winfo_name())
+        self.responses.append(fenetre_response)
 
         self.save_to_history(
             fenetre_response.winfo_name(), simple_markdown_text.get_text(), ai_response

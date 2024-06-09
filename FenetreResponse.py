@@ -147,7 +147,7 @@ class FenetreResponse(tk.Frame):
             pady=6,
             yscrollcommand=scrollbar_question.set,
         )
-        self.entree_question.bind("<Control-Return>", func=self.submission)
+        self.entree_question.bind("<Control-Return>", func=lambda:self.submit())
         self.entree_response.pack(fill="both", expand=False)
         self.entree_question.pack(fill="both", expand=False)
 
