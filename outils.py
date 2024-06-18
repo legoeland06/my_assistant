@@ -10,7 +10,7 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
 import tkinter.font as tkfont
-from typing import Any, Mapping
+from typing import Any, List, Mapping
 import imageio.v3 as iio
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -159,27 +159,49 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
 
     ### RETURN : str ou List
     """
-    # on découpe le texte par mots
-    liste_of_words = texte.split()
-    if len(liste_of_words) >= number:
-        list_of_large_text: list[list[str]] = []
-        new_list: list[str] = []
-        counter = 0
-        for word in liste_of_words:
-            counter += len(word) + 1
-            new_list.append(word)
-            if counter >= number:
-                list_of_large_text.append(new_list)
-                new_list = []
-                counter = 0
-        return list_of_large_text
-    else:
-        return texte
+    from nltk.tokenize import sent_tokenize, word_tokenize
+
+    liste_of_sent:List[str]=sent_tokenize(text=texte)
+    
+
+    liste_of_sentences = [
+        sentence for sentence in liste_of_sent if len(sentence.split(" ")) <= number
+
+    ]
+
+    return liste_of_sentences
+    # return (" ".join(liste_of_sentences))
+    # TODO : definir la coupure par phrases , on découpe le texte par mots
+    # import spacy as spc
+    # import nltk
+
+    # _langague = spc.language.Language.lang = "fr"
+    # _classlang = spc.util.set_lang_class("french")
+    # doc = spc.util.dot_to_object()   (u'Hello world')
+    # liste_of_words = " ".join(liste_of_sentences).split()
+
+    # if len(liste_of_words) >= number:
+    #     list_of_large_text: list[list[str]] = []
+    #     new_list: list[str] = []
+    #     counter = 0
+
+    #     for sentence in liste_of_sentences:
+    #         counter += len(sentence) + 1
+    #         new_list.append(sentence)
+    #         if counter >= number:
+    #             list_of_large_text.append(new_list)
+    #             new_list = []
+    #             counter = 0
+    #     return list_of_large_text
+
+    # else:
+    #     return liste_of_sentences
 
 
 def translate_it(text_to_translate: str) -> str:
     """
-    traduit le text reçu par maximum de 500 caractères. Si le text est une liste, on la traduit une à une str
+    traduit le text reçu par maximum de 500 caractères. Si le text est une liste,
+    on la traduit une à une str
     @param text: desired text to translate, maximum de 500 caractères
     @return: str: translated text
     """
@@ -226,9 +248,9 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
         )
 
 
-def lire_text_from_object(object: SimpleMarkdownText | tk.Text|tk.Listbox):
+def lire_text_from_object(object: SimpleMarkdownText | tk.Text | tk.Listbox):
     try:
-        texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+        texte_to_talk = object.get_selection()
     except:
         texte_to_talk = object.get_text()
     finally:
@@ -243,9 +265,17 @@ def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
     button.destroy()
     text_area.destroy()
 
-def lire_ligne(evt:tk.Event):
-    widget_to_read:tk.Listbox=evt.widget
-    say_txt(str(widget_to_read.get(widget_to_read.curselection(),widget_to_read.curselection()+1)))
+
+def lire_ligne(evt: tk.Event):
+    widget_to_read: tk.Listbox = evt.widget
+    say_txt(
+        str(
+            widget_to_read.get(
+                widget_to_read.curselection(), widget_to_read.curselection() + 1
+            )
+        )
+    )
+
 
 def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
     default_font = tkfont.nametofont("TkDefaultFont")
@@ -362,7 +392,7 @@ def au_revoir():
 
 
 def get_groq_ia_list(api_key):
-    sortie=[]
+    sortie = []
     url = "https://api.groq.com/openai/v1/models"
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     response = requests.get(url, headers=headers)
@@ -392,7 +422,7 @@ def changer_ia(application: any, evt: tk.Event):
         application.set_model(value)
 
 
-def askToAi(agent_appel, prompt, model_to_use)->tuple:
+def askToAi(agent_appel, prompt, model_to_use) -> tuple:
 
     time0 = time.perf_counter_ns()
 

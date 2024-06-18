@@ -40,9 +40,14 @@ class SimpleMarkdownText(tkinter.Text):
         self.tag_configure("numbered", lmargin1=em, lmargin2=lmargin2)
 
         self.numbered_index = 1
+    def clear_text(self):
+        self.replace("1.0", tkinter.END, "")
 
     def get_text(self)->str:
         return self.get("1.0",tkinter.END)
+    
+    def get_selection(self) -> str:
+        return self.get("sel.first", "sel.last")
 
     def insert_bullet(self, position, text):
         self.insert(position, f"\u2022 {text}", "bullet")

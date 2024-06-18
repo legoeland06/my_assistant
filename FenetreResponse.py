@@ -147,7 +147,7 @@ class FenetreResponse(tk.Frame):
             pady=6,
             yscrollcommand=scrollbar_question.set,
         )
-        self.entree_question.bind("<Control-Return>", func=lambda:self.submit())
+        self.entree_question.bind("<Control-Return>", func=lambda: self.submit())
         self.entree_response.pack(fill="both", expand=False)
         self.entree_question.pack(fill="both", expand=False)
 
@@ -164,6 +164,7 @@ class FenetreResponse(tk.Frame):
         self.destroy()
 
         pass
+
     def transferer(self):
         try:
             content = self.get_entree_response().get(tk.SEL_FIRST, tk.SEL_LAST)
@@ -230,15 +231,16 @@ class FenetreResponse(tk.Frame):
         self.entree_question = question
 
     def clear_entree_response(self):
-        self.entree_response.replace("1.0", tk.END, "")
+        self.entree_response.clear_text()
+        self.entree_question.clear_text()
 
-    def lire_text_from_object(self, object: tk.Text):
-        texte_to_talk = object.get("1.0", tk.END)
+    def lire_text_from_object(self, object: SimpleMarkdownText):
+        texte_to_talk = object.get_text()
 
         if texte_to_talk != "":
             try:
-                texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+                texte_to_talk = object.get_selection()
             except:
-                texte_to_talk = object.get("1.0", tk.END)
+                texte_to_talk = object.get_text()
             finally:
                 self.talker(texte_to_talk)

@@ -1,9 +1,6 @@
 from datetime import datetime
-from llama_index_client import BasePromptTemplate
-from secret import GROQ_API_KEY
 import asyncio
 import json
-import os
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any
@@ -20,7 +17,6 @@ from PIL import Image, ImageTk
 import threading
 import pyttsx3
 
-from FenetreResponse import FenetreResponse
 from FenetreScrollable import FenetreScrollable
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
@@ -39,6 +35,7 @@ from outils import (
     traitement_du_texte,
     translate_it,
 )
+from secret import GROQ_API_KEY
 
 
 class FenetrePrincipale(tk.Frame):
