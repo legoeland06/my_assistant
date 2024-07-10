@@ -60,6 +60,7 @@ LANGFR = "Lang=FR-fr, UTF-8"
 QUIT_MENU_COMMAND = "/quit"
 EXIT_APPLICATION_COMMAND = "/exit"
 MODEL_PATH = "vosk-model-fr-0.22"
+MODEL_PATH_BIS = "vosk-model-fr-0.6-linto-2.2.0"
 TRAITEMENT_EN_COURS = "Merci, un instant... Traitement en cours"
 TERMINAL_CLEAR = "Terminal effacé"
 REPONSE_TROUVEE = "Réponse trouvée..."
@@ -78,6 +79,7 @@ CONVERSATIONS_HISTORY = "voici l'historique des conversations :"
 STARS = "*"
 LINE = "-"
 DOUBLE_LINE = "="
+TIMING_COEF = 1_000_000_000.0
 INFOS_CHAT = "\
  ******************************************************\n\
  * COMMANDES ACCESSIBLES du mode chat\n\

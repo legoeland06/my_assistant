@@ -239,8 +239,8 @@ class FenetreResponse(tk.Frame):
 
         if texte_to_talk != "":
             try:
-                texte_to_talk = object.get_selection()
+                texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
             except:
-                texte_to_talk = object.get_text()
+                texte_to_talk = object.get("1.0",tk.END)
             finally:
                 self.talker(texte_to_talk)

@@ -31,12 +31,10 @@ from outils import (
     load_pdf,
     load_txt,
     read_prompt_file,
-    say_txt,
     traitement_du_texte,
     translate_it,
 )
 from secret import GROQ_API_KEY
-
 
 class FenetrePrincipale(tk.Frame):
     master: tk.Tk
@@ -47,10 +45,12 @@ class FenetrePrincipale(tk.Frame):
     talker: any
     model_to_use: str
     streaming: pyaudio.Stream
+
+    # moteur de reconnaissance vocale et d'écoute
     engine_model: vosk.KaldiRecognizer
+
     image: ImageTk
     image_link: str
-    motcle: list[str]
     client: any = None
     ai_response: str
     timer: float
@@ -61,7 +61,9 @@ class FenetrePrincipale(tk.Frame):
 
     def __init__(
         self,
+        # Stream audio du micro ouvert
         stream: pyaudio.Stream,
+        # model ia à utiliser
         model_to_use: str,
         master,
     ):
@@ -69,8 +71,10 @@ class FenetrePrincipale(tk.Frame):
         self.master = master
         self.ia = LLAMA3
         self.submission = ""
-        self.talker = say_txt
+        # self.talker = say_txt
+
         self.lecteur = engine_lecteur_init()
+
         self.model_to_use = model_to_use
         self.streaming = stream
         self.image = ImageTk.PhotoImage(
@@ -78,11 +82,12 @@ class FenetrePrincipale(tk.Frame):
         )
         self.image_link = ""
         self.content = ""
+        self.motcles = []
         self.configure(padx=5, pady=5, width=96 + 10)
         self.pack()
         self.creer_fenetre(
             image=self.get_image(),
-            msg_to_write="Veuillez écrire ou coller ici le texte à me faire lire...",
+            msg_to_write="Prompt...",
         )
         self.fenetre_scrollable = FenetreScrollable(self)
         self.fenetre_scrollable.configure(width=self.master.winfo_reqwidth() - 20)
@@ -97,8 +102,35 @@ class FenetrePrincipale(tk.Frame):
             },
         ]
         self.actual_chat_completion = []
-        for element in (ollama.list())["models"]:
-            self.my_liste.append(element["name"])
+
+        # set la propriété my_liste:[] avec la liste des ia de chez Ollama
+        # for element in (ollama.list())["models"]:
+        #     self.my_liste.append(element["name"])
+
+    def get_lecteur(self) -> pyttsx3.Engine:
+        return self.lecteur
+
+    def say_txt(self, text: str):
+        """
+        lit le texte sans passer par un thread
+        """
+
+        texte_reformate = (
+            text.replace("*", " ")
+            .replace("-", " ")
+            .replace("=", " ")
+            .replace("#", " ")
+            .replace("|", " ")
+        )
+        self.get_lecteur().say(texte_reformate)
+        self.get_lecteur().runAndWait()
+        self.get_lecteur().stop()
+
+    def getListOfModels(self):
+        # set la propriété my_liste:[] avec la liste des ia de chez Ollama
+        # for element in (ollama.list())["models"]:
+        #     self.my_liste.append(element["name"])
+        return [element["name"] for element in (ollama.list())["models"]]
 
     def get_actual_chat_completion(self) -> list:
         return self.actual_chat_completion
@@ -124,16 +156,16 @@ class FenetrePrincipale(tk.Frame):
     # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
     def set_client(self, client: Any):
         self.client = client
-        self.get_talker()("changement du client : " + str(type(self.client)))
+        self.say_txt("changement du client : " + str(type(self.client)))
 
     def get_client(self) -> Any:
         return self.client
 
-    def set_motcle(self, motcle: list[str]):
-        self.motcle = motcle
+    def set_motcles(self, motcles: list[str]):
+        self.motcles = motcles
 
-    def get_motcle(self) -> list[str]:
-        return self.motcle
+    def get_motcles(self) -> list[str]:
+        return self.motcles
 
     def set(self, content: str):
         self.content = content
@@ -161,7 +193,7 @@ class FenetrePrincipale(tk.Frame):
 
     def set_model(self, name_ia: str) -> bool:
         self.model_to_use = name_ia
-        self.get_talker()("changement d'ia: " + self.model_to_use)
+        self.say_txt("changement d'ia: " + self.model_to_use)
 
     def get_model(self) -> str:
         return self.model_to_use
@@ -169,7 +201,12 @@ class FenetrePrincipale(tk.Frame):
     def get_stream(self) -> pyaudio.Stream:
         return self.streaming
 
-    def set_engine(self, engine):
+    def set_engine(self, engine: vosk.KaldiRecognizer):
+        """
+        ### set le moteur de reconnaissance vocale
+        Attention : chargement est long
+        #### TODO vérifier qu'il s'agissse d'un singleton
+        """
         self.engine_model = engine
 
     def get_engine(self) -> vosk.KaldiRecognizer:
@@ -184,8 +221,16 @@ class FenetrePrincipale(tk.Frame):
 
     def save_to_submission(self) -> bool:
         """ """
+        if self.motcles_widget.get() is None:
+            print("NOOOOOONNENENENENENENENEN")
+        else:
+            print(self.motcles_widget.get())
         # récupère le texte contenu dans le widget_mot_clé
-        speciality = self.motcles_widget.get()  # if motcles_widget.get() else ""
+        speciality = (
+            self.motcles_widget.get() if self.motcles_widget.get() is not None else ""
+        )
+        self.set_motcles([speciality])
+        # self.get_motcles().append(speciality)
 
         # si une sélection est faite dans le prompt principale,
         # elle est enregistrée dans la variable <selection>
@@ -304,7 +349,7 @@ class FenetrePrincipale(tk.Frame):
             text="Changer d'IA",
             background="red",
             foreground=from_rgb_to_tkColors(DARK3),
-            command=lambda: self.affiche_ia_list(self.my_liste),
+            command=lambda: self.affiche_ia_list(self.getListOfModels()),
         )
 
         label_slogan = tk.Label(
@@ -339,11 +384,11 @@ class FenetrePrincipale(tk.Frame):
 
     def soumettre(self) -> str:
         if self.save_to_submission():
-            self.get_talker()("un instant s'il vous plait")
+            self.say_txt("un instant s'il vous plait")
             threading.Thread(target=self.start_loop).start()
 
-        elif not threading.current_thread().is_alive():
-            self.set_submission("")
+        # elif not threading.current_thread().is_alive():
+        #     self.set_submission("")
 
         else:
             messagebox.showinfo(message="Veuillez poser au moins une question")
@@ -359,28 +404,53 @@ class FenetrePrincipale(tk.Frame):
         loop.create_task(self.dialog_ia())
         loop.run_forever()
 
+    async def get_je_suis_a_lecoute(self):
+        prompt = (
+            "Donne une liste de 10 façons différentes de dire : (je vous écoute) dans le contexte d'un échange verbal, réponds de façons simple par une liste du type ['phrase_1','phrase_2',...]",
+        )
+        agent_appel = (self.get_client(),)
+        model_to_use = self.get_model()
+        try:
+            llm: ChatCompletion = await agent_appel.chat.completions.create(
+                messages=[
+                    {
+                        "role": "assistant",
+                        "content": prompt,
+                    }
+                ],
+                model=model_to_use,
+                temperature=1,
+                max_tokens=1024,
+                top_p=1,
+                stream=False,
+                stop=None,
+            )
+
+            ai_response = await llm.choices[0].message.content
+        except:
+            messagebox.Message("OOps, ")
+        print(str(list(ai_response)))
+        return await ai_response
+
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
         print("on est dans l'async def dialog_ia")
         terminus = False
-        mode_ecoute=False
-        im_listening=True
+        mode_ecoute = False
+        im_listening = True
         content_discussion = ""
         isHumanIsTalking = False
 
-        
         self.start_tim_vide = 0
         self.get_stream().start_stream()
         while not terminus:
             if im_listening:
-                print("je t'écoute")
-                say_txt("je t'écoute")
-                im_listening=not im_listening
+                self.say_txt("à vous")
+                im_listening = not im_listening
 
             if isHumanIsTalking:
                 self.start_tim_vide = time.perf_counter()
-            else:
-                None
+
             print(
                 " :: "
                 + str(
@@ -393,6 +463,7 @@ class FenetrePrincipale(tk.Frame):
             data_real = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
+
             if self.get_engine().AcceptWaveform(
                 data_real
             ):  # accept waveform of input voice
@@ -411,62 +482,62 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 if incremente_lecteur:
-                    say_txt("ok")
-                    self.lecteur.setProperty(
+                    self.say_txt("ok")
+                    self.get_lecteur().setProperty(
                         name="rate",
                         value=int(self.lecteur.getProperty(name="rate")) + 20,
                     )
                     reco_text_real = ""
-                    say_txt("voix plus rapide")
+                    self.say_txt("voix plus rapide")
 
                 if decremente_lecteur:
-                    say_txt("ok")
-                    self.lecteur.setProperty(
+                    self.say_txt("ok")
+                    self.get_lecteur().setProperty(
                         name="rate",
                         value=int(self.lecteur.getProperty(name="rate")) + -20,
                     )
                     reco_text_real = ""
-                    say_txt("voix plus lente")
+                    self.say_txt("voix plus lente")
 
                 if ne_pas_deranger:
                     reco_text_real = ""
-                    say_txt("ok plus de bruit")
+                    self.say_txt("ok plus de bruit")
                     STOP_TALKING = True
 
                 if activer_parlote:
                     STOP_TALKING = False
                     reco_text_real = ""
-                    say_txt("ok me re voilà")
+                    self.say_txt("ok me re voilà")
 
                 if "passe en mode écoute" == reco_text_real.lower():
-                    say_txt("passage en mode écoute")
-                    reco_text_real=""
-                    mode_ecoute=True
+                    self.say_txt("passage en mode écoute")
+                    reco_text_real = ""
+                    mode_ecoute = True
 
                 if mode_ecoute:
                     self.entree_prompt_principal.insert_markdown(
                         mkd_text=reco_text_real
                     )
-                
-                if "passe rn mode auto" ==  reco_text_real.lower():
-                    say_txt("fin du mode écoute")
-                    reco_text_real=""
-                    mode_ecoute=False
+
+                if "passe en mode auto" == reco_text_real.lower():
+                    self.say_txt("fin du mode écoute")
+                    reco_text_real = ""
+                    mode_ecoute = False
 
                 if "quel jour sommes-nous" in reco_text_real.lower():
-                    say_txt(
+                    self.say_txt(
                         "Nous sommes le " + time.strftime("%Y-%m-%d"),
                     )
                     reco_text_real = ""
 
                 if "quelle heure est-il" in reco_text_real.lower():
-                    say_txt(
+                    self.say_txt(
                         "il est exactement " + time.strftime("%H:%M:%S"),
                     )
                     reco_text_real = ""
 
                 if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                    say_txt("oui je suis toujours à l'écoute kiki")
+                    self.say_txt("oui je suis toujours à l'écoute kiki")
                     reco_text_real = ""
 
                 if (
@@ -475,7 +546,9 @@ class FenetrePrincipale(tk.Frame):
                 ):
                     for resp in self.fenetre_scrollable.responses:
                         resp.destroy()
-                    say_txt("historique effacé !")
+
+                    self.fenetre_scrollable.responses.clear()
+                    self.say_txt("historique effacé !")
                     reco_text_real = ""
 
                 if (
@@ -484,17 +557,20 @@ class FenetrePrincipale(tk.Frame):
                 ):
                     kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
                     kiki.destroy()
-                    say_txt("c'est fait !")
+                    self.say_txt("c'est fait !")
                     reco_text_real = ""
 
-                if "affiche la liste des conversations" == reco_text_real.lower():
-                    _listbox: tk.Listbox = self.traite_listbox(self.fenetre_scrollable.get_prompts_history())
-                    _listbox.bind("<<ListboxSelect>>",func=lire_text_from_object)
+                if "afficher la liste des conversations" in reco_text_real.lower():
+                    _listbox: tk.Listbox = self.traite_listbox(
+                        self.fenetre_scrollable.get_prompts_history()
+                    )
+                    _listbox.bind("<<ListboxSelect>>", func=lire_text_from_object)
                     reco_text_real = ""
 
                 if "fin de la session" == reco_text_real.lower():
+                    # sortyie de la boucle d'audition
                     terminus = True
-                    say_txt("merci")
+                    self.say_txt("merci")
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
                         stop_thread.stop()
@@ -516,21 +592,23 @@ class FenetrePrincipale(tk.Frame):
                     round(
                         (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
                     )
-                    >= 3 and not mode_ecoute
-                    or "validez" == reco_text_real.lower()
-                    or "terminez" == reco_text_real.lower()
+                    >= 5
+                    and not mode_ecoute
+                    and content_discussion.split().__len__() > 1
+                    # or "validez" == reco_text_real.lower()
+                    # or "terminez" == reco_text_real.lower()
                 ):
-                    isHumanIsTalking = False
 
                     # prononce "entendu" mais c'est un peu redondant
-                    # say_txt("entendu")
+                    # self.say_txt("entendu")
 
-                    reco_text_real = ""
+                    # reco_text_real = ""
                     self.set_submission(content=content_discussion)
-                    self.entree_prompt_principal.replace("1.0", tk.END, "")
+                    self.entree_prompt_principal.clear_text()
                     self.entree_prompt_principal.insert_markdown(
                         mkd_text=content_discussion
                     )
+                    self.save_to_submission()
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
                         stop_thread.stop()
@@ -553,18 +631,29 @@ class FenetrePrincipale(tk.Frame):
                         model=self.get_model(),
                     )
 
+                    # ajoute la réponse à la fentre scrollable
                     self.fenetre_scrollable.addthing(
                         _timing=timing,
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=response,
-                        talker=self.get_talker(),
+                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
+
+                    # demande de sortir de la boucle d'audition
+                    isHumanIsTalking = False
+
+                    # efface le fil de discussion
                     content_discussion = ""
-                    say_txt(response)
-                    im_listening=True
+
+                    # ennonce le résultat de l'ia
+                    self.say_txt(response)
+
+                    # on peut maintenant réouvrir la boucle d'audition
+                    im_listening = True
+                    # reco_text_real=""
 
     def start_loop(self):
         loop = asyncio.new_event_loop()
@@ -624,25 +713,26 @@ class FenetrePrincipale(tk.Frame):
             this_message = [
                 {
                     "role": "system",
-                    "content": "Always use french language, use Markdown format. You are french and your name is 'Le Goëland'. You are a french bird who loves french riviera and life and sun and the sea..., and keep conversations alive",
+                    "content": (
+                        str(self.fenetre_scrollable.get_prompts_history())
+                        if self.fenetre_scrollable.get_prompts_history() is not None
+                        else ""
+                    ),
                 },
-                # {
-                #     "role": "assistant",
-                #     "content": self.prompt_history_to_textlines(
-                #         self.fenetre_scrollable.get_prompts_history()
-                #     ),
-                # },
+                {
+                    "role": "assistant",
+                    "content": (
+                        ("You are an expert in : " + str(self.get_motcles()))
+                        if self.get_motcles() is not None
+                        else ""
+                    )
+                    + " Always use french language, use Markdown format., and keep conversations alive",
+                },
                 {
                     "role": "user",
                     "content": prompt,
                 },
             ]
-
-            for element in self.fenetre_scrollable.get_prompts_history():
-                this_message.append({
-                    "role":"assistant",
-                    "content":"Prompt:: "+element["prompt"]+"\n"+"Response:: "+element["response"],
-                })
 
             try:
                 llm: ChatCompletion = agent_appel.chat.completions.create(
@@ -681,7 +771,7 @@ class FenetrePrincipale(tk.Frame):
 
         # calcul le temps écoulé par la thread
         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
-       
+
         # TODO
         print(ai_response)
         append_response_to_file(RESUME_WEB, ai_response)
@@ -715,7 +805,7 @@ class FenetrePrincipale(tk.Frame):
             agent_appel=agent_appel,
             simple_markdown_text=self.entree_prompt_principal,
             ai_response=response_ai,
-            talker=self.get_talker(),
+            talker=self.say_txt,
             model=self.get_model(),
             submit_func=self.soumettre,
         )
@@ -733,7 +823,7 @@ class FenetrePrincipale(tk.Frame):
             )
             print(file_to_read.name)
             resultat_txt = read_prompt_file(file_to_read.name)
-            self.get_talker()("Fin de l'extraction")
+            self.say_txt("Fin de l'extraction")
 
             # on prepare le text pour le présenter à la méthode insert_markdown
             # qui demande un texte fait de lignes séparées par des \n
@@ -755,9 +845,9 @@ class FenetrePrincipale(tk.Frame):
     def clear_entree_prompt_principal(self):
         self.entree_prompt_principal.replace("1.0", tk.END, "")
 
-    def traite_listbox(self, list_to_check: list):
+    def traite_listbox(self, list_to_check: list) -> tk.Listbox:
         frame = tk.Tk(className="list_ia")
-        frame.grid_location(self.winfo_x() + 50, self.winfo_y() + 30)
+        frame.grid_location(self.winfo_x() + 150, self.winfo_y() + 130)
         _list_box = tk.Listbox(frame)
         scrollbar_listbox = tk.Scrollbar(frame)
         scrollbar_listbox.configure(command=_list_box.yview)
@@ -791,15 +881,15 @@ class FenetrePrincipale(tk.Frame):
 
             preprompt = get_pre_prompt(
                 rubrique=value,
-                prompt_name=str(self.get_motcle()).lower(),
+                prompt_name=str(self.get_motcles()).lower(),
             )
             self.set_submission(preprompt)
 
-            self.get_talker()("prépromt ajouté : " + preprompt)
+            self.say_txt("prépromt ajouté : " + preprompt)
 
         except:
             print("aucun préprompt sélectionné")
-            self.get_talker()("Oups")
+            self.say_txt("Oups")
         finally:
             w.focus_get().destroy()
 
@@ -820,7 +910,7 @@ class FenetrePrincipale(tk.Frame):
         )
 
         # on set l'attribut motcle de la classe
-        self.set_motcle(mots_cle.split())
+        self.set_motcles(mots_cle.split())
 
         # on récupère le tk.Entry de la fenetre principale : frame_of_buttons_principal.motcles_widget
         # on le clean et on y insère le thème récupéré par la simpledialog auparavant
@@ -842,16 +932,16 @@ class FenetrePrincipale(tk.Frame):
 
     def creer_fenetre(self, image: ImageTk, msg_to_write):
 
-        def textwidget_to_mp3(object: tk.Text):
+        def textwidget_to_mp3(object: SimpleMarkdownText):
             texte_to_save_to_mp3 = object.get("1.0", tk.END)
 
             if texte_to_save_to_mp3 != "":
                 try:
-                    texte_to_save_to_mp3 = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+                    texte_to_save_to_mp3 = object.get_selection()
                 except:
-                    texte_to_save_to_mp3 = object.get("1.0", tk.END)
+                    texte_to_save_to_mp3 = object.get_text()
                 finally:
-                    self.get_talker()("transcription du texte vers un fichier mp3")
+                    self.say_txt("transcription du texte vers un fichier mp3")
                     simple_dialog = simpledialog.askstring(
                         parent=self,
                         prompt="Enregistrement : veuillez choisir un nom au fichier",
@@ -860,9 +950,9 @@ class FenetrePrincipale(tk.Frame):
                     self.lecteur.save_to_file(
                         texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
                     )
-                    self.get_talker()("terminé")
+                    self.say_txt("terminé")
             else:
-                self.get_talker()("Désolé, Il n'y a pas de texte à enregistrer en mp3")
+                self.say_txt("Désolé, Il n'y a pas de texte à enregistrer en mp3")
 
         def replace_in_place(
             texte: str, index1: str, index2: str, ponctuel: bool = True
@@ -879,9 +969,7 @@ class FenetrePrincipale(tk.Frame):
             was_a_list = False
             try:
                 # TRANSLATE IN PLACE
-                texte_initial = self.entree_prompt_principal.get(
-                    tk.SEL_FIRST, tk.SEL_LAST
-                )
+                texte_initial = self.entree_prompt_principal.get_selection()
                 indx1 = self.entree_prompt_principal.index(tk.SEL_FIRST)
                 indx2 = self.entree_prompt_principal.index(tk.SEL_LAST)
 
@@ -922,7 +1010,7 @@ class FenetrePrincipale(tk.Frame):
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=sortie,
-                        talker=self.get_talker(),
+                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
@@ -936,7 +1024,7 @@ class FenetrePrincipale(tk.Frame):
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=translated_text,
-                        talker=self.get_talker(),
+                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
@@ -950,12 +1038,12 @@ class FenetrePrincipale(tk.Frame):
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=translated_text,
-                        talker=self.get_talker(),
+                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
 
-                self.get_talker()("fin de la traduction")
+                self.say_txt("fin de la traduction")
 
         # préparation de l'espace de saisie des prompts
 
@@ -1030,7 +1118,11 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_lire1 = tk.Button(
             self.frame_of_buttons_principal,
             text="Lire",
-            command=lambda: lire_text_from_object(self.entree_prompt_principal),
+            command=lambda: self.say_txt(
+                self.entree_prompt_principal.get_selection()
+                if self.entree_prompt_principal.get_selection() is not None
+                else self.entree_prompt_principal.get_text()
+            ),
         )
         self.bouton_lire1.configure(
             bg=from_rgb_to_tkColors(DARK3),
@@ -1040,6 +1132,20 @@ class FenetrePrincipale(tk.Frame):
             activebackground="red",
         )
         self.bouton_lire1.pack(side=tk.LEFT)
+
+        self.bouton_stop = tk.Button(
+            self.frame_of_buttons_principal,
+            text="Stop",
+            command=lambda: self.get_lecteur().endLoop(),
+        )
+        self.bouton_stop.configure(
+            bg=from_rgb_to_tkColors(DARK3),
+            fg=from_rgb_to_tkColors(LIGHT3),
+            highlightbackground="red",
+            highlightcolor=from_rgb_to_tkColors(LIGHT3),
+            activebackground="red",
+        )
+        self.bouton_stop.pack(side=tk.LEFT)
 
         # Création d'un bouton pour traduction_sur_place
         self.bouton_traduire_sur_place = tk.Button(
@@ -1124,12 +1230,6 @@ class FenetrePrincipale(tk.Frame):
         self.button_keywords.pack(side=tk.RIGHT, expand=False)
         self.motcles_widget.pack(side="left", padx=2, pady=2)
 
-        # TODO NE fonctionne pas pour mettre en pause la lecture à haute voix
-        # bouton_stop=tk.Button(frame_of_buttons_principal,text="Stop",command=lecteur.endLoop)
-        # bouton_reprendre=tk.Button(frame_of_buttons_principal,text="reprendre",command=lecteur.startLoop)
-        # bouton_stop.pack(side=tk.LEFT)
-        # bouton_reprendre.pack(side=tk.LEFT)
-
     def load_selected_model(self, evt: tk.Event):
         # Note here that Tkinter passes an event object to onselect()
         w: tk.Listbox = evt.widget
@@ -1141,11 +1241,11 @@ class FenetrePrincipale(tk.Frame):
             _widget: tk.Button = self.nametowidget("cnvs1.cnvs2.btnlist")
             _widget.configure(text=value)
             # model_info = ollama.show(self.get_model())
-            self.get_talker()("ok")
+            self.say_txt("ok")
             # display_infos_model(master=self.nametowidget("cnvs1"), content=model_info)
         except:
             print("aucune ia sélectionner")
-            self.get_talker()("Oups")
+            self.say_txt("Oups")
         finally:
             w.focus_get().destroy()
 

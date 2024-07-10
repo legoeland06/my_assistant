@@ -1,4 +1,3 @@
-import asyncio
 import subprocess
 import time
 from groq import Groq
@@ -52,8 +51,16 @@ def say_txt(alire: str):
     """
     lit le texte sans passer par un thread
     """
+
+    texte_reformate = (
+        alire.replace("*", " ")
+        .replace("-", " ")
+        .replace("=", " ")
+        .replace("#", " ")
+        .replace("|", " ")
+    )
     lecteur = engine_lecteur_init()
-    lecteur.say(alire)
+    lecteur.say(texte_reformate)
     lecteur.runAndWait()
     lecteur.stop()
 
@@ -161,12 +168,10 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     """
     from nltk.tokenize import sent_tokenize, word_tokenize
 
-    liste_of_sent:List[str]=sent_tokenize(text=texte)
-    
+    liste_of_sent: List[str] = sent_tokenize(text=texte)
 
     liste_of_sentences = [
         sentence for sentence in liste_of_sent if len(sentence.split(" ")) <= number
-
     ]
 
     return liste_of_sentences
@@ -246,6 +251,7 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
             + "\n"
             + "</div>"
         )
+
 
 
 def lire_text_from_object(object: SimpleMarkdownText | tk.Text | tk.Listbox):

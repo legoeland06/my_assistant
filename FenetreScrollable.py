@@ -8,17 +8,9 @@ from outils import from_rgb_to_tkColors
 
 
 class FenetreScrollable(tk.Frame):
-
-    prompts_history = [
-        # {
-        #     "fenetre_name": "prompt_0",
-        #     "prompt": "Bonjour",
-        #     "response": "bonjour, comment allez vous ?",
-        # },
-    ]
-
     def __init__(self, parent):
         self.parent = parent
+        self.prompts_history=[]
         tk.Frame.__init__(self, parent)
         self.canvas = tk.Canvas(
             self,
@@ -45,14 +37,12 @@ class FenetreScrollable(tk.Frame):
         self.frame.bind("<Configure>", self.onFrameConfigure)
         self.responses = []
 
-        # self.populate()
-
     def get_prompts_history(self) -> list:
         return self.prompts_history
 
     def supprimer_conversation(self, evt: tk.Event):
         widgt: tk.Widget = evt.widget
-        print("Effacement de la fenetre ::" + widgt.winfo_name() + "::")
+        print("Effacement de la conversation ::" + widgt.winfo_name() + "::")
         for mini_dict in self.get_prompts_history():
             if widgt.winfo_name() in mini_dict["fenetre_name"]:
                 self.get_prompts_history().remove(mini_dict)
@@ -193,16 +183,16 @@ class FenetreScrollable(tk.Frame):
         for item in self.get_prompts_history():
             print(
                 item["fenetre_name"]
-                + ":: "
+                + ":: \n-----------------------"
                 + "\nPrompt:: "+ str(
                     item["prompt"][:60] + "... "
                     if len(item["prompt"]) >= 59
                     else item["prompt"]
                 )
-                + "\nResponse:: " + str(item["response"][:59]
-                + "..."
+                + "Response:: " + str(item["response"][:59]
+                + "...\n"
                 if len(item["response"]) >= 60
-                else item["response"])
+                else item["response"]+"\n")
             )
         print("************************************")
 

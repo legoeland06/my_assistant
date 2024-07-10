@@ -41,13 +41,22 @@ class SimpleMarkdownText(tkinter.Text):
 
         self.numbered_index = 1
     def clear_text(self):
+        """
+        efface le contenu du simpleMardownText
+        """
         self.replace("1.0", tkinter.END, "")
 
     def get_text(self)->str:
         return self.get("1.0",tkinter.END)
     
     def get_selection(self) -> str:
-        return self.get("sel.first", "sel.last")
+        """
+        récupère le contenu de la sélection
+        """
+        try :
+            return self.get(tkinter.SEL_FIRST, tkinter.SEL_LAST)
+        except :
+            return None
 
     def insert_bullet(self, position, text):
         self.insert(position, f"\u2022 {text}", "bullet")
