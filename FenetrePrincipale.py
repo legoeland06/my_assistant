@@ -36,6 +36,7 @@ from outils import (
 )
 from secret import GROQ_API_KEY
 
+
 class FenetrePrincipale(tk.Frame):
     master: tk.Tk
     content: str
@@ -384,11 +385,26 @@ class FenetrePrincipale(tk.Frame):
 
     def soumettre(self) -> str:
         if self.save_to_submission():
+            this_thread=threading.Thread(target=self.start_loop)
             self.say_txt("un instant s'il vous plait")
-            threading.Thread(target=self.start_loop).start()
-
-        # elif not threading.current_thread().is_alive():
-        #     self.set_submission("")
+            list_of_words = self.get_submission().split()
+            print("longeur:: "+str(len(list_of_words)))
+            if False:
+                new_prompt_list = traitement_du_texte(self.get_submission(), 2000)
+                self.say_txt(
+                    "le prompt est trop long, il est supérieur à 2000 tokens, il sera découpé en "+str(len(new_prompt_list))+" blocs"
+                )
+                for number, bloc in enumerate(new_prompt_list):
+                    if not this_thread.is_alive():
+                        print(str(number)+" "+str(bloc))
+                        self.set_submission(str(bloc))
+                        this_thread.start()
+                        self.say_txt("bloc numéro " + str(number))
+                    # else :
+                    #     this_thread.join()
+                
+            else : 
+                this_thread.start()
 
         else:
             messagebox.showinfo(message="Veuillez poser au moins une question")
@@ -791,7 +807,6 @@ class FenetrePrincipale(tk.Frame):
             )
             return
         agent_appel = self.get_client()
-
         response_ai, _timing = self.ask_to_ai(
             agent_appel=agent_appel,
             model_to_use=self.get_model(),

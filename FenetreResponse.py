@@ -26,6 +26,8 @@ class FenetreResponse(tk.Frame):
         agent_appel,
         model_to_use,
     ):
+        self.fenexport = None
+        self.grande_fenetre = None
         self.submit = submit
         super().__init__(master)
         self.master = master
@@ -62,8 +64,14 @@ class FenetreResponse(tk.Frame):
         self.bouton_maximize_me.configure(
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
+        self.bouton_maximize_all = tk.Button(
+            self.boutons_cnv_response, text=" O ", command=self.maximize_all
+        )
+        self.bouton_maximize_all.configure(
+            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+        )
         self.bouton_maximize_me.pack(side="left")
-
+        self.bouton_maximize_all.pack(side="left")
         self.bouton_normalize_me = tk.Button(
             self.boutons_cnv_response, text=" || ", command=self.normalize_me
         )
@@ -195,6 +203,66 @@ class FenetreResponse(tk.Frame):
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
+    def maximize_all(self):
+        self.fenetre_isolee()
+
+    def fenetre_isolee(self):
+        self.fenexport = tk.Toplevel()
+        self.fenexport.geometry("600x900")
+        self.boutlire= tk.Button(
+            self.fenexport,
+            text="Lire",
+            command=lambda: self.lire_text_from_object(self.grande_fenetre),
+        )
+        self.boutlire.pack(fill="x",expand=False)
+        self.grande_fenetre = SimpleMarkdownText(self.fenexport)
+        self.grande_fenetre.configure(wrap="word",bg=from_rgb_to_tkColors(DARK3),fg=from_rgb_to_tkColors(LIGHT3))
+
+        self.grande_fenetre.configure(font=("Arial", 10))
+        self.grande_fenetre.tag_configure(
+            tagName="boldtext",
+            font=(
+                self.grande_fenetre.cget("font") + " italic",
+                8,
+            ),
+        )
+        #
+        self.grande_fenetre.tag_configure(
+            tagName="response",
+            border=20,
+            wrap="word",
+            spacing1=10,
+            spacing3=10,
+            lmargin1=10,
+            lmargin2=10,
+            lmargincolor="green",
+            rmargin=10,
+            rmargincolor="green",
+            selectbackground="red",
+        )
+        self.grande_fenetre.tag_configure(
+            "balise",
+            font=(
+                self.grande_fenetre,
+                8,
+            ),
+            foreground=from_rgb_to_tkColors((100, 100, 100)),
+        )
+
+        self.grande_fenetre.tag_configure(
+            "balise_bold",
+            font=(self.grande_fenetre.cget("font") + " bold", 8),
+            foreground=from_rgb_to_tkColors((100, 100, 100)),
+        )
+
+
+
+        self.grande_fenetre.insert_markdown(self.get_ai_response())
+     
+        self.grande_fenetre.pack(fill="both", expand=True)
+        self.grande_fenetre.configure(width=100)
+        self.fenexport.mainloop()
+
     def normalize_me(self):
         self.entree_response.configure(height=5, width=100)
         self.entree_question.configure(height=5, width=100)
@@ -241,6 +309,6 @@ class FenetreResponse(tk.Frame):
             try:
                 texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
             except:
-                texte_to_talk = object.get("1.0",tk.END)
+                texte_to_talk = object.get("1.0", tk.END)
             finally:
                 self.talker(texte_to_talk)
