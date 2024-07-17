@@ -23,5 +23,7 @@ like llama-8b-8192, llama-70b-8192
 * loading PDF files
 * systemical prompts
 
+**Exemples**
+https://github.com/legoeland06/my_assistant/blob/develop/ai.resume_web.md
 **TODO**
 Relier la gestion de l'historique à une base de données.
