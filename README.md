@@ -1,4 +1,8 @@
 **myAssIsTant**
+![capture.png](capture05.png)
+![capture.png](capture02.png)
+![capture.png](capture03.png)
+![capture.png](capture04.png)
 # Use your local offline AI models
 ** using ollama server **
 
