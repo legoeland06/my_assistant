@@ -1,4 +1,5 @@
 **myAssIsTant**
+![capture_principale.png](capture_principale.png)
 # Use your local offline AI models
 ** using ollama server **
 
