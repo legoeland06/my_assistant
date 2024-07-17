@@ -484,7 +484,7 @@ class FenetrePrincipale(tk.Frame):
                 + " ::secondes "
             )
             data_real = self.get_stream().read(
-                num_frames=8192, exception_on_overflow=False
+                num_frames=4096, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
 
             if self.get_engine().AcceptWaveform(
@@ -618,7 +618,7 @@ class FenetrePrincipale(tk.Frame):
                     round(
                         (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
                     )
-                    >= 5
+                    >= 1
                     and not mode_ecoute
                     and content_discussion.split().__len__() > 5
                     # or "validez" == reco_text_real.lower()
@@ -638,6 +638,10 @@ class FenetrePrincipale(tk.Frame):
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
                         stop_thread.stop()
+
+                    # efface le fil de discussion
+                    content_discussion = ""
+                    
                     response, timing = self.ask_to_Groq(
                         self.get_client(), self.get_submission(), self.get_model()
                     )
@@ -656,8 +660,6 @@ class FenetrePrincipale(tk.Frame):
                     # demande de sortir de la boucle d'audition
                     isHumanIsTalking = False
 
-                    # efface le fil de discussion
-                    content_discussion = ""
 
                     # ennonce le résultat de l'ia
                     self.say_txt(response)
