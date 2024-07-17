@@ -1,7 +1,8 @@
 import datetime
 import tkinter as tk
+import tkinter.font as tkfont
 
-from Constants import DARK2
+from Constants import DARK2, ZEFONT
 from FenetreResponse import FenetreResponse
 from SimpleMarkdownText import SimpleMarkdownText
 from outils import from_rgb_to_tkColors
@@ -10,8 +11,14 @@ from outils import from_rgb_to_tkColors
 class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
         self.parent = parent
-        self.prompts_history=[]
+        self.prompts_history = []
         tk.Frame.__init__(self, parent)
+        self.fontdict = tkfont.Font(
+            family=ZEFONT[0],
+            size=ZEFONT[1],
+            slant=ZEFONT[2],
+            weight=ZEFONT[3],
+        )
         self.canvas = tk.Canvas(
             self,
             borderwidth=0,
@@ -77,12 +84,14 @@ class FenetreScrollable(tk.Frame):
             func=self.supprimer_conversation,
         )
         fenetre_response.set_talker(talker=talker)
-        fenetre_response.get_entree_response().configure(font=("Arial", 10))
+        fenetre_response.get_entree_response().configure(font=self.fontdict)
         fenetre_response.get_entree_response().tag_configure(
             tagName="boldtext",
-            font=(
-                fenetre_response.get_entree_response().cget("font") + " italic",
-                8,
+            font=tkfont.Font(
+                family=self.fontdict.cget("family"),
+                size=self.fontdict.cget("size"),
+                slant=self.fontdict.cget("slant"),
+                weight="bold",
             ),
         )
         #
@@ -101,16 +110,18 @@ class FenetreScrollable(tk.Frame):
         )
         fenetre_response.get_entree_response().tag_configure(
             "balise",
-            font=(
-                fenetre_response.get_entree_response(),
-                8,
-            ),
+            font=self.fontdict,
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
 
         fenetre_response.get_entree_response().tag_configure(
             "balise_bold",
-            font=(fenetre_response.get_entree_response().cget("font") + " bold", 8),
+            font=tkfont.Font(
+                family=self.fontdict.cget("family"),
+                size=self.fontdict.cget("size"),
+                slant=self.fontdict.cget("slant"),
+                weight="bold",
+            ),
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
         fenetre_response.get_entree_response().insert(
@@ -148,15 +159,17 @@ class FenetreScrollable(tk.Frame):
         )
         fenetre_response.get_entree_question().tag_configure(
             "balise",
-            font=(
-                fenetre_response.get_entree_question().cget("font") + " italic",
-                8,
-            ),
+            font=self.fontdict,
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
         fenetre_response.get_entree_question().tag_configure(
             "balise_bold",
-            font=(fenetre_response.get_entree_question().cget("font") + " bold", 8),
+            font=tkfont.Font(
+                family=self.fontdict.cget("family"),
+                size=self.fontdict.cget("size"),
+                slant=self.fontdict.cget("slant"),
+                weight="bold",
+            ),
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
         fenetre_response.get_entree_question().insert(
@@ -184,15 +197,18 @@ class FenetreScrollable(tk.Frame):
             print(
                 item["fenetre_name"]
                 + ":: \n-----------------------"
-                + "\nPrompt:: "+ str(
+                + "\nPrompt:: "
+                + str(
                     item["prompt"][:60] + "... "
                     if len(item["prompt"]) >= 59
                     else item["prompt"]
                 )
-                + "Response:: " + str(item["response"][:59]
-                + "...\n"
-                if len(item["response"]) >= 60
-                else item["response"]+"\n")
+                + "Response:: "
+                + str(
+                    item["response"][:59] + "...\n"
+                    if len(item["response"]) >= 60
+                    else item["response"] + "\n"
+                )
             )
         print("************************************")
 

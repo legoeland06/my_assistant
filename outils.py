@@ -140,10 +140,10 @@ def append_response_to_file(file_to_append, readable_ai_response):
         )
         target_file.write(markdown_content + "\n")
     with open(file_to_append + ".md", "a", encoding="utf-8") as target_file:
-        markdown_content = markdown.markdown(
-            readable_ai_response, output_format="xhtml"
-        )
-        target_file.write(markdown_content + "\n")
+        # markdown_content = markdown.markdown(
+        #     readable_ai_response, output_format="xhtml"
+        # )
+        target_file.write("\n" + readable_ai_response + "\n")
     with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
         markdown_content = readable_ai_response
         target_file.write(
@@ -251,7 +251,6 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
             + "\n"
             + "</div>"
         )
-
 
 
 def lire_text_from_object(object: SimpleMarkdownText | tk.Text | tk.Listbox):

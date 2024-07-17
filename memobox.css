@@ -105,7 +105,7 @@ hr {
     border-left: 1px solid white;
     padding: 1em;
     align-self: auto;
-    color: #ffffff;
+    color: #d0d0d0;
     font-style: italic;
     margin: 1em;
 }
@@ -6637,5 +6637,3 @@ a.close.disabled {
     -webkit-transform: translate(0, -50px);
     transform: translate(0, -50px);
 }
-
-@

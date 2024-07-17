@@ -13,10 +13,18 @@ MARIO = "mario:latest"
 NEURAL_CHAT = "neural-chat:latest"
 WIZARD_VICUNA_UNCENSORED = "wizard-vicuna-uncensored:30b-q4_0"
 
-REQUEST_TIMEOUT_DEFAULT=50
+REQUEST_TIMEOUT_DEFAULT = 50
+
+ZEFONT = (
+    "Trebuchet",
+    8,
+    "roman",
+    "normal",
+)
+
 
 # CONSTANTS
- # Specify the path for the output text file
+# Specify the path for the output text file
 OUTPUT_PATH_FILE = "recognized_text"
 RESPONSE_FILE = "ai_response"
 RESUME_FILE = "ai_resume"
@@ -127,8 +135,8 @@ DARK1 = (70, 70, 70)
 DARK0 = (100, 100, 100)
 LIGHT0 = (150, 150, 150)
 LIGHT1 = (180, 180, 180)
-LIGHT2 = (210,210,210)
-LIGHT3 = (240,240,240)
+LIGHT2 = (210, 210, 210)
+LIGHT3 = (240, 240, 240)
 
 
 PROMPTS_SYSTEMIQUES = {

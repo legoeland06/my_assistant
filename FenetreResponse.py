@@ -2,9 +2,11 @@ import tkinter as tk
 from typing import Any
 
 from outils import askToAi, from_rgb_to_tkColors
-from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3
+from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
-import tkinter.font as tkfont
+
+# import tkinter.font as tkfont
+from tkinter import font
 
 
 class FenetreResponse(tk.Frame):
@@ -26,6 +28,12 @@ class FenetreResponse(tk.Frame):
         agent_appel,
         model_to_use,
     ):
+        self.fontdict = font.Font(
+            family=ZEFONT[0],
+            size=ZEFONT[1],
+            slant=ZEFONT[2],
+            weight=ZEFONT[3],
+        )
         self.fenexport = None
         self.grande_fenetre = None
         self.submit = submit
@@ -64,14 +72,14 @@ class FenetreResponse(tk.Frame):
         self.bouton_maximize_me.configure(
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
-        self.bouton_maximize_all = tk.Button(
-            self.boutons_cnv_response, text=" O ", command=self.maximize_all
+        self.bouton_agrandir_fenetre = tk.Button(
+            self.boutons_cnv_response, text=" O ", command=self.agrandir_fenetre
         )
-        self.bouton_maximize_all.configure(
+        self.bouton_agrandir_fenetre.configure(
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
         self.bouton_maximize_me.pack(side="left")
-        self.bouton_maximize_all.pack(side="left")
+        self.bouton_agrandir_fenetre.pack(side="left")
         self.bouton_normalize_me = tk.Button(
             self.boutons_cnv_response, text=" || ", command=self.normalize_me
         )
@@ -128,22 +136,22 @@ class FenetreResponse(tk.Frame):
         scrollbar_response.pack(side=tk.RIGHT, fill="both")
         scrollbar_question = tk.Scrollbar(self.cnv_question)
         scrollbar_question.pack(side=tk.RIGHT, fill="both")
-        default_font = tkfont.nametofont("TkDefaultFont")
+        default_font = font.nametofont("TkDefaultFont")
         default_font.configure(size=8)
         self.entree_response = SimpleMarkdownText(self.cnv_response, font=default_font)
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors(DARK1),
-            height=5,
+            height=1,
             width=100,
-            font=("Arial", 12),
+            font=self.fontdict,
             wrap="word",
             padx=10,
             pady=6,
             yscrollcommand=scrollbar_response.set,
         )
         self.entree_question = SimpleMarkdownText(
-            self.cnv_question, height=5, font=default_font
+            self.cnv_question, height=1, font=default_font
         )
         self.entree_question.configure(
             bg=from_rgb_to_tkColors(LIGHT2),
@@ -197,33 +205,38 @@ class FenetreResponse(tk.Frame):
 
     def maximize_me(self):
         self.entree_response.configure(
-            height=int(self.entree_response.cget("height")) + 2, width=100
+            height=int(self.entree_response.cget("height")) + 10, width=100
         )
-        self.entree_question.configure(height=5, width=100)
+        self.entree_question.configure(height=1, width=100)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
-    def maximize_all(self):
-        self.fenetre_isolee()
+    def agrandir_fenetre(self):
+        self.affiche_fenetre_agrandie()
 
-    def fenetre_isolee(self):
-        self.fenexport = tk.Toplevel()
+    def affiche_fenetre_agrandie(self):
+        self.fenexport = tk.Tk()
         self.fenexport.geometry("600x900")
-        self.boutlire= tk.Button(
+        self.fenexport.title(self.entree_prompt.get_text()[:20] + "...")
+        self.boutlire = tk.Button(
             self.fenexport,
             text="Lire",
             command=lambda: self.lire_text_from_object(self.grande_fenetre),
         )
-        self.boutlire.pack(fill="x",expand=False)
+        self.boutlire.pack(fill="x", expand=False)
         self.grande_fenetre = SimpleMarkdownText(self.fenexport)
-        self.grande_fenetre.configure(wrap="word",bg=from_rgb_to_tkColors(DARK3),fg=from_rgb_to_tkColors(LIGHT3))
+        self.grande_fenetre.configure(
+            wrap="word", bg=from_rgb_to_tkColors(LIGHT3), fg=from_rgb_to_tkColors(DARK3)
+        )
 
-        self.grande_fenetre.configure(font=("Arial", 10))
+        self.grande_fenetre.configure(font=self.fontdict)
         self.grande_fenetre.tag_configure(
             tagName="boldtext",
-            font=(
-                self.grande_fenetre.cget("font") + " italic",
-                8,
+            font=font.Font(
+                family=self.fontdict.cget("family"),
+                size=self.fontdict.cget("size"),
+                slant=self.fontdict.cget("slant"),
+                weight="bold",
             ),
         )
         #
@@ -241,37 +254,38 @@ class FenetreResponse(tk.Frame):
             selectbackground="red",
         )
         self.grande_fenetre.tag_configure(
-            "balise",
-            font=(
-                self.grande_fenetre,
-                8,
+            tagName="balise",
+            font=self.fontdict,
+            foreground=from_rgb_to_tkColors((0,0,250))
+            # foreground=from_rgb_to_tkColors((100, 100, 100)),
+        )
+
+        self.grande_fenetre.tag_configure(
+            tagName="balise_bold",
+            font=font.Font(
+                family=self.fontdict.cget("family"),
+                size=self.fontdict.cget("size"),
+                slant=self.fontdict.cget("slant"),
+                weight="bold",
             ),
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
 
-        self.grande_fenetre.tag_configure(
-            "balise_bold",
-            font=(self.grande_fenetre.cget("font") + " bold", 8),
-            foreground=from_rgb_to_tkColors((100, 100, 100)),
-        )
-
-
-
         self.grande_fenetre.insert_markdown(self.get_ai_response())
-     
+
         self.grande_fenetre.pack(fill="both", expand=True)
         self.grande_fenetre.configure(width=100)
         self.fenexport.mainloop()
 
     def normalize_me(self):
-        self.entree_response.configure(height=5, width=100)
-        self.entree_question.configure(height=5, width=100)
+        self.entree_response.configure(height=1, width=100)
+        self.entree_question.configure(height=1, width=100)
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
     def minimize_me(self):
         self.entree_response.configure(
-            height=int(self.entree_response.cget("height")) - 2, width=100
+            height=int(self.entree_response.cget("height")) - 5, width=100
         )
         self.entree_question.configure(height=0, width=100)
         self.entree_response.pack_propagate()
