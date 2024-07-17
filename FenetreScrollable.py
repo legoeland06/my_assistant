@@ -134,7 +134,7 @@ class FenetreScrollable(tk.Frame):
             str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
             "balise_bold",
         )
-        fenetre_response.get_entree_response().insert_markdown(ai_response + "\n\n")
+        fenetre_response.get_entree_response().insert_markdown(ai_response + "\n")
 
         fenetre_response.get_entree_question().configure(font=("Arial", 10))
         fenetre_response.get_entree_question().tag_configure(
@@ -189,7 +189,7 @@ class FenetreScrollable(tk.Frame):
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()
 
-        self.print_liste_des_conversations()
+        # self.print_liste_des_conversations()
 
     def print_liste_des_conversations(self):
         print("liste des conversations\n************************************")
