@@ -493,6 +493,8 @@ class FenetrePrincipale(tk.Frame):
                 # Parse the JSON result and get the recognized text
 
                 result_real = json.loads(self.get_engine().Result())
+
+
                 reco_text_real: str = result_real["text"]
 
                 ne_pas_deranger = "ne pas déranger" in reco_text_real.lower()
@@ -618,9 +620,9 @@ class FenetrePrincipale(tk.Frame):
                     round(
                         (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
                     )
-                    >= 5
+                    >= 3
                     and not mode_ecoute
-                    and content_discussion.split().__len__() > 5
+                    and content_discussion.split().__len__() > 0
                     # or "validez" == reco_text_real.lower()
                     # or "terminez" == reco_text_real.lower()
                 ):
@@ -656,11 +658,11 @@ class FenetrePrincipale(tk.Frame):
                     # demande de sortir de la boucle d'audition
                     isHumanIsTalking = False
 
-                    # efface le fil de discussion
-                    content_discussion = ""
-
                     # ennonce le résultat de l'ia
                     self.say_txt(response)
+
+                    # efface le fil de discussion
+                    content_discussion = ""
 
                     # on peut maintenant réouvrir la boucle d'audition
                     im_listening = True

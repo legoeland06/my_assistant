@@ -98,7 +98,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
     return ai_response, timing
 
 
-def traitement_rapide(texte: str, model_to_use,talking):
+def traitement_rapide(texte: str, model_to_use,talking)->str:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
     ai_response, _timing = ask_to_ai(
@@ -106,6 +106,7 @@ def traitement_rapide(texte: str, model_to_use,talking):
     )
     readable_ai_response = ai_response
     say_txt(readable_ai_response) if talking else None
+    return readable_ai_response
 
 
 async def dire_tt(alire: str):

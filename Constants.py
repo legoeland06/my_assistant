@@ -5,6 +5,7 @@ WIZARDLM2 = "wizardlm2:latest"
 DEEPSEEK_CODER = "deepseek-coder:6.7b"
 ALFRED = "alfred:latest"
 LLAMA3 = "llama3:latest"
+LLAMA370b = "llama3-70b-8192"
 DEEPSEEK_CODERR = "deepseek-coder:latest"
 EXPERT = "expert:latest"
 GEMMA = "gemma:latest"
@@ -14,7 +15,7 @@ NEURAL_CHAT = "neural-chat:latest"
 WIZARD_VICUNA_UNCENSORED = "wizard-vicuna-uncensored:30b-q4_0"
 
 REQUEST_TIMEOUT_DEFAULT = 50
-
+MAX_HISTORY=10
 ZEFONT = (
     "Trebuchet",
     8,

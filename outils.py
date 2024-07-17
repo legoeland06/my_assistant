@@ -1,6 +1,8 @@
 import subprocess
 import time
 from groq import Groq
+from openai import ChatCompletion
+
 import pyaudio
 import pyttsx3
 import datetime
@@ -426,6 +428,37 @@ def changer_ia(application: any, evt: tk.Event):
         print('You selected item %d: "%s"' % (index, value))
         application.set_model(value)
 
+
+def ask_quick(agent_appel, prompt, model_to_use):
+
+    if isinstance(agent_appel, Groq):
+
+        this_message = [
+            {
+                "role": "user",
+                "content": str(prompt)+"\n Instruction: faire un résumé de toutes les conversations ci-dessus en un prompt concentré",
+            },
+        ]
+
+        try:
+            llm: ChatCompletion = agent_appel.chat.completions.create(
+                messages=this_message,
+                model=model_to_use,
+                temperature=1,
+                max_tokens=4060,
+                n=1,
+                stream=False,
+                stop=None,
+                timeout=10,
+            )
+
+            ai_response = llm.choices[0].message.content
+        except:
+            messagebox.Message("OOps, ")
+    else:
+        messagebox.Message("Ne fonctionne qu'avec groq")
+
+    return ai_response
 
 def askToAi(agent_appel, prompt, model_to_use) -> tuple:
 
