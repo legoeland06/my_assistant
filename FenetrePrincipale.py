@@ -4,6 +4,8 @@ import json
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any
+import markdown
+import markdown.util
 from groq import Groq
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -465,8 +467,11 @@ class FenetrePrincipale(tk.Frame):
         isHumanIsTalking = False
 
         self.start_tim_vide = 0
-        self.get_stream().start_stream()
+        # self.get_stream().start_stream()
         while not terminus:
+            if self.get_stream().is_stopped():
+                self.get_stream().start_stream()
+
             if im_listening:
                 self.say_txt("à vous")
                 im_listening = not im_listening
@@ -494,7 +499,6 @@ class FenetrePrincipale(tk.Frame):
 
                 result_real = json.loads(self.get_engine().Result())
 
-
                 reco_text_real: str = result_real["text"]
 
                 ne_pas_deranger = "ne pas déranger" in reco_text_real.lower()
@@ -507,6 +511,8 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 if incremente_lecteur:
+                    self.get_stream().stop_stream()
+
                     self.say_txt("ok")
                     self.get_lecteur().setProperty(
                         name="rate",
@@ -516,6 +522,7 @@ class FenetrePrincipale(tk.Frame):
                     self.say_txt("voix plus rapide")
 
                 if decremente_lecteur:
+                    self.get_stream().stop_stream()
                     self.say_txt("ok")
                     self.get_lecteur().setProperty(
                         name="rate",
@@ -525,43 +532,33 @@ class FenetrePrincipale(tk.Frame):
                     self.say_txt("voix plus lente")
 
                 if ne_pas_deranger:
+                    self.get_stream().stop_stream()
                     reco_text_real = ""
                     self.say_txt("ok plus de bruit")
                     STOP_TALKING = True
 
                 if activer_parlote:
+                    self.get_stream().stop_stream()
                     STOP_TALKING = False
                     reco_text_real = ""
                     self.say_txt("ok me re voilà")
 
-                if "passe en mode écoute" == reco_text_real.lower():
-                    self.say_txt("passage en mode écoute")
-                    reco_text_real = ""
-                    mode_ecoute = True
-
-                if mode_ecoute:
-                    self.entree_prompt_principal.insert_markdown(
-                        mkd_text=reco_text_real
-                    )
-
-                if "passe en mode auto" == reco_text_real.lower():
-                    self.say_txt("fin du mode écoute")
-                    reco_text_real = ""
-                    mode_ecoute = False
-
                 if "quel jour sommes-nous" in reco_text_real.lower():
+                    self.get_stream().stop_stream()
                     self.say_txt(
                         "Nous sommes le " + time.strftime("%Y-%m-%d"),
                     )
                     reco_text_real = ""
 
                 if "quelle heure est-il" in reco_text_real.lower():
+                    self.get_stream().stop_stream()
                     self.say_txt(
                         "il est exactement " + time.strftime("%H:%M:%S"),
                     )
                     reco_text_real = ""
 
                 if "est-ce que tu m'écoutes" in reco_text_real.lower():
+                    self.get_stream().stop_stream()
                     self.say_txt("oui je suis toujours à l'écoute kiki")
                     reco_text_real = ""
 
@@ -569,6 +566,7 @@ class FenetrePrincipale(tk.Frame):
                     "effacer l'historique des conversations" in reco_text_real.lower()
                     or "effacer l'historique des discussions" in reco_text_real.lower()
                 ):
+                    self.get_stream().stop_stream()
                     for resp in self.fenetre_scrollable.responses:
                         resp.destroy()
 
@@ -580,6 +578,7 @@ class FenetrePrincipale(tk.Frame):
                     "effacer la dernière conversation" in reco_text_real.lower()
                     or "effacer la dernière discussion" in reco_text_real.lower()
                 ):
+                    self.get_stream().stop_stream()
                     kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
                     kiki.destroy()
                     self.say_txt("c'est fait !")
@@ -591,18 +590,30 @@ class FenetrePrincipale(tk.Frame):
                     in reco_text_real.lower()
                     or "montre-moi les conversations" in reco_text_real.lower()
                 ):
+                    self.get_stream().stop_stream()
                     self.say_txt("Voici")
                     self.boutton_historique.invoke()
                     reco_text_real = ""
 
+                if "fais une recherche web sur " in reco_text_real.lower():
+                    self.get_stream().stop_stream()
+                    reco_text_real = "\nrechercher sur le web : " + reco_text_real.split("recherche web sur ")[1]
+                    
+                    content_discussion += reco_text_real
+                    reco_text_real = ""
+                    isHumanIsTalking=False
+                    response = self.envoyer_audio_prompt(
+                        content_discussion, grorOrNot=False
+                    )
+                    
                 if "fin de la session" == reco_text_real.lower():
                     # sortyie de la boucle d'audition
+                    self.get_stream().stop_stream()
                     terminus = True
                     self.say_txt("merci")
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
                         stop_thread.stop()
-                    self.get_stream().stop_stream()
                     reco_text_real = ""
                     break
 
@@ -611,10 +622,7 @@ class FenetrePrincipale(tk.Frame):
                         self.start_tim_vide = 0
                     isHumanIsTalking = True
                     content_discussion += "\n" + reco_text_real
-                    # self.entree_prompt_principal.insert_markdown(
-                    #     mkd_text=reco_text_real
-                    # )
-                    print("insertion de texte")
+                    print("texte reconnu : " + reco_text_real.lower())
 
                 if isHumanIsTalking and (
                     round(
@@ -623,40 +631,19 @@ class FenetrePrincipale(tk.Frame):
                     >= 3
                     and not mode_ecoute
                     and content_discussion.split().__len__() > 0
-                    # or "validez" == reco_text_real.lower()
-                    # or "terminez" == reco_text_real.lower()
                 ):
-
-                    # prononce "entendu" mais c'est un peu redondant
-                    # self.say_txt("entendu")
-
+                    self.get_stream().stop_stream()
                     reco_text_real = ""
-                    self.set_submission(content=content_discussion)
-                    self.entree_prompt_principal.clear_text()
-                    self.entree_prompt_principal.insert_markdown(
-                        mkd_text=content_discussion
-                    )
-                    self.save_to_submission()
-                    stop_thread = StoppableThread(None, threading.current_thread())
-                    if not stop_thread.stopped():
-                        stop_thread.stop()
-                    response, timing = self.ask_to_Groq(
-                        self.get_client(), self.get_submission(), self.get_model()
-                    )
 
-                    # ajoute la réponse à la fenetre scrollable
-                    self.fenetre_scrollable.addthing(
-                        _timing=timing,
-                        agent_appel=self.get_client(),
-                        simple_markdown_text=self.entree_prompt_principal,
-                        ai_response=response,
-                        talker=self.say_txt,
-                        model=self.get_model(),
-                        submit_func=self.soumettre,
+                    isHumanIsTalking=False
+                    response = self.envoyer_audio_prompt(
+                        content_discussion, grorOrNot=True
                     )
+                    # self.get_stream().start_stream()
+                    # response, timing = self.ask_to_ai(self.get_client(), content_discussion, self.get_model())
 
                     # demande de sortir de la boucle d'audition
-                    isHumanIsTalking = False
+                    # isHumanIsTalking = False
 
                     # ennonce le résultat de l'ia
                     self.say_txt(response)
@@ -667,6 +654,50 @@ class FenetrePrincipale(tk.Frame):
                     # on peut maintenant réouvrir la boucle d'audition
                     im_listening = True
                     # reco_text_real=""
+
+    def envoyer_audio_prompt(self, content_discussion, grorOrNot: bool):
+        self.set_submission(content=content_discussion)
+        self.entree_prompt_principal.clear_text()
+        self.entree_prompt_principal.insert_markdown(mkd_text=content_discussion)
+        self.save_to_submission()
+
+        self.gestion_thread()
+        if grorOrNot:
+            response, timing = self.demander_ai_groq()
+        else:
+            response, timing = self.demander_ai()
+
+        # ajoute la réponse à la fenetre scrollable
+        self.fenetre_scrollable.addthing(
+            _timing=timing,
+            agent_appel=self.get_client(),
+            simple_markdown_text=self.entree_prompt_principal,
+            ai_response=response,
+            talker=self.say_txt,
+            model=self.get_model(),
+            submit_func=self.soumettre,
+        )
+
+        return response
+
+    def demander_ai_groq(self):
+        response, timing = self.ask_to_Groq(
+            self.get_client(), self.get_submission(), self.get_model()
+        )
+        return response, timing
+
+    def demander_ai(self):
+        """vérifie aussi le texte pour faire des recherches web"""
+        response, timing = self.ask_to_ai(
+            self.get_client(), self.get_submission(), self.get_model()
+        )
+
+        return response, timing
+
+    def gestion_thread(self):
+        stop_thread = StoppableThread(None, threading.current_thread())
+        if not stop_thread.stopped():
+            stop_thread.stop()
 
     def start_loop(self):
         loop = asyncio.new_event_loop()
@@ -697,9 +728,63 @@ class FenetrePrincipale(tk.Frame):
             )
         sortie
 
-    def ask_to_ai(self, agent_appel, prompt, model_to_use):
+    def lancer_chrome(self, word_to_search: str) -> subprocess.Popen[str]:
+        link_search = "https://www.google.fr/search?q="
 
-        print("PROMPT:: \n" + prompt)
+        return subprocess.Popen(
+            GOOGLECHROME_APP + link_search + word_to_search,
+            text=True,
+            shell=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+    def ask_to_ai(self, agent_appel, prompt, model_to_use):
+        """ne s'execute que en mode textuel"""
+        self.set_timer(time.perf_counter_ns())
+        letexte = str(prompt)
+        result_recherche = []
+        bonne_liste = ""
+        import my_search_engine as search
+
+        for line in [line for line in letexte.splitlines() if line.strip()]:
+            if "rechercher sur le web : " in line:
+                # TODO : récupérer le mot dans le prompt directement
+                # en isolant la ligne et en récupérant tout ce qu'il y a après
+                # avoir identifier les mots clés "recherche web : "
+                expression_found = (line.split(" : ")[1]).replace(" ", "+")
+                # resultat_de_recherche = str(self.lancer_chrome(expression_found))
+
+                self.say_txt("recherche web " + line.split(" : ")[1])
+                search_results: list = search.main(expression_found)
+
+                goodlist = str([element["title"] for element in search_results])
+                super_result, _rien = self.ask_to_ai(
+                    self.get_client(), goodlist, self.model_to_use
+                )
+
+                result_recherche.append(
+                    {
+                        "resultat_de_recherche": line.split(" : ")[1]
+                        + "\n"
+                        + super_result
+                    }
+                )
+
+        if len(result_recherche):
+            timing: float = (
+                time.perf_counter_ns() - self.get_timer()
+            ) / 1_000_000_000.0
+            bonne_liste = "Recherche sur le Web : \n" if bonne_liste == "" else None
+            for recherche in [
+                element["resultat_de_recherche"] for element in result_recherche
+            ]:
+                bonne_liste += recherche + "\n\n"
+            # return bonne_liste,timing
+
+        if len(bonne_liste):
+            prompt += "\nRésultat des recherches : \n" + bonne_liste
+
         self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, ollama.Client):
@@ -803,6 +888,7 @@ class FenetrePrincipale(tk.Frame):
         return ai_response, timing
 
     def ask_to_Groq(self, agent_appel, prompt, model_to_use):
+        """peut s'executer en mode chat_audio"""
 
         print("PROMPT:: \n" + prompt)
         self.set_timer(time.perf_counter_ns())
@@ -874,6 +960,34 @@ class FenetrePrincipale(tk.Frame):
 
     async def asking(self) -> asyncio.futures.Future:
         # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
+
+        # self.set_timer(time.perf_counter_ns())
+        # letexte=str(self.get_submission())
+        # result_recherche=[]
+        # for line in [line for line in self.get_submission().splitlines() if line.strip()]:
+        #     if "rechercher sur le web : " in line:
+        #         # TODO : récupérer le mot dans le prompt directement
+        #         # en isolant la ligne et en récupérant tout ce qu'il y a après
+        #         # avoir identifier les mots clés "recherche web : "
+        #         expression_found=(letexte.split(" : ")[1]).replace(" ","+")
+        #         # resultat_de_recherche = str(self.lancer_chrome(expression_found))
+
+        #         self.say_txt("recherche web "+expression_found)
+        #         import my_search_engine as search
+        #         search_results:list = search.main(expression_found)
+
+        #         goodlist=str([element["title"] for element in search_results])
+        #         super_result,_rien=self.ask_to_ai(
+        #             self.get_client(),
+        #             goodlist,self.model_to_use)
+
+        #         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
+        #         result_recherche.append({
+        #             expression_found:super_result
+        #             })
+
+        # if len(result_recherche):
+        #     return str(result_recherche)
 
         if not self.get_client():
             messagebox.showerror(

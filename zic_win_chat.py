@@ -54,7 +54,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
 
     print("PROMPT:: \n" + prompt)
     mytime = time.perf_counter_ns()
-    ai_response=""
+    ai_response = ""
     if isinstance(agent_appel, Groq):
 
         this_message = [
@@ -98,7 +98,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
     return ai_response, timing
 
 
-def traitement_rapide(texte: str, model_to_use,talking)->str:
+def traitement_rapide(texte: str, model_to_use, talking) -> str:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
     ai_response, _timing = ask_to_ai(
@@ -157,11 +157,7 @@ def main(prompt=False):
     # thread_name=the_thread.name
     if prompt:
         model_used = "llama3-70b-8192"
-        traitement_rapide(
-            prompt,
-            model_to_use=model_used,
-            talking=False
-        )
+        traitement_rapide(prompt, model_to_use=model_used, talking=False)
         exit(0)
 
     model_used = init_model(cst.LLAMA3, prompted=False)
@@ -192,6 +188,13 @@ def main(prompt=False):
     app.set_thread(the_thread)
     app.set_talker(talker=say_txt)
     app.set_engine(rec)
+
+    # BYPASS les sélection IHM chronophages
+    groq_client = Groq(api_key=GROQ_API_KEY)
+    app.set_client(groq_client)
+    app.set_model(cst.LLAMA370b)
+    app.bouton_commencer_diction.invoke()
+
     app.mainloop(0)
 
 
@@ -237,7 +240,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--prompt", metavar="prompt", required=False, help="the prompt to ask"
     )
-    
+
     args: Namespace = parser.parse_args()
 
     main(prompt=args.prompt)

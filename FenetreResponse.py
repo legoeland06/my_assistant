@@ -1,6 +1,8 @@
 import tkinter as tk
 from typing import Any
 
+import markdown
+
 from outils import askToAi, from_rgb_to_tkColors
 from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
@@ -218,6 +220,7 @@ class FenetreResponse(tk.Frame):
         self.fenexport = tk.Tk()
         self.fenexport.geometry("600x900")
         self.fenexport.title(self.entree_prompt.get_text()[:20] + "...")
+        
         self.boutlire = tk.Button(
             self.fenexport,
             text="Lire",
