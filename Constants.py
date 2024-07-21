@@ -5,7 +5,7 @@ WIZARDLM2 = "wizardlm2:latest"
 DEEPSEEK_CODER = "deepseek-coder:6.7b"
 ALFRED = "alfred:latest"
 LLAMA3 = "llama3:latest"
-LLAMA370b = "llama3-70b-8192"
+LLAMA370B = "llama3-70b-8192"
 DEEPSEEK_CODERR = "deepseek-coder:latest"
 EXPERT = "expert:latest"
 GEMMA = "gemma:latest"
@@ -15,7 +15,7 @@ NEURAL_CHAT = "neural-chat:latest"
 WIZARD_VICUNA_UNCENSORED = "wizard-vicuna-uncensored:30b-q4_0"
 
 REQUEST_TIMEOUT_DEFAULT = 50
-MAX_HISTORY=10
+MAX_HISTORY = 15
 ZEFONT = (
     "Trebuchet",
     8,
@@ -124,6 +124,69 @@ LIENS_CHROME = {
     "gmail": "https://mail.google.com/mail/u/0/#inbox",
     "message": "https://messages.google.com/web/conversations/151",
 }
+
+RULS_RSS = [
+    {
+        "title": "Actualités",
+        "content": "une | en_continu | videos | photo | plus-lus | plus-partages",
+    },
+    {
+        "title": "International",
+        "content": "international | europe | ameriques | afrique | asie-Pacifique | proche-orient | royaume-Uni | etats-Unis",
+    },
+    {
+        "title": "France",
+        "content": "politique | societe | les-decodeurs | justice | police | campus | education",
+    },
+    {
+        "title": "Economie",
+        "content": "economie | entreprises | argent | economie-française | industrie | emploi | immobilier | medias",
+    },
+    {
+        "title": "Culture",
+        "content": "culture | cinema | musiques | televisions-radio | livres | arts | scenes",
+    },
+    {
+        "title": "Sport",
+        "content": "sport | football | rugby | tennis | cyclisme | basket",
+    },
+    {
+        "title": "Planète",
+        "content": "planete | climat | agriculture | environnement",
+    },
+    {
+        "title": "Pixels",
+        "content": "pixels | jeux-video | cultures-web",
+    },
+    {
+        "title": "Sciences",
+        "content": "sciences | espace | biologie | medecine | physique | sante",
+    },
+    {
+        "title": "M le mag",
+        "content": "m-le-mag | m-perso | m-styles | gastronomie | les-recettes-du-monde | sexo",
+    },
+    {
+        "title": "Guide d'achat",
+        "content": "guides-d-achat",
+    },
+    {
+        "title": "Le monde Informatique",
+        "content": "toutes-les-actualites",
+    },
+    {
+        "title": "Le monde Informatique - 1",
+        "content": "business | le-monde-du-cloud-computing | datacenter | internet | emploi | grh",
+    },
+    {
+        "title": "Le monde Informatique - 2",
+        "content": "harware | juridique | logiciel | mobilite | os | pme | poste-de-travail",
+    },
+    {
+        "title": "Le monde Informatique - 3",
+        "content": "reseaux | securite | services-it | stockage | telecom | virtualisation",
+    },
+]
 
 BANNIERE_WIDTH = 758
 BANNIERE_HEIGHT = 160

@@ -4,17 +4,18 @@ import tkinter.font as tkfont
 
 from groq import Groq
 
-from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370b
+from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370B
 from FenetreResponse import FenetreResponse
 from SimpleMarkdownText import SimpleMarkdownText
-from outils import ask_quick, from_rgb_to_tkColors, say_txt
+from outils import ask_quick, engine_lecteur_init, from_rgb_to_tkColors, say_txt
 from secret import GROQ_API_KEY
+
 
 class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
         self.parent = parent
         self.prompts_history = []
-        self.talker = say_txt
+        self.talker = self.say_txt
         tk.Frame.__init__(self, parent)
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -46,6 +47,25 @@ class FenetreScrollable(tk.Frame):
 
         self.frame.bind("<Configure>", self.onFrameConfigure)
         self.responses = []
+
+    def say_txt(self, text: str):
+        """
+        lit le texte sans passer par un thread
+        """
+
+        texte_reformate = (
+            text.replace("*", " ")
+            .replace("-", " ")
+            .replace("=", " ")
+            .replace("#", " ")
+            .replace("|", " ")
+            .replace("/", " ")
+            .replace(":", " ")
+            .replace("https", " ")
+        )
+        engine_lecteur_init().say(texte_reformate)
+        engine_lecteur_init().runAndWait()
+        engine_lecteur_init().stop()
 
     def get_prompts_history(self) -> list:
         return self.prompts_history
@@ -232,7 +252,7 @@ class FenetreScrollable(tk.Frame):
             conversation_resumee = ask_quick(
                 agent_appel=Groq(api_key=GROQ_API_KEY),
                 prompt=self.get_prompts_history(),
-                model_to_use=LLAMA370b,
+                model_to_use=LLAMA370B,
             )
 
             # TODO: puis on va les effacer

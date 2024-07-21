@@ -16,8 +16,6 @@ from FenetrePrincipale import FenetrePrincipale
 from StoppableThread import StoppableThread
 import Constants as cst
 from outils import (
-    actualise_index_html,
-    append_response_to_file,
     engine_lecteur_init,
     say_txt,
 )
@@ -192,7 +190,7 @@ def main(prompt=False):
     # BYPASS les sélection IHM chronophages
     groq_client = Groq(api_key=GROQ_API_KEY)
     app.set_client(groq_client)
-    app.set_model(cst.LLAMA370b)
+    app.set_model(cst.LLAMA370B)
     app.bouton_commencer_diction.invoke()
 
     app.mainloop(0)

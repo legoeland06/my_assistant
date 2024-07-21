@@ -4,8 +4,6 @@ import json
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any
-import markdown
-import markdown.util
 from groq import Groq
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -22,6 +20,8 @@ import pyttsx3
 from FenetreScrollable import FenetreScrollable
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
+import my_feedparser_rss
+import my_scrapper
 from outils import (
     actualise_index_html,
     append_response_to_file,
@@ -29,7 +29,6 @@ from outils import (
     from_rgb_to_tkColors,
     get_groq_ia_list,
     get_pre_prompt,
-    lire_text_from_object,
     load_pdf,
     load_txt,
     read_prompt_file,
@@ -83,6 +82,7 @@ class FenetrePrincipale(tk.Frame):
             slant=ZEFONT[2],
             weight=ZEFONT[3],
         )
+        self.timer: float = 0
         self.model_to_use = model_to_use
         self.streaming = stream
         self.image = ImageTk.PhotoImage(
@@ -129,6 +129,9 @@ class FenetrePrincipale(tk.Frame):
             .replace("=", " ")
             .replace("#", " ")
             .replace("|", " ")
+            .replace("/", " ")
+            .replace(":", " ")
+            .replace("https", " ")
         )
         self.get_lecteur().say(texte_reformate)
         self.get_lecteur().runAndWait()
@@ -302,7 +305,7 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour quitter
         bouton_quitter = tk.Button(
-            canvas_buttons_banniere, text="Quitter", command=self.master.quit
+            canvas_buttons_banniere, text="Quitter", command=self.master.destroy
         )
         bouton_quitter.configure(
             background=from_rgb_to_tkColors(DARK3), foreground="red"
@@ -459,40 +462,39 @@ class FenetrePrincipale(tk.Frame):
 
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
-        print("on est dans l'async def dialog_ia")
+        print("Bienvenu dans l'AudioChat")
         terminus = False
         mode_ecoute = False
-        im_listening = True
         content_discussion = ""
         isHumanIsTalking = False
-
+        parlotte = False
         self.start_tim_vide = 0
-        # self.get_stream().start_stream()
         while not terminus:
             if self.get_stream().is_stopped():
                 self.get_stream().start_stream()
-
-            if im_listening:
+                # on peut maintenant réouvrir la boucle d'audition
                 self.say_txt("à vous")
-                im_listening = not im_listening
+                content_discussion = ""
+                reco_text_real = ""
 
-            if isHumanIsTalking:
-                self.start_tim_vide = time.perf_counter()
+            if isHumanIsTalking and mode_ecoute:
+                self.set_timer(time.perf_counter_ns())
 
-            print(
-                " :: "
-                + str(
-                    round(
-                        (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
+                print(
+                    " :: "
+                    + str(
+                        round(
+                            (time.perf_counter_ns() - self.get_timer())
+                            / 1_000_000_000.0
+                        )
                     )
+                    + " ::secondes "
                 )
-                + " ::secondes "
-            )
             data_real = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
 
-            if self.get_engine().AcceptWaveform(
+            if not parlotte and self.get_engine().AcceptWaveform(
                 data_real
             ):  # accept waveform of input voice
                 # Parse the JSON result and get the recognized text
@@ -561,18 +563,29 @@ class FenetrePrincipale(tk.Frame):
                     self.get_stream().stop_stream()
                     self.say_txt("oui je suis toujours à l'écoute kiki")
                     reco_text_real = ""
+                    isHumanIsTalking = False
 
                 if (
                     "effacer l'historique des conversations" in reco_text_real.lower()
+                    or "supprimer l'historique des conversations"
+                    in reco_text_real.lower()
                     or "effacer l'historique des discussions" in reco_text_real.lower()
+                    or "supprimer l'historique des discussions"
+                    in reco_text_real.lower()
                 ):
                     self.get_stream().stop_stream()
+
+                    # ici on supprime complètement la fenetre scrollable
+                    # et tout ce qu'il y a dedans
+                    self.say_txt("resp")
                     for resp in self.fenetre_scrollable.responses:
                         resp.destroy()
 
                     self.fenetre_scrollable.responses.clear()
+
                     self.say_txt("historique effacé !")
                     reco_text_real = ""
+                    isHumanIsTalking = False
 
                 if (
                     "effacer la dernière conversation" in reco_text_real.lower()
@@ -583,6 +596,7 @@ class FenetrePrincipale(tk.Frame):
                     kiki.destroy()
                     self.say_txt("c'est fait !")
                     reco_text_real = ""
+                    isHumanIsTalking = False
 
                 if (
                     "afficher la liste des conversations" in reco_text_real.lower()
@@ -593,24 +607,92 @@ class FenetrePrincipale(tk.Frame):
                     self.get_stream().stop_stream()
                     self.say_txt("Voici")
                     self.boutton_historique.invoke()
+                    isHumanIsTalking = False
                     reco_text_real = ""
 
-                if "fais une recherche web sur " in reco_text_real.lower():
+                if (
+                    "afficher toutes les actualités" in reco_text_real.lower()
+                    or "affiche toutes les actualités" in reco_text_real.lower()
+                ):
+                    for liste_rss in RULS_RSS:
+                        response = self.envoyer_audio_prompt(
+                            my_feedparser_rss.main(liste_rss["content"].split(" | ")),
+                            necessite_ai=False,
+                            grorOrNot=False,
+                        )
+
+                    isHumanIsTalking = False
+                    reco_text_real = ""
+                    content_discussion = ""
+
+                if (
+                    "afficher les actualités" in reco_text_real.lower()
+                    or "afficher les informations" in reco_text_real.lower()
+                    or "affiche les actualités" in reco_text_real.lower()
+                    or "affiche les informations" in reco_text_real.lower()
+                ):
                     self.get_stream().stop_stream()
-                    reco_text_real = "\nrechercher sur le web : " + reco_text_real.split("recherche web sur ")[1]
-                    
+                    if not self.fenetre_scrollable.winfo_exists:
+                        self.fenetre_scrollable = FenetreScrollable(self)
+                    final_list = [item["title"] for item in RULS_RSS]
+                    for truc in final_list:
+                        print(truc)
+
+                    try:
+                        frame = tk.Tk()
+                        _list_box = tk.Listbox(frame)
+                        scrollbar_listbox = tk.Scrollbar(frame)
+                        scrollbar_listbox.configure(command=_list_box.yview)
+
+                        _list_box.pack(side=tk.LEFT, fill="both")
+
+                        for item in final_list:
+                            _list_box.insert(tk.END, item)
+
+                        _list_box.configure(
+                            background=from_rgb_to_tkColors(LIGHT3),
+                            width=40,
+                            foreground=from_rgb_to_tkColors(DARK3),
+                            yscrollcommand=scrollbar_listbox.set,
+                        )
+
+                        scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
+
+                        bind_list_info = _list_box.bind(
+                            "<<ListboxSelect>>", func=self.demander_actu
+                        )
+
+                        frame.mainloop()
+                    except:
+                        self.say_txt("oups")
+                    finally:
+                        isHumanIsTalking = False
+                        reco_text_real = ""
+                        content_discussion = ""
+
+                if "faire une recherche web sur " in reco_text_real.lower():
+                    self.get_stream().stop_stream()
+                    reco_text_real.replace(
+                        "faire une recherche web sur", "\nrechercher sur le web : "
+                    )
+                    reco_text_real = (
+                        "\nrechercher sur le web : "
+                        + reco_text_real.split("recherche web sur ")[1]
+                    )
+
                     content_discussion += reco_text_real
                     reco_text_real = ""
-                    isHumanIsTalking=False
+                    isHumanIsTalking = False
                     response = self.envoyer_audio_prompt(
-                        content_discussion, grorOrNot=False
+                        content_discussion, necessite_ai=True, grorOrNot=False
                     )
-                    
+                    content_discussion = ""
+
                 if "fin de la session" == reco_text_real.lower():
                     # sortyie de la boucle d'audition
                     self.get_stream().stop_stream()
-                    terminus = True
-                    self.say_txt("merci")
+                    if self.get_thread():
+                        self.get_thread().stop()
                     stop_thread = StoppableThread(None, threading.current_thread())
                     if not stop_thread.stopped():
                         stop_thread.stop()
@@ -618,67 +700,68 @@ class FenetrePrincipale(tk.Frame):
                     break
 
                 if reco_text_real.lower() != "":
-                    if not isHumanIsTalking:
-                        self.start_tim_vide = 0
+                    mode_ecoute = True
                     isHumanIsTalking = True
                     content_discussion += "\n" + reco_text_real
                     print("texte reconnu : " + reco_text_real.lower())
 
-                if isHumanIsTalking and (
-                    round(
-                        (time.perf_counter_ns() - self.start_tim_vide) / 1_000_000_000
-                    )
-                    >= 3
-                    and not mode_ecoute
+                if (
+                    isHumanIsTalking
+                    and mode_ecoute
                     and content_discussion.split().__len__() > 0
                 ):
+                    # ici on affiche le temps de blanc avant de commencer à lui parler
+                    # à partir du moment où il dit "à vous"
+                    print((time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0)
+
+                    parlotte = True
                     self.get_stream().stop_stream()
-                    reco_text_real = ""
+                    mode_ecoute = False
 
-                    isHumanIsTalking=False
+                    isHumanIsTalking = False
                     response = self.envoyer_audio_prompt(
-                        content_discussion, grorOrNot=True
+                        content_discussion, necessite_ai=True, grorOrNot=True
                     )
-                    # self.get_stream().start_stream()
-                    # response, timing = self.ask_to_ai(self.get_client(), content_discussion, self.get_model())
-
-                    # demande de sortir de la boucle d'audition
-                    # isHumanIsTalking = False
 
                     # ennonce le résultat de l'ia
                     self.say_txt(response)
+                    self.get_thread().stop()
 
                     # efface le fil de discussion
+                    reco_text_real = ""
                     content_discussion = ""
+                    parlotte = False
+        self.say_txt("merci")
 
-                    # on peut maintenant réouvrir la boucle d'audition
-                    im_listening = True
-                    # reco_text_real=""
-
-    def envoyer_audio_prompt(self, content_discussion, grorOrNot: bool):
+    def envoyer_audio_prompt(
+        self, content_discussion, necessite_ai: bool, grorOrNot: bool
+    ):
         self.set_submission(content=content_discussion)
         self.entree_prompt_principal.clear_text()
         self.entree_prompt_principal.insert_markdown(mkd_text=content_discussion)
         self.save_to_submission()
 
-        self.gestion_thread()
-        if grorOrNot:
-            response, timing = self.demander_ai_groq()
-        else:
-            response, timing = self.demander_ai()
-
+        if necessite_ai:
+            self.gestion_thread()
+            if grorOrNot:
+                response, timing = self.demander_ai_groq()
+            else:
+                response, timing = self.demander_ai()
         # ajoute la réponse à la fenetre scrollable
+        if not self.fenetre_scrollable.winfo_exists():
+            self.fenetre_scrollable = FenetreScrollable(self)
+
         self.fenetre_scrollable.addthing(
-            _timing=timing,
+            _timing=timing if necessite_ai else 0,
             agent_appel=self.get_client(),
             simple_markdown_text=self.entree_prompt_principal,
-            ai_response=response,
+            ai_response=response if necessite_ai else content_discussion,
             talker=self.say_txt,
             model=self.get_model(),
             submit_func=self.soumettre,
         )
 
-        return response
+        return response if necessite_ai else content_discussion
 
     def demander_ai_groq(self):
         response, timing = self.ask_to_Groq(
@@ -758,7 +841,12 @@ class FenetrePrincipale(tk.Frame):
                 self.say_txt("recherche web " + line.split(" : ")[1])
                 search_results: list = search.main(expression_found)
 
-                goodlist = str([element["title"] for element in search_results])
+                goodlist = str(
+                    [
+                        str(element["snippet"] + "\n" + element["formattedUrl"])
+                        for element in search_results
+                    ]
+                )
                 super_result, _rien = self.ask_to_ai(
                     self.get_client(), goodlist, self.model_to_use
                 )
@@ -959,35 +1047,6 @@ class FenetrePrincipale(tk.Frame):
         return ai_response, timing
 
     async def asking(self) -> asyncio.futures.Future:
-        # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
-
-        # self.set_timer(time.perf_counter_ns())
-        # letexte=str(self.get_submission())
-        # result_recherche=[]
-        # for line in [line for line in self.get_submission().splitlines() if line.strip()]:
-        #     if "rechercher sur le web : " in line:
-        #         # TODO : récupérer le mot dans le prompt directement
-        #         # en isolant la ligne et en récupérant tout ce qu'il y a après
-        #         # avoir identifier les mots clés "recherche web : "
-        #         expression_found=(letexte.split(" : ")[1]).replace(" ","+")
-        #         # resultat_de_recherche = str(self.lancer_chrome(expression_found))
-
-        #         self.say_txt("recherche web "+expression_found)
-        #         import my_search_engine as search
-        #         search_results:list = search.main(expression_found)
-
-        #         goodlist=str([element["title"] for element in search_results])
-        #         super_result,_rien=self.ask_to_ai(
-        #             self.get_client(),
-        #             goodlist,self.model_to_use)
-
-        #         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
-        #         result_recherche.append({
-        #             expression_found:super_result
-        #             })
-
-        # if len(result_recherche):
-        #     return str(result_recherche)
 
         if not self.get_client():
             messagebox.showerror(
@@ -1464,6 +1523,37 @@ class FenetrePrincipale(tk.Frame):
         finally:
             w.focus_get().destroy()
 
+    def demander_actu(self, evt: tk.Event):
+        # Note here that Tkinter passes an event object to onselect()
+        w: tk.Listbox = evt.widget
+        try:
+            index = w.curselection()[0]
+            value = w.get(index)
+            print('You selected item %d: "%s"' % (index, value))
+            content_selected = [
+                item["content"] for item in RULS_RSS if item["title"] == value
+            ].pop()
+            print("content:\n***************\n" + str(content_selected))
+
+            response = self.envoyer_audio_prompt(
+                (
+                    my_feedparser_rss.main_monde(content_selected.split(" | "))
+                    if "Le monde Informatique" not in value
+                    else my_feedparser_rss.main_monde_informatique(
+                        content_selected.split(" | ")
+                    )
+                ),
+                necessite_ai=False,
+                grorOrNot=False,
+            )
+
+            print("Response:\n*******************************\n" + response)
+            self.set_submission(response)
+            self.say_txt(self.get_submission())
+
+        except:
+            self.say_txt("Oups")
+
     def affiche_ia_list(self, list_to_check: list):
         """
         Display a list of AI you can use
@@ -1472,6 +1562,22 @@ class FenetrePrincipale(tk.Frame):
         """
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
         _listbox.bind("<<ListboxSelect>>", func=self.load_selected_model)
+
+    # def affiche_informations(self, list_to_check: list):
+    #     """
+    #     Display a list of categorie of informations
+    #     * affiche la listebox avec la liste donnée en paramètre list_to_check
+    #     * click on it cause category to be selected
+    #     """
+    #     final_list = [item["title"] for item in list_to_check]
+    #     for truc in final_list:
+    #         print(truc)
+
+    #     _listbox: tk.Listbox = self.traite_listbox(final_list)
+    #     _listbox.configure(width=200)
+    #     _listbox.pack()
+
+    #     _listbox.bind("<<ListboxSelect>>", func=self.affiche_actu)
 
     def affiche_histoy(self, list_to_check: list):
         """

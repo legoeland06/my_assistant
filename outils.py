@@ -60,6 +60,11 @@ def say_txt(alire: str):
         .replace("=", " ")
         .replace("#", " ")
         .replace("|", " ")
+        .replace("/", " ")
+        .replace(":", " ")
+        .replace("https", " ")
+
+
     )
     lecteur = engine_lecteur_init()
     lecteur.say(texte_reformate)

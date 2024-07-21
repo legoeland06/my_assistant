@@ -1,6 +1,7 @@
 # python
 from googleapiclient.discovery import build
 from Constants import STARS
+import my_scrapper
 import secret as sc
 
 my_api_key = sc.GOOGLE_API_KEY
@@ -29,13 +30,6 @@ def main(texte):
     # formattedUrl
     # htmlFormattedUrl
     # pagemap
-
-    # sortie terminal
-    # for result in results:
-    #     print(result["link"])
-    #     print(result["title"])
-    #     print(result["snippet"])
-    #     print(STARS * 80)
 
     return results
 

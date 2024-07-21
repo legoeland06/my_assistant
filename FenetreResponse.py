@@ -209,7 +209,10 @@ class FenetreResponse(tk.Frame):
         self.entree_response.configure(
             height=int(self.entree_response.cget("height")) + 10, width=100
         )
-        self.entree_question.configure(height=1, width=100)
+        self.entree_question.configure(
+            height=10, width=100
+        )
+
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
@@ -320,12 +323,9 @@ class FenetreResponse(tk.Frame):
         self.entree_question.clear_text()
 
     def lire_text_from_object(self, object: SimpleMarkdownText):
-        texte_to_talk = object.get_text()
-
-        if texte_to_talk != "":
-            try:
-                texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-            except:
-                texte_to_talk = object.get("1.0", tk.END)
-            finally:
-                self.talker(texte_to_talk)
+        try:
+            texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except:
+            texte_to_talk = object.get("1.0", tk.END)
+        finally:
+            self.talker(texte_to_talk)
