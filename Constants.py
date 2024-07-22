@@ -125,7 +125,26 @@ LIENS_CHROME = {
     "message": "https://messages.google.com/web/conversations/151",
 }
 
+URL_ACTU_GLOBAL_RSS = [
+    {
+        "title": "global_search",
+        "content": "actualités géo-politiques | actualités Afrique | actualités africaines CDAO | actualités Paris2024",
+    },
+     {
+        "title": "Sciences",
+        "content": "sciences | espace | biologie | medecine | physique | sante",
+    },
+    {
+        "title": "Le monde Informatique",
+        "content": "toutes-les-actualites",
+    },
+]
+
 RULS_RSS = [
+    {
+        "title": "global_search",
+        "content": "actualités géo-politiques | actualités Afrique | actualités africaines CDAO | actualités Paris2024",
+    },
     {
         "title": "Actualités",
         "content": "une | en_continu | videos | photo | plus-lus | plus-partages",

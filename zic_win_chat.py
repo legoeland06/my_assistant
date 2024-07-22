@@ -152,7 +152,6 @@ def say_tt(alire: str):
 
 def main(prompt=False):
     """Début du programme principal"""
-    # thread_name=the_thread.name
     if prompt:
         model_used = "llama3-70b-8192"
         traitement_rapide(prompt, model_to_use=model_used, talking=False)
@@ -167,8 +166,6 @@ def main(prompt=False):
         + cst.STARS * cst.WIDTH_TERM
     )
 
-    # prend beaucoup de temp
-    # passer ça en asynchrone
     app.say_txt("chargement du moteur de reconnaissance vocale ")
     model_ecouteur_micro = engine_ecouteur_init()
     app.say_txt("reconnaissance vocale initialisée")
@@ -187,7 +184,7 @@ def main(prompt=False):
     app.set_talker(talker=say_txt)
     app.set_engine(rec)
 
-    # BYPASS les sélection IHM chronophages
+    # BYPASS les sélection IHM chronophages en mode dev
     groq_client = Groq(api_key=GROQ_API_KEY)
     app.set_client(groq_client)
     app.set_model(cst.LLAMA370B)
@@ -228,7 +225,6 @@ app = FenetrePrincipale(
     stream=stream,
     model_to_use=cst.LLAMA3,
 )
-# sisi.mainloop(1)
 
 
 if __name__ == "__main__":

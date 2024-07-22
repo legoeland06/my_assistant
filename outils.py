@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
 import tkinter.font as tkfont
-from typing import Any, List, Mapping
+from typing import Any, List, Mapping, Tuple
 import imageio.v3 as iio
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -48,6 +48,8 @@ async def say_text(alire: str):
     lecteur.stop()
     return True
 
+def initialise_conversation_audio()->Tuple:
+    return False,"",""
 
 def say_txt(alire: str):
     """

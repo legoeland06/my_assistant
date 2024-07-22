@@ -29,6 +29,7 @@ from outils import (
     from_rgb_to_tkColors,
     get_groq_ia_list,
     get_pre_prompt,
+    initialise_conversation_audio,
     load_pdf,
     load_txt,
     read_prompt_file,
@@ -57,7 +58,6 @@ class FenetrePrincipale(tk.Frame):
     ai_response: str
     timer: float
     thread: threading.Thread
-    start_tim_vide: float
     messages: list
     actual_chat_completion: ChatCompletion
 
@@ -101,7 +101,6 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.configure(width=self.master.winfo_reqwidth() - 20)
         self.fenetre_scrollable.configure(height=self.master.winfo_reqheight() - 20)
         self.fenetre_scrollable.pack(side="bottom", fill="x", expand=True)
-        self.start_tim_vide = 0
         self.my_liste = []
         self.messages = [
             {
@@ -138,9 +137,6 @@ class FenetrePrincipale(tk.Frame):
         self.get_lecteur().stop()
 
     def getListOfModels(self):
-        # set la propriété my_liste:[] avec la liste des ia de chez Ollama
-        # for element in (ollama.list())["models"]:
-        #     self.my_liste.append(element["name"])
         return [element["name"] for element in (ollama.list())["models"]]
 
     def get_actual_chat_completion(self) -> list:
@@ -233,13 +229,11 @@ class FenetrePrincipale(tk.Frame):
     def save_to_submission(self) -> bool:
         """ """
         if self.motcles_widget.get() is None:
-            print("NOOOOOONNENENENENENENENEN")
+            print("OOps, rien à sauver")
         else:
             print(self.motcles_widget.get())
         # récupère le texte contenu dans le widget_mot_clé
-        speciality = (
-            self.motcles_widget.get() if self.motcles_widget.get() is not None else ""
-        )
+        speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
         self.set_motcles([speciality])
         # self.get_motcles().append(speciality)
 
@@ -398,7 +392,8 @@ class FenetrePrincipale(tk.Frame):
             this_thread = threading.Thread(target=self.start_loop)
             self.say_txt("un instant s'il vous plait")
             list_of_words = self.get_submission().split()
-            print("longeur:: " + str(len(list_of_words)))
+            print("longeur du prompt:: " + str(len(list_of_words)))
+            # TODO
             if False:
                 new_prompt_list = traitement_du_texte(self.get_submission(), 2000)
                 self.say_txt(
@@ -457,281 +452,351 @@ class FenetrePrincipale(tk.Frame):
             ai_response = await llm.choices[0].message.content
         except:
             messagebox.Message("OOps, ")
-        print(str(list(ai_response)))
         return await ai_response
 
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
-        print("Bienvenu dans l'AudioChat")
-        terminus = False
-        mode_ecoute = False
-        content_discussion = ""
-        isHumanIsTalking = False
-        parlotte = False
-        self.start_tim_vide = 0
-        while not terminus:
-            if self.get_stream().is_stopped():
-                self.get_stream().start_stream()
-                # on peut maintenant réouvrir la boucle d'audition
-                self.say_txt("à vous")
-                content_discussion = ""
-                reco_text_real = ""
+        print("Bienvenu dans l'AudioChat !")
 
-            if isHumanIsTalking and mode_ecoute:
-                self.set_timer(time.perf_counter_ns())
+        is_pre_vocal_command = True
+        self.say_txt("pour activer les commandes vocales, il s'uffit de demander")
+        saved_discussion = ""
+        while True:
+            mode_ecoute = False
+            content_discussion = ""
+            is_human_is_talking = False
 
-                print(
-                    " :: "
-                    + str(
-                        round(
-                            (time.perf_counter_ns() - self.get_timer())
-                            / 1_000_000_000.0
-                        )
-                    )
-                    + " ::secondes "
-                )
-            data_real = self.get_stream().read(
+            self.gestion_thread()
+
+            self.get_stream().start_stream() if self.get_stream().is_stopped() else None
+
+            data_real_pre_vocal_command = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
-            )  # read in chunks of 4096 bytes
+            )
 
-            if not parlotte and self.get_engine().AcceptWaveform(
-                data_real
-            ):  # accept waveform of input voice
-                # Parse the JSON result and get the recognized text
-
-                result_real = json.loads(self.get_engine().Result())
-
-                reco_text_real: str = result_real["text"]
-
-                ne_pas_deranger = "ne pas déranger" in reco_text_real.lower()
-                activer_parlote = "activer la voix" in reco_text_real.lower()
-                incremente_lecteur = (
-                    "la voie soit plus rapide" in reco_text_real.lower()
-                )
-                decremente_lecteur = (
-                    "la voie soit moins rapide" in reco_text_real.lower()
+            if self.get_engine().AcceptWaveform(data_real_pre_vocal_command):
+                from_data_pre_command_vocal_to_object_text = json.loads(
+                    self.get_engine().Result()
                 )
 
-                if incremente_lecteur:
-                    self.get_stream().stop_stream()
+                text_pre_vocal_command: str = (
+                    from_data_pre_command_vocal_to_object_text["text"]
+                )
 
-                    self.say_txt("ok")
-                    self.get_lecteur().setProperty(
-                        name="rate",
-                        value=int(self.lecteur.getProperty(name="rate")) + 20,
+                self.marge_text(texte=text_pre_vocal_command)
+
+                saved_discussion += text_pre_vocal_command.lower()
+
+                if "ferme l'application" == text_pre_vocal_command.lower():
+                    data_real_pre_vocal_command = None
+                    from_data_vocal_command_to_object_text = None
+                    _, text_pre_vocal_command, content_discussion = (
+                        initialise_conversation_audio()
                     )
-                    reco_text_real = ""
-                    self.say_txt("voix plus rapide")
-
-                if decremente_lecteur:
+                    is_pre_vocal_command = True
                     self.get_stream().stop_stream()
-                    self.say_txt("ok")
-                    self.get_lecteur().setProperty(
-                        name="rate",
-                        value=int(self.lecteur.getProperty(name="rate")) + -20,
-                    )
-                    reco_text_real = ""
-                    self.say_txt("voix plus lente")
-
-                if ne_pas_deranger:
-                    self.get_stream().stop_stream()
-                    reco_text_real = ""
-                    self.say_txt("ok plus de bruit")
-                    STOP_TALKING = True
-
-                if activer_parlote:
-                    self.get_stream().stop_stream()
-                    STOP_TALKING = False
-                    reco_text_real = ""
-                    self.say_txt("ok me re voilà")
-
-                if "quel jour sommes-nous" in reco_text_real.lower():
-                    self.get_stream().stop_stream()
-                    self.say_txt(
-                        "Nous sommes le " + time.strftime("%Y-%m-%d"),
-                    )
-                    reco_text_real = ""
-
-                if "quelle heure est-il" in reco_text_real.lower():
-                    self.get_stream().stop_stream()
-                    self.say_txt(
-                        "il est exactement " + time.strftime("%H:%M:%S"),
-                    )
-                    reco_text_real = ""
-
-                if "est-ce que tu m'écoutes" in reco_text_real.lower():
-                    self.get_stream().stop_stream()
-                    self.say_txt("oui je suis toujours à l'écoute kiki")
-                    reco_text_real = ""
-                    isHumanIsTalking = False
-
-                if (
-                    "effacer l'historique des conversations" in reco_text_real.lower()
-                    or "supprimer l'historique des conversations"
-                    in reco_text_real.lower()
-                    or "effacer l'historique des discussions" in reco_text_real.lower()
-                    or "supprimer l'historique des discussions"
-                    in reco_text_real.lower()
-                ):
-                    self.get_stream().stop_stream()
-
-                    # ici on supprime complètement la fenetre scrollable
-                    # et tout ce qu'il y a dedans
-                    self.say_txt("resp")
-                    for resp in self.fenetre_scrollable.responses:
-                        resp.destroy()
-
-                    self.fenetre_scrollable.responses.clear()
-
-                    self.say_txt("historique effacé !")
-                    reco_text_real = ""
-                    isHumanIsTalking = False
-
-                if (
-                    "effacer la dernière conversation" in reco_text_real.lower()
-                    or "effacer la dernière discussion" in reco_text_real.lower()
-                ):
-                    self.get_stream().stop_stream()
-                    kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
-                    kiki.destroy()
-                    self.say_txt("c'est fait !")
-                    reco_text_real = ""
-                    isHumanIsTalking = False
-
-                if (
-                    "afficher la liste des conversations" in reco_text_real.lower()
-                    or "afficher l'historique des conversations"
-                    in reco_text_real.lower()
-                    or "montre-moi les conversations" in reco_text_real.lower()
-                ):
-                    self.get_stream().stop_stream()
-                    self.say_txt("Voici")
-                    self.boutton_historique.invoke()
-                    isHumanIsTalking = False
-                    reco_text_real = ""
-
-                if (
-                    "afficher toutes les actualités" in reco_text_real.lower()
-                    or "affiche toutes les actualités" in reco_text_real.lower()
-                ):
-                    for liste_rss in RULS_RSS:
-                        response = self.envoyer_audio_prompt(
-                            my_feedparser_rss.main(liste_rss["content"].split(" | ")),
-                            necessite_ai=False,
-                            grorOrNot=False,
-                        )
-
-                    isHumanIsTalking = False
-                    reco_text_real = ""
-                    content_discussion = ""
-
-                if (
-                    "afficher les actualités" in reco_text_real.lower()
-                    or "afficher les informations" in reco_text_real.lower()
-                    or "affiche les actualités" in reco_text_real.lower()
-                    or "affiche les informations" in reco_text_real.lower()
-                ):
-                    self.get_stream().stop_stream()
-                    if not self.fenetre_scrollable.winfo_exists:
-                        self.fenetre_scrollable = FenetreScrollable(self)
-                    final_list = [item["title"] for item in RULS_RSS]
-                    for truc in final_list:
-                        print(truc)
-
-                    try:
-                        frame = tk.Tk()
-                        _list_box = tk.Listbox(frame)
-                        scrollbar_listbox = tk.Scrollbar(frame)
-                        scrollbar_listbox.configure(command=_list_box.yview)
-
-                        _list_box.pack(side=tk.LEFT, fill="both")
-
-                        for item in final_list:
-                            _list_box.insert(tk.END, item)
-
-                        _list_box.configure(
-                            background=from_rgb_to_tkColors(LIGHT3),
-                            width=40,
-                            foreground=from_rgb_to_tkColors(DARK3),
-                            yscrollcommand=scrollbar_listbox.set,
-                        )
-
-                        scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
-
-                        bind_list_info = _list_box.bind(
-                            "<<ListboxSelect>>", func=self.demander_actu
-                        )
-
-                        frame.mainloop()
-                    except:
-                        self.say_txt("oups")
-                    finally:
-                        isHumanIsTalking = False
-                        reco_text_real = ""
-                        content_discussion = ""
-
-                if "faire une recherche web sur " in reco_text_real.lower():
-                    self.get_stream().stop_stream()
-                    reco_text_real.replace(
-                        "faire une recherche web sur", "\nrechercher sur le web : "
-                    )
-                    reco_text_real = (
-                        "\nrechercher sur le web : "
-                        + reco_text_real.split("recherche web sur ")[1]
-                    )
-
-                    content_discussion += reco_text_real
-                    reco_text_real = ""
-                    isHumanIsTalking = False
-                    response = self.envoyer_audio_prompt(
-                        content_discussion, necessite_ai=True, grorOrNot=False
-                    )
-                    content_discussion = ""
-
-                if "fin de la session" == reco_text_real.lower():
-                    # sortyie de la boucle d'audition
-                    self.get_stream().stop_stream()
-                    if self.get_thread():
-                        self.get_thread().stop()
-                    stop_thread = StoppableThread(None, threading.current_thread())
-                    if not stop_thread.stopped():
-                        stop_thread.stop()
-                    reco_text_real = ""
+                    self.gestion_thread()
                     break
 
-                if reco_text_real.lower() != "":
-                    mode_ecoute = True
-                    isHumanIsTalking = True
-                    content_discussion += "\n" + reco_text_real
-                    print("texte reconnu : " + reco_text_real.lower())
-
                 if (
-                    isHumanIsTalking
-                    and mode_ecoute
-                    and content_discussion.split().__len__() > 0
+                    "active le mode audio" in text_pre_vocal_command.lower()
+                    or "active les commandes vocales" in text_pre_vocal_command.lower()
                 ):
-                    # ici on affiche le temps de blanc avant de commencer à lui parler
-                    # à partir du moment où il dit "à vous"
-                    print((time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0)
-
-                    parlotte = True
-                    self.get_stream().stop_stream()
-                    mode_ecoute = False
-
-                    isHumanIsTalking = False
-                    response = self.envoyer_audio_prompt(
-                        content_discussion, necessite_ai=True, grorOrNot=True
+                    self.say_txt("très bien")
+                    is_pre_vocal_command, text_pre_vocal_command, content_discussion = (
+                        initialise_conversation_audio()
                     )
 
-                    # ennonce le résultat de l'ia
-                    self.say_txt(response)
-                    self.get_thread().stop()
+            while not is_pre_vocal_command:
 
-                    # efface le fil de discussion
-                    reco_text_real = ""
-                    content_discussion = ""
-                    parlotte = False
-        self.say_txt("merci")
+                self.get_thread().start() if self.get_thread().stopped() else None
+
+                if self.get_stream().is_stopped():
+                    self.get_stream().start_stream()
+                    # on peut maintenant réouvrir la boucle d'audition
+                    self.say_txt("à vous")
+                    _, content_discussion, text_vocal_command = (
+                        initialise_conversation_audio()
+                    )
+
+                (
+                    self.set_timer(time.perf_counter_ns())
+                    if is_human_is_talking and mode_ecoute
+                    else None
+                )
+
+                data_vocal_command = self.get_stream().read(
+                    num_frames=8192, exception_on_overflow=False
+                )  # read in chunks of 4096 bytes
+
+                if self.get_engine().AcceptWaveform(
+                    data_vocal_command
+                ):  # accept waveform of input voice
+                    # Parse the JSON result and get the recognized text
+
+                    from_data_vocal_command_to_object_text = json.loads(
+                        self.get_engine().Result()
+                    )
+
+                    text_vocal_command: str = from_data_vocal_command_to_object_text[
+                        "text"
+                    ]
+
+                    if "quel jour sommes-nous" in text_vocal_command.lower():
+                        self.get_stream().stop_stream()
+                        self.say_txt(
+                            "Nous sommes le " + time.strftime("%Y-%m-%d"),
+                        )
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if "quelle heure est-il" in text_vocal_command.lower():
+                        self.get_stream().stop_stream()
+                        self.say_txt(
+                            "il est exactement " + time.strftime("%H:%M:%S"),
+                        )
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if "est-ce que tu m'écoutes" in text_vocal_command.lower():
+                        self.get_stream().stop_stream()
+                        self.say_txt("oui je suis toujours à l'écoute kiki")
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if (
+                        "effacer l'historique des conversations"
+                        in text_vocal_command.lower()
+                        or "supprimer l'historique des conversations"
+                        in text_vocal_command.lower()
+                        or "effacer l'historique des discussions"
+                        in text_vocal_command.lower()
+                        or "supprimer l'historique des discussions"
+                        in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+
+                        # ici on supprime complètement la fenetre scrollable
+                        # et tout ce qu'il y a dedans
+                        self.say_txt("resp")
+
+                        (resp.destroy() for resp in self.fenetre_scrollable.responses)
+
+                        self.fenetre_scrollable.responses.clear()
+
+                        self.say_txt("historique effacé !")
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if (
+                        "effacer la dernière conversation" in text_vocal_command.lower()
+                        or "effacer la dernière discussion"
+                        in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
+                        kiki.destroy()
+                        self.say_txt("c'est fait !")
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio
+                        )
+
+                    if (
+                        "afficher la liste des conversations"
+                        in text_vocal_command.lower()
+                        or "afficher l'historique des conversations"
+                        in text_vocal_command.lower()
+                        or "montre-moi les conversations" in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        self.say_txt("Voici")
+                        self.boutton_historique.invoke()
+
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if (
+                        "afficher toutes les actualités" in text_vocal_command.lower()
+                        or "affiche toutes les actualités" in text_vocal_command.lower()
+                    ):
+                        for liste_rss in URL_ACTU_GLOBAL_RSS:
+
+                            if "le monde informatique" in liste_rss["title"].lower():
+                                feed_rss = my_feedparser_rss.le_monde_informatique(
+                                    liste_rss["content"].split(" | ")
+                                )
+                            elif "global_search" in liste_rss["title"].lower():
+
+                                feed_rss = my_feedparser_rss.generic_search_rss(
+                                    rss_url=liste_rss["content"].split(" | "),
+                                    nombre_items=10,
+                                )
+                            else:
+                                feed_rss = my_feedparser_rss.lemonde(
+                                    liste_rss["content"].split(" | ")
+                                )
+
+                            response = self.envoyer_audio_prompt(
+                                content_discussion=feed_rss,
+                                necessite_ai=False,
+                                grorOrNot=False,
+                            )
+
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if (
+                        "afficher les actualités" in text_vocal_command.lower()
+                        or "afficher des actualités" in text_vocal_command.lower()
+                        or "afficher des informations" in text_vocal_command.lower()
+                        or "afficher les informations" in text_vocal_command.lower()
+                        or "affiche les actualités" in text_vocal_command.lower()
+                        or "affiche des actualités" in text_vocal_command.lower()
+                        or "affiche les informations" in text_vocal_command.lower()
+                        or "affiche des informations" in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        if not self.fenetre_scrollable.winfo_exists:
+                            self.fenetre_scrollable = FenetreScrollable(self)
+                        final_list = [item["title"] for item in RULS_RSS]
+                        for truc in final_list:
+                            print(truc)
+
+                        content_discussion, text_vocal_command = (
+                            self.affiche_list_informations(final_list)
+                        )
+
+                    if "faire une recherche web sur " in text_vocal_command.lower():
+                        self.get_stream().stop_stream()
+                        text_vocal_command.replace(
+                            "faire une recherche web sur", "\nrechercher sur le web : "
+                        )
+                        text_vocal_command = (
+                            "\nrechercher sur le web : "
+                            + text_vocal_command.split("recherche web sur ")[1]
+                        )
+
+                        content_discussion += text_vocal_command
+                        response = self.envoyer_audio_prompt(
+                            content_discussion, necessite_ai=True, grorOrNot=False
+                        )
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if "fin de la session" == text_vocal_command.lower():
+                        # sortyie de la boucle d'audition
+                        self.get_stream().stop_stream()
+
+                        self.gestion_thread()
+                        _, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+                        is_pre_vocal_command = True
+                        self.say_txt("merci.")
+                        self.say_txt(
+                            "Pour ré-activer le mode commande vocales, il s'uffit de demander"
+                        )
+
+                    if (
+                        is_human_is_talking
+                        and mode_ecoute
+                        and content_discussion.split().__len__() > 0
+                    ):
+                        # ici on affiche le temps de blanc avant de commencer à lui parler
+                        # à partir du moment où il dit "à vous"
+                        print(
+                            (time.perf_counter_ns() - self.get_timer()) / 100_000_000.0
+                        )
+
+                        self.get_stream().stop_stream()
+                        mode_ecoute = False
+
+                        response = self.envoyer_audio_prompt(
+                            content_discussion, necessite_ai=True, grorOrNot=True
+                        )
+
+                        # ennonce le résultat de l'ia
+                        self.say_txt(response)
+
+                        # efface le fil de discussion
+                        is_human_is_talking, text_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+
+                    if text_vocal_command.lower() != "":
+                        mode_ecoute = True
+                        is_human_is_talking = True
+                        content_discussion += "\n" + text_vocal_command
+                        print("texte reconnu : " + text_vocal_command.lower())
+
+                        print(
+                            " :: "
+                            + str(
+                                round(
+                                    (time.perf_counter_ns() - self.get_timer())
+                                    / 1_000_000_000.0
+                                )
+                            )
+                            + " ::secondes "
+                        )
+
+    def affiche_list_informations(self, final_list):
+        try:
+            frame = tk.Tk()
+            _list_box = tk.Listbox(frame)
+            scrollbar_listbox = tk.Scrollbar(frame)
+            scrollbar_listbox.configure(command=_list_box.yview)
+
+            _list_box.pack(side=tk.LEFT, fill="both")
+
+            for item in final_list:
+                _list_box.insert(tk.END, item)
+
+            _list_box.configure(
+                background=from_rgb_to_tkColors(LIGHT3),
+                width=40,
+                foreground=from_rgb_to_tkColors(DARK3),
+                yscrollcommand=scrollbar_listbox.set,
+            )
+
+            scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
+
+            bind_list_info = _list_box.bind(
+                "<<ListboxSelect>>", func=self.demander_actu
+            )
+
+            frame.mainloop()
+        except:
+            self.say_txt("oups")
+        finally:
+            is_human_is_talking, text_vocal_command, content_discussion = (
+                initialise_conversation_audio()
+            )
+            frame.destroy()
+        return content_discussion, text_vocal_command
+
+    def marge_text(self, texte):
+        long_text = len(texte)
+        if long_text > 10:
+            marge = int(long_text - (long_text / 4))
+            print(
+                (
+                    texte.lower()[: int((long_text / 4))]
+                    + " . . . "
+                    + texte.lower()[marge:]
+                )
+                if long_text > 10
+                else texte.lower()
+            )
+        else:
+            print(texte)
 
     def envoyer_audio_prompt(
         self, content_discussion, necessite_ai: bool, grorOrNot: bool
@@ -907,7 +972,7 @@ class FenetrePrincipale(tk.Frame):
                                         ne t'arrête pas dans tes réponses pour me demander une action utilisateur, va jusqu'au bout de la réponse attendue."
                     + (
                         ("\nYou are an expert in : " + str(self.get_motcles()))
-                        if self.get_motcles() is not None
+                        if len(self.get_motcles())
                         else ""
                     )
                     + "\n Always use french language, use Markdown format use tags like <code> and </code> or <pre> and </pre> when necessary , and keep conversations alive",
@@ -917,7 +982,7 @@ class FenetrePrincipale(tk.Frame):
                     "content": (
                         # prend tout l'historique des prompts
                         str(self.fenetre_scrollable.get_prompts_history())
-                        if self.fenetre_scrollable.get_prompts_history() is not None
+                        if len(self.fenetre_scrollable.get_prompts_history())
                         else ""
                     ),
                 },
@@ -967,13 +1032,19 @@ class FenetrePrincipale(tk.Frame):
         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
 
         # TODO
-        print(ai_response)
-        append_response_to_file(RESUME_WEB, ai_response)
-        actualise_index_html(
-            texte=ai_response, question=prompt, timing=timing, model=self.get_model()
-        )
+        if ai_response is not None:
+            print(ai_response)
+            append_response_to_file(RESUME_WEB, ai_response)
+            actualise_index_html(
+                texte=ai_response,
+                question=prompt,
+                timing=timing,
+                model=self.get_model(),
+            )
 
-        return ai_response, timing
+            return ai_response, timing
+        else:
+            return "problème de délais de réponse", timing
 
     def ask_to_Groq(self, agent_appel, prompt, model_to_use):
         """peut s'executer en mode chat_audio"""
@@ -994,7 +1065,7 @@ class FenetrePrincipale(tk.Frame):
                                         ne t'arrête pas dans tes réponses pour me demander une action utilisateur, va jusqu'au bout de la réponse attendue."
                     + (
                         ("\nYou are an expert in : " + str(self.get_motcles()))
-                        if self.get_motcles() is not None
+                        if len(self.get_motcles())
                         else ""
                     )
                     + "\n Always use french language, use Markdown format use tags like <code> and </code> or <pre> and </pre> when necessary, give only short answers unless clear information is suggested , and keep conversations alive",
@@ -1004,7 +1075,7 @@ class FenetrePrincipale(tk.Frame):
                     "content": (
                         # prend tout l'historique des prompts
                         str(self.fenetre_scrollable.get_prompts_history())
-                        if self.fenetre_scrollable.get_prompts_history() is not None
+                        if len(self.fenetre_scrollable.get_prompts_history())
                         else ""
                     ),
                 },
@@ -1394,7 +1465,7 @@ class FenetrePrincipale(tk.Frame):
             text="Lire",
             command=lambda: self.say_txt(
                 self.entree_prompt_principal.get_selection()
-                if self.entree_prompt_principal.get_selection() is not None
+                if len(self.entree_prompt_principal.get_selection())
                 else self.entree_prompt_principal.get_text()
             ),
         )
@@ -1514,9 +1585,7 @@ class FenetrePrincipale(tk.Frame):
             self.set_model(name_ia=str(value))
             _widget: tk.Button = self.nametowidget("cnvs1.cnvs2.btnlist")
             _widget.configure(text=value)
-            # model_info = ollama.show(self.get_model())
             self.say_txt("ok")
-            # display_infos_model(master=self.nametowidget("cnvs1"), content=model_info)
         except:
             print("aucune ia sélectionner")
             self.say_txt("Oups")
@@ -1533,21 +1602,27 @@ class FenetrePrincipale(tk.Frame):
             content_selected = [
                 item["content"] for item in RULS_RSS if item["title"] == value
             ].pop()
-            print("content:\n***************\n" + str(content_selected))
+            # print("content:\n***************\n" + str(content_selected))
 
+            if "le monde informatique" in value.lower():
+                feed_rss = my_feedparser_rss.le_monde_informatique(
+                    content_selected.split(" | ")
+                )
+            elif "global_search" in value.lower():
+                feed_rss = my_feedparser_rss.generic_search_rss(
+                    rss_url=content_selected.split(" | "), nombre_items=10
+                )
+            else:
+                feed_rss = my_feedparser_rss.lemonde(content_selected.split(" | "))
+
+            w.destroy()
             response = self.envoyer_audio_prompt(
-                (
-                    my_feedparser_rss.main_monde(content_selected.split(" | "))
-                    if "Le monde Informatique" not in value
-                    else my_feedparser_rss.main_monde_informatique(
-                        content_selected.split(" | ")
-                    )
-                ),
+                content_discussion=feed_rss,
                 necessite_ai=False,
                 grorOrNot=False,
             )
 
-            print("Response:\n*******************************\n" + response)
+            # print("Response:\n*******************************\n" + response)
             self.set_submission(response)
             self.say_txt(self.get_submission())
 
@@ -1563,22 +1638,6 @@ class FenetrePrincipale(tk.Frame):
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
         _listbox.bind("<<ListboxSelect>>", func=self.load_selected_model)
 
-    # def affiche_informations(self, list_to_check: list):
-    #     """
-    #     Display a list of categorie of informations
-    #     * affiche la listebox avec la liste donnée en paramètre list_to_check
-    #     * click on it cause category to be selected
-    #     """
-    #     final_list = [item["title"] for item in list_to_check]
-    #     for truc in final_list:
-    #         print(truc)
-
-    #     _listbox: tk.Listbox = self.traite_listbox(final_list)
-    #     _listbox.configure(width=200)
-    #     _listbox.pack()
-
-    #     _listbox.bind("<<ListboxSelect>>", func=self.affiche_actu)
-
     def affiche_histoy(self, list_to_check: list):
         """
         Display a list of AI you can use
@@ -1587,4 +1646,3 @@ class FenetrePrincipale(tk.Frame):
         """
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
         _listbox.configure(width=200)
-        # _listbox.bind("<<ListboxSelect>>", func=self.load_selected_model)
