@@ -16,11 +16,6 @@ class StoppableThread(threading.Thread):
 
     def stopped(self):
         return self._stop_event.is_set()
-    
-    def run(self) -> None:
-        i=0
-        while i<3:
-            print(threading.current_thread())
-            time.sleep(0.3)
-            i +=1
+
+    def run(self):
         return super().run()

@@ -107,49 +107,6 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
     return readable_ai_response
 
 
-async def dire_tt(alire: str):
-    if lecteur.isBusy():
-        lecteur.stop()
-
-    if lecteur._inLoop:
-        lecteur.endLoop()
-
-    lecteur.say(alire)
-    lecteur.runAndWait()
-
-
-# TODO : loop async for saytt
-def start_loop_saying(texte: str):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(loop.create_task(dire_tt(alire=texte)))
-
-
-def say_tt(alire: str):
-    """
-    lit le texte en passant par un thread.
-    ne bloque pas l'execution du programme
-    """
-
-    the_thread = app.get_thread()
-    print("<SAYTT>récupéré : " + "ok" if the_thread.name else "pasok")
-    if not the_thread.stopped():
-        print("<SAYTT> à stopper : " + the_thread.name)
-        the_thread.stop()
-    else:
-        print("<SAYTT> inutile à stopper : " + the_thread.name)
-
-    the_thread = StoppableThread(None, target=start_loop_saying(alire))
-    print("</SAYTT> nouvelle thread started: " + the_thread.name)
-    app.set_thread(the_thread)
-    the_thread.start()
-
-    # TODO : intégrer ici un moyen de controle de la diction
-    # bouton lecture, stop, pause, effacer
-    # the_thread.join()
-    the_thread.stop()
-
-
 def main(prompt=False):
     """Début du programme principal"""
     if prompt:
@@ -179,8 +136,6 @@ def main(prompt=False):
 
     app.title = "MyApp"
 
-    the_thread = StoppableThread()
-    app.set_thread(the_thread)
     app.set_talker(talker=say_txt)
     app.set_engine(rec)
 

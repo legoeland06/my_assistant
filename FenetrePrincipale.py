@@ -72,6 +72,7 @@ class FenetrePrincipale(tk.Frame):
         super().__init__(master)
         self.master = master
         self.ia = LLAMA3
+        self.thread = None
         self.submission = ""
         # self.talker = say_txt
 
@@ -269,6 +270,7 @@ class FenetrePrincipale(tk.Frame):
             self.get_thread().stop()
             # merci_au_revoir(lecteur=self.lecteur, stream_to_stop=self.get_stream())
             self.master.destroy()
+            self.destroy()
         else:
             print("L'utilisateur a annulé.")
 
@@ -417,9 +419,14 @@ class FenetrePrincipale(tk.Frame):
             messagebox.showinfo(message="Veuillez poser au moins une question")
 
     def lance_ecoute(self):
-        self.bouton_commencer_diction.flash()
-        my_thread = StoppableThread(None, name="my_thread", target=self.ecouter)
-        my_thread.start()
+        if self.get_thread() == None:
+            self.bouton_commencer_diction.flash()
+            my_thread = StoppableThread(None, name="my_thread", target=self.ecouter)
+            self.set_thread(my_thread)
+            self.get_thread().start()
+        else:
+            self.get_thread().stop()
+            self.lance_ecoute()
 
     def ecouter(self):
         loop = asyncio.new_event_loop()
@@ -461,14 +468,14 @@ class FenetrePrincipale(tk.Frame):
         is_pre_vocal_command = True
         self.say_txt("pour activer les commandes vocales, il s'uffit de demander")
         saved_discussion = ""
+        self.get_stream().start_stream()
         while True:
             mode_ecoute = False
             content_discussion = ""
             is_human_is_talking = False
 
-            self.gestion_thread()
-
-            self.get_stream().start_stream() if self.get_stream().is_stopped() else None
+            if self.get_stream().is_stopped():
+                self.get_stream().start_stream()
 
             data_real_pre_vocal_command = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
@@ -491,17 +498,19 @@ class FenetrePrincipale(tk.Frame):
                 if "ferme l'application" == text_pre_vocal_command.lower():
                     data_real_pre_vocal_command = None
                     from_data_vocal_command_to_object_text = None
-                    _,_, text_pre_vocal_command, content_discussion = (
+                    _, _, text_pre_vocal_command, content_discussion = (
                         initialise_conversation_audio()
                     )
                     is_pre_vocal_command = True
                     self.get_stream().stop_stream()
-                    self.gestion_thread()
+                    self.get_thread().stop()
+                    self.set_thread(None)
                     break
 
-                if (
+                elif (
                     "active le mode audio" in text_pre_vocal_command.lower()
                     or "active les commandes vocales" in text_pre_vocal_command.lower()
+                    or "activer les commandes vocales" in text_pre_vocal_command.lower()
                 ):
                     self.say_txt("très bien")
                     (
@@ -512,7 +521,6 @@ class FenetrePrincipale(tk.Frame):
                     ) = initialise_conversation_audio()
             while not is_pre_vocal_command:
 
-                # self.get_thread().start() if self.get_thread().stopped() else None
                 if welcoming:
                     self.get_stream().start_stream()
                     # on peut maintenant réouvrir la boucle d'audition
@@ -557,7 +565,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if "quelle heure est-il" in text_vocal_command.lower():
+                    elif "quelle heure est-il" in text_vocal_command.lower():
                         self.get_stream().stop_stream()
                         self.say_txt(
                             "il est exactement " + time.strftime("%H:%M:%S"),
@@ -569,7 +577,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if "est-ce que tu m'écoutes" in text_vocal_command.lower():
+                    elif "est-ce que tu m'écoutes" in text_vocal_command.lower():
                         self.get_stream().stop_stream()
                         self.say_txt("oui je suis toujours à l'écoute kiki")
                         (
@@ -579,7 +587,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if (
+                    elif (
                         "effacer l'historique des conversations"
                         in text_vocal_command.lower()
                         or "supprimer l'historique des conversations"
@@ -607,7 +615,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if (
+                    elif (
                         "effacer la dernière conversation" in text_vocal_command.lower()
                         or "effacer la dernière discussion"
                         in text_vocal_command.lower()
@@ -623,7 +631,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio
 
-                    if (
+                    elif (
                         "afficher la liste des conversations"
                         in text_vocal_command.lower()
                         or "afficher l'historique des conversations"
@@ -641,7 +649,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if (
+                    elif (
                         "afficher toutes les actualités" in text_vocal_command.lower()
                         or "affiche toutes les actualités" in text_vocal_command.lower()
                     ):
@@ -676,7 +684,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if (
+                    elif (
                         "afficher les actualités" in text_vocal_command.lower()
                         or "afficher des actualités" in text_vocal_command.lower()
                         or "afficher des informations" in text_vocal_command.lower()
@@ -703,7 +711,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if "faire une recherche web sur " in text_vocal_command.lower():
+                    elif "faire une recherche web sur " in text_vocal_command.lower():
                         self.get_stream().stop_stream()
                         text_vocal_command.replace(
                             "faire une recherche web sur", "\nrechercher sur le web : "
@@ -724,11 +732,10 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if "fin de la session" == text_vocal_command.lower():
+                    elif "fin de la session" == text_vocal_command.lower():
                         # sortyie de la boucle d'audition
                         self.get_stream().stop_stream()
 
-                        self.gestion_thread()
                         welcoming, _, text_vocal_command, content_discussion = (
                             initialise_conversation_audio()
                         )
@@ -738,7 +745,7 @@ class FenetrePrincipale(tk.Frame):
                             "Pour ré-activer le mode commande vocales, il s'uffit de demander"
                         )
 
-                    if (
+                    elif (
                         is_human_is_talking
                         and mode_ecoute
                         and content_discussion.split().__len__() > 0
@@ -767,7 +774,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    if text_vocal_command.lower() != "":
+                    elif text_vocal_command.lower() != "":
                         mode_ecoute = True
                         is_human_is_talking = True
                         content_discussion += "\n" + text_vocal_command
@@ -842,7 +849,6 @@ class FenetrePrincipale(tk.Frame):
         self.save_to_submission()
 
         if necessite_ai:
-            self.gestion_thread()
             if grorOrNot:
                 response, timing = self.demander_ai_groq()
             else:
@@ -876,11 +882,6 @@ class FenetrePrincipale(tk.Frame):
         )
 
         return response, timing
-
-    def gestion_thread(self):
-        stop_thread = StoppableThread(None, threading.current_thread())
-        if not stop_thread.stopped():
-            stop_thread.stop()
 
     def start_loop(self):
         loop = asyncio.new_event_loop()
