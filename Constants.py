@@ -128,7 +128,7 @@ LIENS_CHROME = {
 URL_ACTU_GLOBAL_RSS = [
     {
         "title": "global_search",
-        "content": "actualités géo-politiques | actualités Afrique | actualités africaines CDAO | actualités Paris2024",
+        "content": "BRICS | France | afrique CEDAO | Paris2024",
     },
      {
         "title": "Sciences",

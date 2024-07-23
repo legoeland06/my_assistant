@@ -49,7 +49,7 @@ async def say_text(alire: str):
     return True
 
 def initialise_conversation_audio()->Tuple:
-    return False,"",""
+    return True,False,"",""
 
 def say_txt(alire: str):
     """
