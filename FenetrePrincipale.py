@@ -424,9 +424,6 @@ class FenetrePrincipale(tk.Frame):
             my_thread = StoppableThread(None, name="my_thread", target=self.ecouter)
             self.set_thread(my_thread)
             self.get_thread().start()
-        else:
-            self.get_thread().stop()
-            self.lance_ecoute()
 
     def ecouter(self):
         loop = asyncio.new_event_loop()
@@ -505,6 +502,7 @@ class FenetrePrincipale(tk.Frame):
                     self.get_stream().stop_stream()
                     self.get_thread().stop()
                     self.set_thread(None)
+                    self.say_txt("ok, vous pouvez réactiver l'observer audio en appuyant sur le bouton rouge")
                     break
 
                 elif (
