@@ -469,8 +469,8 @@ class FenetrePrincipale(tk.Frame):
         self.get_stream().start_stream()
         while True:
             mode_ecoute = False
-            content_discussion = ""
             is_human_is_talking = False
+            content_discussion = ""
 
             if self.get_stream().is_stopped():
                 self.get_stream().start_stream()
@@ -483,43 +483,49 @@ class FenetrePrincipale(tk.Frame):
                 from_data_pre_command_vocal_to_object_text = json.loads(
                     self.get_engine().Result()
                 )
+                self.bouton_commencer_diction.flash()
 
                 text_pre_vocal_command: str = (
                     from_data_pre_command_vocal_to_object_text["text"]
                 )
 
                 welcoming = True
-                self.marge_text(texte=text_pre_vocal_command)
+                if len(text_pre_vocal_command):
 
-                saved_discussion += text_pre_vocal_command.lower()
+                    self.marge_text(texte=text_pre_vocal_command)
+                    saved_discussion += text_pre_vocal_command.lower()
 
-                if "ferme l'application" == text_pre_vocal_command.lower():
-                    data_real_pre_vocal_command = None
-                    from_data_vocal_command_to_object_text = None
-                    _, _, text_pre_vocal_command, content_discussion = (
-                        initialise_conversation_audio()
-                    )
-                    is_pre_vocal_command = True
-                    self.get_stream().stop_stream()
-                    self.get_thread().stop()
-                    self.set_thread(None)
-                    self.say_txt(
-                        "ok, vous pouvez réactiver l'observer audio en appuyant sur le bouton rouge"
-                    )
-                    break
+                    if "ferme l'application" == text_pre_vocal_command.lower():
+                        data_real_pre_vocal_command = None
+                        from_data_vocal_command_to_object_text = None
+                        _, _, text_pre_vocal_command, content_discussion = (
+                            initialise_conversation_audio()
+                        )
+                        is_pre_vocal_command = True
+                        self.get_stream().stop_stream()
+                        self.get_thread().stop()
+                        self.set_thread(None)
+                        self.say_txt(
+                            "ok, vous pouvez réactiver l'observer audio en appuyant sur le bouton rouge"
+                        )
+                        break
 
-                elif (
-                    "active le mode audio" in text_pre_vocal_command.lower()
-                    or "active les commandes vocales" in text_pre_vocal_command.lower()
-                    or "activer les commandes vocales" in text_pre_vocal_command.lower()
-                ):
-                    self.say_txt("très bien")
-                    (
-                        welcoming,
-                        is_pre_vocal_command,
-                        text_pre_vocal_command,
-                        content_discussion,
-                    ) = initialise_conversation_audio()
+                    elif (
+                        "active le mode audio" in text_pre_vocal_command.lower()
+                        or "active les commandes vocales"
+                        in text_pre_vocal_command.lower()
+                        or "activer les commandes vocales"
+                        in text_pre_vocal_command.lower()
+                    ):
+                        self.say_txt("très bien")
+                        (
+                            welcoming,
+                            is_pre_vocal_command,
+                            text_pre_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+                        self.bouton_commencer_diction.configure(bg="green")
+
             while not is_pre_vocal_command:
 
                 if welcoming:
@@ -733,7 +739,7 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    elif "fin de la session" == text_vocal_command.lower():
+                    elif "fin de la session" in text_vocal_command.lower():
                         # sortie de la boucle d'audition
                         self.get_stream().stop_stream()
 
@@ -745,6 +751,7 @@ class FenetrePrincipale(tk.Frame):
                         self.say_txt(
                             "Pour ré-activer le mode commande vocales, il s'uffit de demander"
                         )
+                        self.bouton_commencer_diction.configure(bg="red")
 
                     elif text_vocal_command.lower() != "":
                         mode_ecoute = True
@@ -792,7 +799,6 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-
     def affiche_list_informations(self, final_list):
         try:
             frame = tk.Tk()
@@ -839,7 +845,7 @@ class FenetrePrincipale(tk.Frame):
                 if long_text > 10
                 else texte.lower()
             )
-        elif long_text:
+        else:
             print(texte)
 
     def envoyer_audio_prompt(
@@ -931,7 +937,7 @@ class FenetrePrincipale(tk.Frame):
         letexte = str(prompt)
         result_recherche = []
         bonne_liste = ""
-        isAskToDebride=False
+        isAskToDebride = False
         for line in [line for line in letexte.splitlines() if line.strip()]:
             if "rechercher sur le web : " in line:
                 # TODO : récupérer le mot dans le prompt directement
@@ -961,7 +967,7 @@ class FenetrePrincipale(tk.Frame):
                     }
                 )
             if "en mode débridé" in line:
-                isAskToDebride=True
+                isAskToDebride = True
 
         if len(result_recherche):
             timing: float = (
@@ -1002,13 +1008,17 @@ class FenetrePrincipale(tk.Frame):
             this_message = [
                 {
                     "role": "system",
-                    "content": TEXTE_DEBRIDE if isAskToDebride else "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
-                    + (
-                        ("\nYou are an expert in : " + str(self.get_motcles()))
-                        if len(self.get_motcles())
-                        else ""
-                    )
-                    + "\n Always use french language, use Markdown format use tags like <code> and </code> or <pre> and </pre> when necessary , and keep conversations alive",
+                    "content": (
+                        TEXTE_DEBRIDE
+                        if isAskToDebride
+                        else "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
+                        + (
+                            ("\nYou are an expert in : " + str(self.get_motcles()))
+                            if len(self.get_motcles())
+                            else ""
+                        )
+                        + "\n Always use french language, use Markdown format use tags like <code> and </code> or <pre> and </pre> when necessary , and keep conversations alive"
+                    ),
                 },
                 {
                     "role": "assistant",
@@ -1081,12 +1091,12 @@ class FenetrePrincipale(tk.Frame):
 
     def ask_to_Groq(self, agent_appel, prompt, model_to_use):
         """peut s'executer en mode chat_audio"""
-        isAskToDebride=False
+        isAskToDebride = False
         print("PROMPT:: \n" + prompt)
         self.set_timer(time.perf_counter_ns())
         for line in [line for line in str(prompt).splitlines() if line.strip()]:
-            if "en mode débridé" in line :
-                isAskToDebride=True
+            if "en mode débridé" in line:
+                isAskToDebride = True
                 break
 
         if isinstance(agent_appel, Groq):
@@ -1094,13 +1104,17 @@ class FenetrePrincipale(tk.Frame):
             this_message = [
                 {
                     "role": "system",
-                    "content": TEXTE_DEBRIDE if isAskToDebride else "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
-                    + (
-                        ("\nYou are an expert in : " + str(self.get_motcles()))
-                        if len(self.get_motcles())
-                        else ""
-                    )
-                    + "\n Always use french language, use Markdown format use tags like <code> and </code> or <pre> and </pre> when necessary, give only short answers unless clear information is suggested , and keep conversations alive",
+                    "content": (
+                        TEXTE_DEBRIDE
+                        if isAskToDebride
+                        else "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
+                        + (
+                            ("\nYou are an expert in : " + str(self.get_motcles()))
+                            if len(self.get_motcles())
+                            else ""
+                        )
+                        + "\n Always use french language, use Markdown format use tags like <code> and </code> or <pre> and </pre> when necessary, give only short answers unless clear information is suggested , and keep conversations alive"
+                    ),
                 },
                 {
                     "role": "assistant",
@@ -1510,20 +1524,6 @@ class FenetrePrincipale(tk.Frame):
         )
         self.bouton_lire1.pack(side=tk.LEFT)
 
-        self.bouton_stop = tk.Button(
-            self.frame_of_buttons_principal,
-            text="Stop",
-            command=lambda: self.get_lecteur().endLoop(),
-        )
-        self.bouton_stop.configure(
-            bg=from_rgb_to_tkColors(DARK3),
-            fg=from_rgb_to_tkColors(LIGHT3),
-            highlightbackground="red",
-            highlightcolor=from_rgb_to_tkColors(LIGHT3),
-            activebackground="red",
-        )
-        self.bouton_stop.pack(side=tk.LEFT)
-
         # Création d'un bouton pour traduction_sur_place
         self.bouton_traduire_sur_place = tk.Button(
             self.frame_of_buttons_principal, text="Traduire", command=translate_inplace
@@ -1541,7 +1541,7 @@ class FenetrePrincipale(tk.Frame):
             self.frame_of_buttons_principal, text=" ф ", command=self.lance_ecoute
         )
         self.bouton_commencer_diction.configure(
-            bg="red", fg=from_rgb_to_tkColors(LIGHT3)
+            bg="red", fg=from_rgb_to_tkColors(LIGHT3), width=10
         )
 
         self.bouton_commencer_diction.pack(side=tk.LEFT)
