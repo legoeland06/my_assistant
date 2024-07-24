@@ -1,6 +1,5 @@
 # zic_chat.py
 from argparse import Namespace
-import asyncio
 import time
 import tkinter as tk
 
@@ -10,15 +9,9 @@ from groq import Groq
 import openai
 import vosk
 import pyaudio
-import ollama
-from llama_index.llms.ollama import Ollama as Ola
 from FenetrePrincipale import FenetrePrincipale
-from StoppableThread import StoppableThread
 import Constants as cst
-from outils import (
-    engine_lecteur_init,
-    say_txt,
-)
+from outils import engine_lecteur_init, say_txt
 from secret import GROQ_API_KEY
 
 
@@ -33,18 +26,24 @@ def engine_ecouteur_init():
         raise Exception("Pas de model de reconaissance vocale chargé")
 
 
-def init_model(model_to_use: str, prompted: bool = False):
-    # model utilisé dans le chatbot
+def init_model(model_to_use: str):
+    """
+    initialise le model à utiliser avant d'envoyer un prompt
+    """
     msg = (
         "Chargement de l'Ia : ["
-        + model_to_use[0 : model_to_use.find(":")]
+        + (
+            model_to_use[: model_to_use.find(":")]
+            if model_to_use.find(":") != -1
+            else model_to_use
+        )
         + "]... Un instant"
     )
     print(msg)
-    if not prompted:
-        lecteur.say(msg)
-        lecteur.runAndWait()
-        lecteur.stop()
+
+    lecteur.say(msg)
+    lecteur.runAndWait()
+    lecteur.stop()
     return model_to_use
 
 
@@ -108,13 +107,18 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
 
 
 def main(prompt=False):
-    """Début du programme principal"""
+    """
+    ## begining of the application
+    if prompt is True, the application still in terminal
+    and responses were returned and printed in the terminal
+    and exit programme
+    """
     if prompt:
-        model_used = "llama3-70b-8192"
+        model_used = cst.LLAMA370B
         traitement_rapide(prompt, model_to_use=model_used, talking=False)
         exit(0)
 
-    model_used = init_model(cst.LLAMA3, prompted=False)
+    model_used = init_model(cst.LLAMA370B)
     app.say_txt("IA initialisée ! ")
     print(
         "ZicChatbotAudio\n"
@@ -127,7 +131,7 @@ def main(prompt=False):
     model_ecouteur_micro = engine_ecouteur_init()
     app.say_txt("reconnaissance vocale initialisée")
 
-    # Create a recognizer
+    # initialise a voice recognizer
     app.say_txt("initialisation du micro")
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
     app.say_txt("micro initialisé")
@@ -139,11 +143,13 @@ def main(prompt=False):
     app.set_talker(talker=say_txt)
     app.set_engine(rec)
 
+    # Mode de développement
     # BYPASS les sélection IHM chronophages en mode dev
     groq_client = Groq(api_key=GROQ_API_KEY)
     app.set_client(groq_client)
     app.set_model(cst.LLAMA370B)
     app.bouton_commencer_diction.invoke()
+    # après cette invocation l'application est lancée en mode audioChat directement
 
     app.mainloop(0)
 

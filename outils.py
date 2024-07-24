@@ -163,6 +163,17 @@ def append_response_to_file(file_to_append, readable_ai_response):
             + "\n"
         )
 
+def append_saved_texte(file_to_append, readable_ai_response):
+    with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
+        markdown_content = readable_ai_response
+        target_file.write(
+            "\n::"
+            + datetime.datetime.now().isoformat()
+            + "::\n"
+            + markdown_content
+            + "\n"
+        )
+
 
 def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     """

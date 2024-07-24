@@ -27,6 +27,7 @@ from secret import GROQ_API_KEY
 from outils import (
     actualise_index_html,
     append_response_to_file,
+    append_saved_texte,
     engine_lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
@@ -465,12 +466,12 @@ class FenetrePrincipale(tk.Frame):
 
         is_pre_vocal_command = True
         self.say_txt("pour activer les commandes vocales, il s'uffit de demander")
-        saved_discussion = ""
         self.get_stream().start_stream()
+        content_saved_discussion = ""
         while True:
+            self.bouton_commencer_diction.configure(bg="blue")
             mode_ecoute = False
             is_human_is_talking = False
-            content_discussion = ""
 
             if self.get_stream().is_stopped():
                 self.get_stream().start_stream()
@@ -492,13 +493,10 @@ class FenetrePrincipale(tk.Frame):
                 welcoming = True
                 if len(text_pre_vocal_command):
 
-                    self.marge_text(texte=text_pre_vocal_command)
-                    saved_discussion += text_pre_vocal_command.lower()
-
                     if "ferme l'application" == text_pre_vocal_command.lower():
                         data_real_pre_vocal_command = None
                         from_data_vocal_command_to_object_text = None
-                        _, _, text_pre_vocal_command, content_discussion = (
+                        _, _, text_pre_vocal_command, _ = (
                             initialise_conversation_audio()
                         )
                         is_pre_vocal_command = True
@@ -506,8 +504,15 @@ class FenetrePrincipale(tk.Frame):
                         self.get_thread().stop()
                         self.set_thread(None)
                         self.say_txt(
-                            "ok, vous pouvez réactiver l'observer audio en appuyant sur le bouton rouge"
+                            "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton rouge"
                         )
+                        self.bouton_commencer_diction.configure(bg="red")
+                        append_saved_texte(
+                            file_to_append="saved_text",
+                            readable_ai_response=content_saved_discussion,
+                        )
+                        content_saved_discussion = ""
+
                         break
 
                     elif (
@@ -522,9 +527,20 @@ class FenetrePrincipale(tk.Frame):
                             welcoming,
                             is_pre_vocal_command,
                             text_pre_vocal_command,
-                            content_discussion,
+                            _,
                         ) = initialise_conversation_audio()
+                        append_saved_texte(
+                            file_to_append="saved_text",
+                            readable_ai_response=content_saved_discussion,
+                        )
+                        content_saved_discussion = ""
                         self.bouton_commencer_diction.configure(bg="green")
+
+                    else:
+                        # self.marge_text(texte=text_pre_vocal_command)
+                        content_saved_discussion += (
+                            text_pre_vocal_command.lower() + "\n"
+                        )
 
             while not is_pre_vocal_command:
 
@@ -575,7 +591,8 @@ class FenetrePrincipale(tk.Frame):
                     elif "quelle heure est-il" in text_vocal_command.lower():
                         self.get_stream().stop_stream()
                         self.say_txt(
-                            "il est exactement " + time.strftime("%H:%M:%S"),
+                            "il est exactement "
+                            + time.strftime("%H:%M:%S", time.localtime()),
                         )
                         (
                             welcoming,
@@ -608,9 +625,8 @@ class FenetrePrincipale(tk.Frame):
 
                         # ici on supprime complètement la fenetre scrollable
                         # et tout ce qu'il y a dedans
-                        self.say_txt("resp")
-
-                        (resp.destroy() for resp in self.fenetre_scrollable.responses)
+                        for resp in self.fenetre_scrollable.responses:
+                            resp.destroy()
 
                         self.fenetre_scrollable.responses.clear()
 
@@ -636,7 +652,7 @@ class FenetrePrincipale(tk.Frame):
                             is_human_is_talking,
                             text_vocal_command,
                             content_discussion,
-                        ) = initialise_conversation_audio
+                        ) = initialise_conversation_audio()
 
                     elif (
                         "afficher la liste des conversations"
@@ -759,26 +775,25 @@ class FenetrePrincipale(tk.Frame):
                         content_discussion += "\n" + text_vocal_command
                         print("texte reconnu : " + text_vocal_command.lower())
 
-                        print(
-                            " :: "
-                            + str(
-                                round(
-                                    (time.perf_counter_ns() - self.get_timer())
-                                    / 1_000_000_000.0
-                                )
-                            )
-                            + " ::secondes "
-                        )
+                        self.set_timer(time.perf_counter_ns())
 
                     if (
-                        is_human_is_talking
+                        (time.perf_counter_ns() - self.get_timer()) / 100_000_000.0
+                        >= 1.0  # en secondes
+                        and is_human_is_talking
                         and mode_ecoute
                         and content_discussion.split().__len__() > 0
                     ):
                         # ici on affiche le temps de blanc avant de commencer à lui parler
                         # à partir du moment où il dit "à vous"
+
                         print(
-                            (time.perf_counter_ns() - self.get_timer()) / 100_000_000.0
+                            " :: "
+                            + str(
+                                (time.perf_counter_ns() - self.get_timer())
+                                / 100_000_000.0
+                            )
+                            + " ::secondes "
                         )
 
                         self.get_stream().stop_stream()
@@ -931,14 +946,15 @@ class FenetrePrincipale(tk.Frame):
             stderr=subprocess.PIPE,
         )
 
-    def ask_to_ai(self, agent_appel, prompt, model_to_use):
-        """ne s'execute que en mode textuel"""
-        self.set_timer(time.perf_counter_ns())
-        letexte = str(prompt)
+    def check_content(self, content):
+        """
+        ## check the content
+        and verify some keywords like :
+        << rechercher sur le web : >> or << en mode débridé >>
+        """
         result_recherche = []
-        bonne_liste = ""
         isAskToDebride = False
-        for line in [line for line in letexte.splitlines() if line.strip()]:
+        for line in [line for line in content.splitlines() if line.strip()]:
             if "rechercher sur le web : " in line:
                 # TODO : récupérer le mot dans le prompt directement
                 # en isolant la ligne et en récupérant tout ce qu'il y a après
@@ -955,7 +971,7 @@ class FenetrePrincipale(tk.Frame):
                         for element in search_results
                     ]
                 )
-                super_result, _rien = self.ask_to_ai(
+                super_result, _ = self.ask_to_ai(
                     self.get_client(), goodlist, self.model_to_use
                 )
 
@@ -966,22 +982,29 @@ class FenetrePrincipale(tk.Frame):
                         + super_result
                     }
                 )
+
+                bonne_liste = "Recherche sur le Web : \n"
+                for recherche in [
+                    element["resultat_de_recherche"] for element in result_recherche
+                ]:
+                    bonne_liste += recherche + "\n\n"
+
+                content += "\nRésultat des recherches : \n" + (
+                    bonne_liste if len(str(recherche)) else None
+                )
+
             if "en mode débridé" in line:
                 isAskToDebride = True
 
-        if len(result_recherche):
-            timing: float = (
-                time.perf_counter_ns() - self.get_timer()
-            ) / 1_000_000_000.0
-            bonne_liste = "Recherche sur le Web : \n" if bonne_liste == "" else None
-            for recherche in [
-                element["resultat_de_recherche"] for element in result_recherche
-            ]:
-                bonne_liste += recherche + "\n\n"
+        timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
 
-        if len(bonne_liste):
-            prompt += "\nRésultat des recherches : \n" + bonne_liste
+        return content, isAskToDebride, timing
 
+    def ask_to_ai(self, agent_appel, prompt, model_to_use):
+        """ne s'execute que en mode textuel"""
+        self.set_timer(time.perf_counter_ns())
+        letexte = str(prompt)
+        prompt, isAskToDebride, timing = self.check_content(letexte)
         self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, ollama.Client):
@@ -1072,7 +1095,9 @@ class FenetrePrincipale(tk.Frame):
                 messagebox.Message("OOps, ")
 
         # calcul le temps écoulé par la thread
-        timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
+        timing: float = (
+            timing + (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
+        )
 
         # TODO
         if ai_response is not None:
@@ -1091,13 +1116,10 @@ class FenetrePrincipale(tk.Frame):
 
     def ask_to_Groq(self, agent_appel, prompt, model_to_use):
         """peut s'executer en mode chat_audio"""
-        isAskToDebride = False
-        print("PROMPT:: \n" + prompt)
         self.set_timer(time.perf_counter_ns())
-        for line in [line for line in str(prompt).splitlines() if line.strip()]:
-            if "en mode débridé" in line:
-                isAskToDebride = True
-                break
+        letexte = str(prompt)
+        prompt, isAskToDebride, timing = self.check_content(letexte)
+        self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, Groq):
 
