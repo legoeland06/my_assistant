@@ -1,9 +1,6 @@
 import tkinter as tk
-from typing import Any
 
-import markdown
-
-from outils import askToAi, from_rgb_to_tkColors
+from outils import askToAi, from_rgb_to_tkColors, lancement_de_la_lecture
 from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
 
@@ -328,4 +325,4 @@ class FenetreResponse(tk.Frame):
         except:
             texte_to_talk = object.get("1.0", tk.END)
         finally:
-            self.talker(texte_to_talk)
+            lancement_de_la_lecture(texte_to_talk)

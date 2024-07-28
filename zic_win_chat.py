@@ -11,7 +11,7 @@ import vosk
 import pyaudio
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
-from outils import engine_lecteur_init, say_txt
+from outils import engine_lecteur_init, lancement_de_la_lecture, say_txt
 from secret import GROQ_API_KEY
 
 
@@ -102,7 +102,7 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
         agent_appel=groq_client, prompt=texte, model_to_use=model_to_use
     )
     readable_ai_response = ai_response
-    say_txt(readable_ai_response) if talking else None
+    lancement_de_la_lecture(readable_ai_response) if talking else None
     return readable_ai_response
 
 
@@ -119,7 +119,7 @@ def main(prompt=False):
         exit(0)
 
     model_used = init_model(cst.LLAMA370B)
-    app.say_txt("IA initialisée ! ")
+    lancement_de_la_lecture("IA initialisée ! ")
     print(
         "ZicChatbotAudio\n"
         + cst.STARS * cst.WIDTH_TERM
@@ -127,14 +127,14 @@ def main(prompt=False):
         + cst.STARS * cst.WIDTH_TERM
     )
 
-    app.say_txt("chargement du moteur de reconnaissance vocale ")
+    lancement_de_la_lecture("chargement du moteur de reconnaissance vocale ")
     model_ecouteur_micro = engine_ecouteur_init()
-    app.say_txt("reconnaissance vocale initialisée")
+    lancement_de_la_lecture("reconnaissance vocale initialisée")
 
     # initialise a voice recognizer
-    app.say_txt("initialisation du micro")
+    lancement_de_la_lecture("initialisation du micro")
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    app.say_txt("micro initialisé")
+    lancement_de_la_lecture("micro initialisé")
 
     root.title = "RootTitle - "
 

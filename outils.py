@@ -1,4 +1,7 @@
+import asyncio
 import subprocess
+from threading import Thread
+import threading
 import time
 from groq import Groq
 from openai import ChatCompletion
@@ -51,9 +54,22 @@ async def say_text(alire: str):
 def initialise_conversation_audio()->Tuple:
     return True,False,"",""
 
-def say_txt(alire: str):
+def make_resume(text:str)->str:
+        return "En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n"+text
+        
+def lancement_de_la_lecture(text:str):
+        the_thread = Thread(None, name="the_thread", target=lambda:ecouter(text)).start()
+            
+
+def ecouter(text:str):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(say_txt(alire=text))
+    loop.run_forever()
+
+async def say_txt(alire: str):
     """
-    lit le texte sans passer par un thread
+    lit le texte passé en paramètre
     """
 
     texte_reformate = (
@@ -69,8 +85,9 @@ def say_txt(alire: str):
 
     )
     lecteur = engine_lecteur_init()
-    lecteur.say(texte_reformate)
-    lecteur.runAndWait()
+    if not lecteur._inLoop:
+        lecteur.say(texte_reformate)
+        lecteur.runAndWait()
     lecteur.stop()
 
 

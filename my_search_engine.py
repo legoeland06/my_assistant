@@ -1,12 +1,11 @@
 # python
 from googleapiclient.discovery import build
 from Constants import STARS
-import my_scrapper
 import secret as sc
 
 my_api_key = sc.GOOGLE_API_KEY
 my_cse_id = sc.GOOGLE_CSE_ID
-project_number = "728224194740"
+project_number = sc.PROJECT_NUMBER
 
 
 def google_search(search_term, api_key, cse_id, **kwargs):
@@ -16,7 +15,9 @@ def google_search(search_term, api_key, cse_id, **kwargs):
 
 
 def main(texte):
-    results = google_search(texte, my_api_key, my_cse_id, num=10)
+    results = google_search(texte, my_api_key, my_cse_id)
+    # autre API de recherche google à comparer
+    # results = search_term(term=texte)
 
     # Commentaires utiles
     # composition du json result
