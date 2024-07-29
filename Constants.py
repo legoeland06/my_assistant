@@ -43,7 +43,9 @@ ROLE_TYPES = [
     "system",
 ]
 
-ROLE_TYPE = ROLE_TYPES[0]
+ROLE_USER = ROLE_TYPES[0]
+ROLE_ASSISTANT = ROLE_TYPES[1]
+ROLE_SYSTEM = ROLE_TYPES[2]
 
 INDEX_HEAD = """
 <body class="container">

@@ -5,9 +5,13 @@ import tkinter.font as tkfont
 from groq import Groq
 
 from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370B
-from FenetreResponse import FenetreResponse
+from FenetreConversation import FenetreConversation
 from SimpleMarkdownText import SimpleMarkdownText
-from outils import ask_to_resume, engine_lecteur_init, from_rgb_to_tkColors, lancement_de_la_lecture
+from outils import (
+    ask_to_resume,
+    from_rgb_to_tkColors,
+    thread_lecture,
+)
 from secret import GROQ_API_KEY
 
 
@@ -45,31 +49,13 @@ class FenetreScrollable(tk.Frame):
         )
 
         self.frame.bind("<Configure>", self.onFrameConfigure)
-        self.responses = []
-
-    def say_txt(self, text: str):
-        """
-        lit le texte sans passer par un thread
-        """
-
-        texte_reformate = (
-            text.replace("*", " ")
-            .replace("-", " ")
-            .replace("=", " ")
-            .replace("#", " ")
-            .replace("|", " ")
-            .replace("/", " ")
-            .replace(":", " ")
-            .replace("https", " ")
-        )
-        engine_lecteur_init().say(texte_reformate)
-        engine_lecteur_init().runAndWait()
-        engine_lecteur_init().stop()
+        self.conversations = []
 
     def get_prompts_history(self) -> list:
         return self.prompts_history
 
     def supprimer_conversation(self, evt: tk.Event):
+        """se déclenche à la fermeture de chaque fenetre reponse"""
         widgt: tk.Widget = evt.widget
         print("Effacement de la conversation ::" + widgt.winfo_name() + "::")
         for mini_dict in self.get_prompts_history():
@@ -87,7 +73,7 @@ class FenetreScrollable(tk.Frame):
         submit_func,
     ):
         self.model = model
-        fenetre_response = FenetreResponse(
+        fenetre_conversation = FenetreConversation(
             ai_response=ai_response,
             entree_recup=simple_markdown_text,
             master=self.frame,
@@ -95,17 +81,19 @@ class FenetreScrollable(tk.Frame):
             agent_appel=agent_appel,
             model_to_use=model,
         )
-        self.responses.append(fenetre_response)
+        self.conversations.append(fenetre_conversation)
 
         self.save_to_history(
-            fenetre_response.winfo_name(), simple_markdown_text.get_text(), ai_response
+            fenetre_conversation.winfo_name(),
+            simple_markdown_text.get_text(),
+            ai_response,
         )
-        fenetre_response.bind(
+        fenetre_conversation.bind(
             "<Destroy>",
             func=self.supprimer_conversation,
         )
-        fenetre_response.get_entree_response().configure(font=self.fontdict)
-        fenetre_response.get_entree_response().tag_configure(
+        fenetre_conversation.get_entree_response().configure(font=self.fontdict)
+        fenetre_conversation.get_entree_response().tag_configure(
             tagName="boldtext",
             font=tkfont.Font(
                 family=self.fontdict.cget("family"),
@@ -115,7 +103,7 @@ class FenetreScrollable(tk.Frame):
             ),
         )
         #
-        fenetre_response.get_entree_response().tag_configure(
+        fenetre_conversation.get_entree_response().tag_configure(
             tagName="response",
             border=20,
             wrap="word",
@@ -128,13 +116,13 @@ class FenetreScrollable(tk.Frame):
             rmargincolor="green",
             selectbackground="red",
         )
-        fenetre_response.get_entree_response().tag_configure(
+        fenetre_conversation.get_entree_response().tag_configure(
             "balise",
             font=self.fontdict,
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
 
-        fenetre_response.get_entree_response().tag_configure(
+        fenetre_conversation.get_entree_response().tag_configure(
             "balise_bold",
             font=tkfont.Font(
                 family=self.fontdict.cget("family"),
@@ -144,27 +132,27 @@ class FenetreScrollable(tk.Frame):
             ),
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
-        fenetre_response.get_entree_response().insert(
+        fenetre_conversation.get_entree_response().insert(
             tk.END,
             datetime.datetime.now().isoformat() + " <" + self.model + "> - ",
             "balise",
         )
-        fenetre_response.get_entree_response().insert(
+        fenetre_conversation.get_entree_response().insert(
             tk.END,
             str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
             "balise_bold",
         )
-        fenetre_response.get_entree_response().insert_markdown(ai_response + "\n")
+        fenetre_conversation.get_entree_response().insert_markdown(ai_response + "\n")
 
-        fenetre_response.get_entree_question().configure(font=("Arial", 10))
-        fenetre_response.get_entree_question().tag_configure(
+        fenetre_conversation.get_entree_question().configure(font=("Arial", 10))
+        fenetre_conversation.get_entree_question().tag_configure(
             tagName="boldtext",
             font=(
-                fenetre_response.get_entree_response().cget("font") + " italic",
+                fenetre_conversation.get_entree_response().cget("font") + " italic",
                 8,
             ),
         )
-        fenetre_response.get_entree_question().tag_configure(
+        fenetre_conversation.get_entree_question().tag_configure(
             tagName="response",
             border=20,
             wrap="word",
@@ -177,12 +165,12 @@ class FenetreScrollable(tk.Frame):
             rmargincolor="green",
             selectbackground="red",
         )
-        fenetre_response.get_entree_question().tag_configure(
+        fenetre_conversation.get_entree_question().tag_configure(
             "balise",
             font=self.fontdict,
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
-        fenetre_response.get_entree_question().tag_configure(
+        fenetre_conversation.get_entree_question().tag_configure(
             "balise_bold",
             font=tkfont.Font(
                 family=self.fontdict.cget("family"),
@@ -192,22 +180,22 @@ class FenetreScrollable(tk.Frame):
             ),
             foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
-        fenetre_response.get_entree_question().insert(
+        fenetre_conversation.get_entree_question().insert(
             tk.END,
             datetime.datetime.now().isoformat() + " <" + self.model + "> :: ",
             "balise",
         )
-        fenetre_response.get_entree_question().insert(
+        fenetre_conversation.get_entree_question().insert(
             tk.END,
             str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
             "balise_bold",
         )
 
-        fenetre_response.get_entree_question().insert_markdown(
+        fenetre_conversation.get_entree_question().insert_markdown(
             simple_markdown_text.get_text() + "\n"
         )
-        fenetre_response.get_entree_response().update()
-        fenetre_response.get_entree_question().update()
+        fenetre_conversation.get_entree_response().update()
+        fenetre_conversation.get_entree_question().update()
 
         # self.print_liste_des_conversations()
 
@@ -248,7 +236,7 @@ class FenetreScrollable(tk.Frame):
             # TODO: ici on va faire un résumé des 10 anciennes conversations (MAX_HISTORY=10)
             conversation_resumee = ask_to_resume(
                 agent_appel=Groq(api_key=GROQ_API_KEY),
-                prompt="".join(map(str,self.get_prompts_history())),
+                prompt="".join(map(str, self.get_prompts_history())),
                 model_to_use=LLAMA370B,
             )
 
@@ -263,7 +251,7 @@ class FenetreScrollable(tk.Frame):
                     "response": conversation_resumee,
                 },
             )
-            lancement_de_la_lecture("un résumé des anciennes conversations à été effectué")
+            thread_lecture("un résumé des anciennes conversations à été effectué")
             # assert len(self.get_prompts_history()) == 1
 
         self.get_prompts_history().append(

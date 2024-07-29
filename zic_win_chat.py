@@ -3,7 +3,6 @@ from argparse import Namespace
 import time
 import tkinter as tk
 
-# from tkinter import simpledialog
 from tkinter import messagebox
 from groq import Groq
 import openai
@@ -11,11 +10,11 @@ import vosk
 import pyaudio
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
-from outils import engine_lecteur_init, lancement_de_la_lecture, say_txt
+from outils import askToAi, thread_lecture
 from secret import GROQ_API_KEY
 
 
-def engine_ecouteur_init():
+def init_model_vocal():
     # set verbosity of vosk to NO-VERBOSE
     vosk.SetLogLevel(-1)
     # Initialize the model and return an instance
@@ -24,27 +23,6 @@ def engine_ecouteur_init():
         return model
     except:
         raise Exception("Pas de model de reconaissance vocale chargé")
-
-
-def init_model(model_to_use: str):
-    """
-    initialise le model à utiliser avant d'envoyer un prompt
-    """
-    msg = (
-        "Chargement de l'Ia : ["
-        + (
-            model_to_use[: model_to_use.find(":")]
-            if model_to_use.find(":") != -1
-            else model_to_use
-        )
-        + "]... Un instant"
-    )
-    print(msg)
-
-    lecteur.say(msg)
-    lecteur.runAndWait()
-    lecteur.stop()
-    return model_to_use
 
 
 def ask_to_ai(agent_appel, prompt, model_to_use):
@@ -56,15 +34,15 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
 
         this_message = [
             {
-                "role": "system",
+                "role": cst.ROLE_SYSTEM,
                 "content": "",
             },
             {
-                "role": "assistant",
+                "role": cst.ROLE_ASSISTANT,
                 "content": "",
             },
             {
-                "role": "user",
+                "role": cst.ROLE_USER,
                 "content": prompt,
             },
         ]
@@ -102,8 +80,20 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
         agent_appel=groq_client, prompt=texte, model_to_use=model_to_use
     )
     readable_ai_response = ai_response
-    lancement_de_la_lecture(readable_ai_response) if talking else None
+    thread_lecture(readable_ai_response) if talking else None
     return readable_ai_response
+
+
+def init_main():
+    # Open the microphone stream
+    p = pyaudio.PyAudio()
+    return p.open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16000,
+        input=True,
+        frames_per_buffer=8192,
+    )
 
 
 def main(prompt=False):
@@ -113,13 +103,33 @@ def main(prompt=False):
     and responses were returned and printed in the terminal
     and exit programme
     """
+    model_used = cst.LLAMA370B.split(":")[0]
+
+    # utilisation en mode terminal avec l'option --prompt
     if prompt:
-        model_used = cst.LLAMA370B
-        traitement_rapide(prompt, model_to_use=model_used, talking=False)
+        # model_used = cst.LLAMA370B
+        print(askToAi(prompt, model_to_use=model_used))
         exit(0)
 
-    model_used = cst.LLAMA370B.split(":")[0]
-    lancement_de_la_lecture("Ia séléctionnée :"+model_used)
+    # Début du programme en mode fenetre
+    root = tk.Tk(className="YourAssistant")
+    root.title = "RootTitle - "
+    app = FenetrePrincipale(
+        master=root,
+        stream=init_main(),
+        model_to_use=model_used,
+    )
+    app.title = "MyApp"
+    # initialise a voice recognizer
+    thread_lecture("chargement du moteur de reconnaissance vocale ")
+    model_vocal = init_model_vocal()
+    thread_lecture("reconnaissance vocale initialisée")
+    thread_lecture("ouverture du micro")
+    rec = vosk.KaldiRecognizer(model_vocal, 16000)
+    thread_lecture("micro ouvert")
+    app.set_engine(rec)
+
+    thread_lecture("Ia sélectionnée :" + model_used)
     print(
         "ZicChatbotAudio\n"
         + cst.STARS * cst.WIDTH_TERM
@@ -127,65 +137,17 @@ def main(prompt=False):
         + cst.STARS * cst.WIDTH_TERM
     )
 
-    lancement_de_la_lecture("chargement du moteur de reconnaissance vocale ")
-    model_ecouteur_micro = engine_ecouteur_init()
-    lancement_de_la_lecture("reconnaissance vocale initialisée")
-
-    # initialise a voice recognizer
-    lancement_de_la_lecture("initialisation du micro")
-    rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    lancement_de_la_lecture("micro initialisé")
-
-    root.title = "RootTitle - "
-
-    app.title = "MyApp"
-
-    app.set_engine(rec)
-
     # Mode de développement
     # BYPASS les sélection IHM chronophages en mode dev
     groq_client = Groq(api_key=GROQ_API_KEY)
+    time.sleep(2)
     app.set_client(groq_client)
+    time.sleep(2)
     app.set_model(cst.LLAMA370B)
     app.bouton_commencer_diction.invoke()
-    # après cette invocation l'application est lancée en mode audioChat directement
+    # NB: Après cette invocation l'application est lancée en mode audioChat directement
 
     app.mainloop(0)
-
-
-def init_main():
-    # Open the microphone stream
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16000,
-        input=True,
-        frames_per_buffer=8192,
-    )
-
-    return stream
-
-
-def init_start(engine_lecteur_init, init_main):
-    stream = init_main()
-
-    lecteur = engine_lecteur_init()
-    return lecteur, stream
-
-
-# Début du programme
-lecteur, stream = init_start(engine_lecteur_init, init_main)
-
-root = tk.Tk(className="YourAssistant")
-
-
-app = FenetrePrincipale(
-    master=root,
-    stream=stream,
-    model_to_use=cst.LLAMA3,
-)
-
 
 if __name__ == "__main__":
     import argparse
