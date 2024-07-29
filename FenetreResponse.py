@@ -294,9 +294,6 @@ class FenetreResponse(tk.Frame):
         self.entree_response.pack_propagate()
         self.entree_question.pack_propagate()
 
-    def set_talker(self, talker):
-        self.talker = talker
-
     def set_ai_response(self, response):
         self.ai_response = response
 

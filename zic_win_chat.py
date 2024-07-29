@@ -118,8 +118,8 @@ def main(prompt=False):
         traitement_rapide(prompt, model_to_use=model_used, talking=False)
         exit(0)
 
-    model_used = init_model(cst.LLAMA370B)
-    lancement_de_la_lecture("IA initialisée ! ")
+    model_used = cst.LLAMA370B.split(":")[0]
+    lancement_de_la_lecture("Ia séléctionnée :"+model_used)
     print(
         "ZicChatbotAudio\n"
         + cst.STARS * cst.WIDTH_TERM
@@ -140,7 +140,6 @@ def main(prompt=False):
 
     app.title = "MyApp"
 
-    app.set_talker(talker=say_txt)
     app.set_engine(rec)
 
     # Mode de développement

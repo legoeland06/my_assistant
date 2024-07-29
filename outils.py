@@ -1,7 +1,6 @@
 import asyncio
 import subprocess
 from threading import Thread
-import threading
 import time
 from groq import Groq
 from openai import ChatCompletion
@@ -41,31 +40,27 @@ from Constants import (
 from SimpleMarkdownText import SimpleMarkdownText
 
 
-async def say_text(alire: str):
-    """
-    lit le texte sans passer par un thread
-    """
-    lecteur = engine_lecteur_init()
-    lecteur.say(alire)
-    lecteur.runAndWait()
-    lecteur.stop()
-    return True
+def initialise_conversation_audio() -> Tuple:
+    return True, False, "", ""
 
-def initialise_conversation_audio()->Tuple:
-    return True,False,"",""
 
-def make_resume(text:str)->str:
-        return "En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n"+text
-        
-def lancement_de_la_lecture(text:str):
-        the_thread = Thread(None, name="the_thread", target=lambda:ecouter(text)).start()
-            
+def make_resume(text: str) -> str:
+    return (
+        "En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n"
+        + text
+    )
 
-def ecouter(text:str):
+
+def lancement_de_la_lecture(text: str):
+    the_thread = Thread(None, name="the_thread", target=lambda: ecouter(text)).start()
+
+
+def ecouter(text: str):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(say_txt(alire=text))
     loop.run_forever()
+
 
 async def say_txt(alire: str):
     """
@@ -81,8 +76,6 @@ async def say_txt(alire: str):
         .replace("/", " ")
         .replace(":", " ")
         .replace("https", " ")
-
-
     )
     lecteur = engine_lecteur_init()
     if not lecteur._inLoop:
@@ -102,13 +95,20 @@ def bold_it(obj: tk.Text | SimpleMarkdownText):
     return tkfont.Font(**obj.configure())
 
 
-def read_prompt_file(file):
+def read_text_file(file) -> list:
+    """lit le fichier text chargé est passé en paramètre"""
     with open(file, "r", encoding="utf-8") as file_to_read:
         content = file_to_read.readlines()
     return content
 
 
 def load_txt(parent):
+    """
+    Ouvre une boite de dialogue pour charger un fichier texte,
+    appelle la méthode de lecture qui renvois le résultat
+    sous forme de liste et retourne cette liste reformattée sous
+    forme de texte
+    """
     try:
         file_to_read = filedialog.askopenfile(
             parent=parent,
@@ -118,7 +118,7 @@ def load_txt(parent):
             initialdir=".",
         )
         print(file_to_read.name)
-        resultat_txt = read_prompt_file(file_to_read.name)
+        resultat_txt = read_text_file(file_to_read.name)
         say_txt("Fin de l'extraction")
 
         # on prepare le text pour le présenter à la méthode insert_markdown
@@ -179,6 +179,7 @@ def append_response_to_file(file_to_append, readable_ai_response):
             + markdown_content
             + "\n"
         )
+
 
 def append_saved_texte(file_to_append, readable_ai_response):
     with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
@@ -444,34 +445,25 @@ def get_groq_ia_list(api_key):
     return sortie
 
 
-def arret_ecoute(stream: pyaudio.Stream):
-    stream.stop_stream()
+# def changer_ia(app: any, evt: tk.Event):
+#     # Note here that Tkinter passes an event object to onselect()
+#     w: tk.Listbox = evt.widget
+#     if type(w) is tk.Listbox:
+#         index = int(w.curselection()[0])
+#         value = w.get(index)
+#         print('You selected item %d: "%s"' % (index, value))
+#         app.set_model(value)
 
 
-def debut_ecoute(stream: pyaudio.Stream, info: str = ""):
-    say_txt(info, False)
-    stream.start_stream()
-    return 0, ""
-
-
-def changer_ia(application: any, evt: tk.Event):
-    # Note here that Tkinter passes an event object to onselect()
-    w: tk.Listbox = evt.widget
-    if type(w) is tk.Listbox:
-        index = int(w.curselection()[0])
-        value = w.get(index)
-        print('You selected item %d: "%s"' % (index, value))
-        application.set_model(value)
-
-
-def ask_quick(agent_appel, prompt, model_to_use):
+def ask_to_resume(agent_appel, prompt, model_to_use):
 
     if isinstance(agent_appel, Groq):
 
         this_message = [
             {
                 "role": "user",
-                "content": str(prompt)+"\n Instruction: faire un résumé de toutes les conversations ci-dessus en un prompt concentré",
+                "content": str(prompt)
+                + "\n Instruction: faire un résumé de toutes les conversations ci-dessus en un prompt concentré",
             },
         ]
 
@@ -494,6 +486,7 @@ def ask_quick(agent_appel, prompt, model_to_use):
         messagebox.Message("Ne fonctionne qu'avec groq")
 
     return ai_response
+
 
 def askToAi(agent_appel, prompt, model_to_use) -> tuple:
 

@@ -37,8 +37,7 @@ from outils import (
     load_pdf,
     load_txt,
     make_resume,
-    read_prompt_file,
-    say_txt,
+    read_text_file,
     traitement_du_texte,
     translate_it,
 )
@@ -50,7 +49,6 @@ class FenetrePrincipale(tk.Frame):
     title: str
     ia: str
     submission: str
-    talker: any
     model_to_use: str
     streaming: pyaudio.Stream
 
@@ -79,9 +77,6 @@ class FenetrePrincipale(tk.Frame):
         self.ia = LLAMA3
         self.thread = None
         self.submission = ""
-        # self.talker = say_txt
-
-        self.lecteur = engine_lecteur_init()
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
             size=ZEFONT[1],
@@ -99,10 +94,14 @@ class FenetrePrincipale(tk.Frame):
         self.motcles = []
         self.configure(padx=5, pady=5, width=96 + 10)
         self.pack()
+        
+        ##
+        # phase de construction de la fenetre principale
         self.creer_fenetre(
             image=self.get_image(),
             msg_to_write="Prompt...",
         )
+
         self.fenetre_scrollable = FenetreScrollable(self)
         self.fenetre_scrollable.configure(width=self.master.winfo_reqwidth() - 20)
         self.fenetre_scrollable.configure(height=self.master.winfo_reqheight() - 20)
@@ -111,33 +110,10 @@ class FenetrePrincipale(tk.Frame):
         self.messages = [
             {
                 "role": "user",
-                "content": "Bonjour présente toi, très succinctement",
+                "content": "Bonjour",
             },
         ]
         self.actual_chat_completion = []
-
-    def get_lecteur(self) -> pyttsx3.Engine:
-        return self.lecteur
-
-    def say_txt(self, text: str) -> bool:
-        """
-        lit le texte sans passer par un thread
-        """
-
-        texte_reformate = (
-            text.replace("*", " ")
-            .replace("-", " ")
-            .replace("=", " ")
-            .replace("#", " ")
-            .replace("|", " ")
-            .replace("/", " ")
-            .replace(":", " ")
-            .replace("https", " ")
-        )
-        self.get_lecteur().say(texte_reformate, name="resp_ai")
-        self.get_lecteur().runAndWait()
-        self.get_lecteur().stop()
-        return True
 
     def getListOfModels(self):
         return [element["name"] for element in (ollama.list())["models"]]
@@ -182,12 +158,6 @@ class FenetrePrincipale(tk.Frame):
 
     def get(self) -> str:
         return self.content
-
-    def get_talker(self) -> pyttsx3.Engine:
-        return self.talker
-
-    def set_talker(self, talker: pyttsx3.Engine):
-        self.talker = talker
 
     def set_submission(self, content: str):
         self.submission = content
@@ -270,7 +240,6 @@ class FenetrePrincipale(tk.Frame):
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
             self.get_thread().stop()
-            # merci_au_revoir(lecteur=self.lecteur, stream_to_stop=self.get_stream())
             self.master.destroy()
             self.destroy()
         else:
@@ -465,7 +434,9 @@ class FenetrePrincipale(tk.Frame):
         print("Bienvenu dans l'AudioChat !")
 
         is_pre_vocal_command = True
-        lancement_de_la_lecture("pour activer les commandes vocales, il s'uffit de demander")
+        lancement_de_la_lecture(
+            "pour activer les commandes vocales, il s'uffit de demander"
+        )
         self.get_stream().start_stream()
         content_saved_discussion = ""
         while True:
@@ -780,13 +751,13 @@ class FenetrePrincipale(tk.Frame):
 
                     if (
                         (time.perf_counter_ns() - self.get_timer()) / 100_000_000.0
-                        > 0  # en secondes
+                        > 0.05  # en secondes
                         and is_human_is_talking
                         and mode_ecoute
                         and content_discussion.split().__len__() > 0
                     ):
-                        self.get_stream().stop_stream()
                         mode_ecoute = False
+                        self.get_stream().stop_stream()
 
                         # ici on affiche le temps de blanc avant de commencer à lui parler
                         # à partir du moment où il dit "à vous"
@@ -806,7 +777,7 @@ class FenetrePrincipale(tk.Frame):
 
                         # ennonce le résultat de l'ia
                         lancement_de_la_lecture(response)
-                        mode_ecoute = True
+                        # mode_ecoute = True
 
                         # efface le fil de discussion
                         (
@@ -888,7 +859,6 @@ class FenetrePrincipale(tk.Frame):
             agent_appel=self.get_client(),
             simple_markdown_text=self.entree_prompt_principal,
             ai_response=response if necessite_ai else content_discussion,
-            talker=self.say_txt,
             model=self.get_model(),
             submit_func=self.soumettre,
         )
@@ -951,31 +921,48 @@ class FenetrePrincipale(tk.Frame):
             stderr=subprocess.PIPE,
         )
 
-    def check_content(self, content):
+    def petite_recherche(self, term: str):
+        # TODO : récupérer le mot dans le prompt directement
+        # en isolant la ligne et en récupérant tout ce qu'il y a après
+        # avoir identifier les mots clés "recherche web : "
+        expression_found = (term.split(" : ")[1]).replace(" ", "+")
+        # resultat_de_recherche = str(self.lancer_chrome(expression_found))
+
+        # on execute cette recherche sur le web
+        # avec l'agent de recherche search.main()
+        lancement_de_la_lecture("recherche web " + term.split(" : ")[1])
+        search_results: list = search.main(expression_found)
+
+        goodlist = "\n".join(
+            [
+                str(element["snippet"] + "\n" + element["formattedUrl"] + "\n")
+                for element in search_results
+            ]
+        )
+        return goodlist
+
+    def check_content(self, content: str):
         """
-        ## check the content
-        and verify some keywords like :
-        << rechercher sur le web : >> or << en mode débridé >>
+        ### check the content
+        Verify some keywords like :
+            << rechercher sur le web : >>
+            << en mode débridé >>
+
+            @param: content type str
+
+            @return: content type str ,
+            @return: isAskToDebride type bool,
+            @return: timing type float
         """
         result_recherche = []
         isAskToDebride = False
         for line in [line for line in content.splitlines() if line.strip()]:
+            # si on a trouvé la phrase << rechercher sur le web : >>
             if "rechercher sur le web : " in line:
-                # TODO : récupérer le mot dans le prompt directement
-                # en isolant la ligne et en récupérant tout ce qu'il y a après
-                # avoir identifier les mots clés "recherche web : "
-                expression_found = (line.split(" : ")[1]).replace(" ", "+")
-                # resultat_de_recherche = str(self.lancer_chrome(expression_found))
 
-                lancement_de_la_lecture("recherche web " + line.split(" : ")[1])
-                search_results: list = search.main(expression_found)
+                goodlist = self.petite_recherche(line)
 
-                goodlist = str(
-                    [
-                        str(element["snippet"] + "\n" + element["formattedUrl"])
-                        for element in search_results
-                    ]
-                )
+                # TODO : PAS SUR DE l'UTILITE
                 super_result, _ = self.ask_to_ai(
                     self.get_client(), goodlist, self.model_to_use
                 )
@@ -994,21 +981,20 @@ class FenetrePrincipale(tk.Frame):
                 ]:
                     bonne_liste += recherche + "\n\n"
 
-                content += "\nRésultat des recherches : \n" + (
-                    bonne_liste if len(str(recherche)) else None
+                content += "\nRésultat des recherches : \n" + str(
+                    bonne_liste if len(str(recherche)) else ""
                 )
 
-            if "en mode débridé" in line:
+            if not isAskToDebride and "en mode débridé" in line:
                 isAskToDebride = True
 
         timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
 
         return content, isAskToDebride, timing
 
-    def ask_to_ai(self, agent_appel, prompt, model_to_use):
+    def ask_to_ai(self, agent_appel, prompt: str, model_to_use):
         self.set_timer(time.perf_counter_ns())
-        letexte = str(prompt)
-        prompt, isAskToDebride, timing = self.check_content(letexte)
+        letexte, isAskToDebride, timing = self.check_content(content=prompt)
         self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, ollama.Client):
@@ -1018,7 +1004,7 @@ class FenetrePrincipale(tk.Frame):
                     messages=[
                         {
                             "role": "user",
-                            "content": prompt,
+                            "content": letexte,
                             "num_ctx": 2048,
                             "num_predict": 40,
                             "keep_alive": -1,
@@ -1026,6 +1012,7 @@ class FenetrePrincipale(tk.Frame):
                     ],
                 )
                 ai_response = llm["message"]["content"]
+
             except ollama.RequestError as requestError:
                 print("OOps aucun model chargé : ", requestError)
             except ollama.ResponseError as responseError:
@@ -1036,11 +1023,10 @@ class FenetrePrincipale(tk.Frame):
                 {
                     "role": "system",
                     "content": (
-                        TEXTE_DEBRIDE
+                        TODAY_WE_ARE + TEXTE_DEBRIDE
                         if isAskToDebride
                         else (
-                            TODAY_WE_ARE
-                            + "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
+                            "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
                             + (
                                 ("\nYou are an expert in : " + str(self.get_motcles()))
                                 if len(self.get_motcles())
@@ -1061,7 +1047,7 @@ class FenetrePrincipale(tk.Frame):
                 },
                 {
                     "role": "user",
-                    "content": prompt,
+                    "content": letexte,
                 },
             ]
 
@@ -1078,7 +1064,6 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 ai_response = llm.choices[0].message.content
-                print(str(type(ai_response)))
 
             except:
                 messagebox.Message("OOps, ")
@@ -1090,44 +1075,46 @@ class FenetrePrincipale(tk.Frame):
                     model=model_to_use,
                     request_timeout=REQUEST_TIMEOUT_DEFAULT,
                     additional_kwargs={
-                        "num_ctx": 4096,
+                        "num_ctx": 2048,
                         "num_predict": 40,
                         "keep_alive": -1,
                     },
                 )
 
-                ai_response = llm.chat(prompt).message.content
+                ai_response = llm.chat(letexte).message.content
 
             except:
                 messagebox.Message("OOps, ")
 
-        # calcul le temps écoulé par la thread
-        timing: float = (
-            timing + (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
-        )
-
         # TODO
-        if ai_response is not None:
+        try:
+            # calcul le temps écoulé par la thread
+            timing: float = (
+                timing + (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
+            )
             print(ai_response)
             append_response_to_file(RESUME_WEB, ai_response)
             actualise_index_html(
                 texte=ai_response,
-                question=prompt,
+                question=letexte,
                 timing=timing,
                 model=self.get_model(),
             )
 
             return ai_response, timing
-        else:
+        except:
+            print("problème de de délais de réponse")
             return "problème de délais de réponse", timing
 
     def ask_to_Groq(
-        self, prompt, agent_appel=Groq(api_key=GROQ_API_KEY), model_to_use=LLAMA370B
+        self,
+        prompt: str,
+        agent_appel=Groq(api_key=GROQ_API_KEY),
+        model_to_use=LLAMA370B,
     ):
         """peut s'executer en mode chat_audio"""
         self.set_timer(time.perf_counter_ns())
-        letexte = str(prompt)
-        prompt, isAskToDebride, timing = self.check_content(letexte)
+        letexte, isAskToDebride, timing = self.check_content(content=prompt)
         self.set_timer(time.perf_counter_ns())
 
         if isinstance(agent_appel, Groq):
@@ -1136,11 +1123,10 @@ class FenetrePrincipale(tk.Frame):
                 {
                     "role": "system",
                     "content": (
-                        TEXTE_DEBRIDE
+                        TODAY_WE_ARE + TEXTE_DEBRIDE
                         if isAskToDebride
                         else (
-                            TODAY_WE_ARE
-                            + "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
+                            "donne des réponses simples et courtes sauf s'il est stipulé le contraire"
                             + (
                                 ("\nYou are an expert in : " + str(self.get_motcles()))
                                 if len(self.get_motcles())
@@ -1161,7 +1147,7 @@ class FenetrePrincipale(tk.Frame):
                 },
                 {
                     "role": "user",
-                    "content": prompt,
+                    "content": letexte,
                 },
             ]
 
@@ -1178,24 +1164,28 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 ai_response = llm.choices[0].message.content
-                print(str(type(ai_response)))
+
+                timing: float = (
+                    time.perf_counter_ns() - self.get_timer()
+                ) / 1_000_000_000.0
+                print(ai_response)
+                append_response_to_file(RESUME_WEB, ai_response)
+                actualise_index_html(
+                    texte=ai_response,
+                    question=prompt,
+                    timing=timing,
+                    model=self.get_model(),
+                )
+
+                return ai_response, timing
 
             except:
                 messagebox.Message("OOps, ")
+
         else:
             messagebox.Message("Ne fonctionne qu'avec groq")
 
-        # calcul le temps écoulé par la thread
-        timing: float = (time.perf_counter_ns() - self.get_timer()) / 1_000_000_000.0
-
-        # TODO
-        print(ai_response)
-        append_response_to_file(RESUME_WEB, ai_response)
-        actualise_index_html(
-            texte=ai_response, question=prompt, timing=timing, model=self.get_model()
-        )
-
-        return ai_response, timing
+        return "pas de réponse", timing
 
     async def asking(self) -> asyncio.futures.Future:
 
@@ -1219,7 +1209,6 @@ class FenetrePrincipale(tk.Frame):
             agent_appel=agent_appel,
             simple_markdown_text=self.entree_prompt_principal,
             ai_response=response_ai,
-            talker=self.say_txt,
             model=self.get_model(),
             submit_func=self.soumettre,
         )
@@ -1236,7 +1225,7 @@ class FenetrePrincipale(tk.Frame):
                 initialdir=".",
             )
             print(file_to_read.name)
-            resultat_txt = read_prompt_file(file_to_read.name)
+            resultat_txt = read_text_file(file_to_read.name)
             lancement_de_la_lecture("Fin de l'extraction")
 
             # on prepare le text pour le présenter à la méthode insert_markdown
@@ -1349,37 +1338,50 @@ class FenetrePrincipale(tk.Frame):
         _listbox.bind("<<ListboxSelect>>", func=self.charge_preprompt)
 
     def creer_fenetre(self, image: ImageTk, msg_to_write):
+        """
+        Méthode de création de la fenetre principale"""
 
-        def textwidget_to_mp3(object: SimpleMarkdownText):
-            texte_to_save_to_mp3 = object.get("1.0", tk.END)
+        def textwidget_to_mp3(obj: SimpleMarkdownText):
+            """
+            #### txt vers mp3
+            Transforme le text sélectionné dans l'object de type 
+            SimpleMarkdownText donné en parametre en dictée mp3.
+                Si rien n'est sélectionné, tout le text est traité.
+            """
 
-            if texte_to_save_to_mp3 != "":
-                try:
-                    texte_to_save_to_mp3 = object.get_selection()
-                except:
-                    texte_to_save_to_mp3 = object.get_text()
-                finally:
-                    lancement_de_la_lecture("transcription du texte vers un fichier mp3")
-                    simple_dialog = simpledialog.askstring(
-                        parent=self,
-                        prompt="Enregistrement : veuillez choisir un nom au fichier",
-                        title="Enregistrer vers audio",
-                    )
-                    self.lecteur.save_to_file(
-                        texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
-                    )
-                    lancement_de_la_lecture("terminé")
+            if None==obj.get_selection() or len(obj.get_selection())==0:
+                # on reécupère tout le contenu de l'objet
+                texte_to_save_to_mp3 = obj.get("1.0", tk.END)
             else:
-                lancement_de_la_lecture("Désolé, Il n'y a pas de texte à enregistrer en mp3")
+                texte_to_save_to_mp3=obj.get_selection()
+            
+            if len(texte_to_save_to_mp3)>0:
+
+                lancement_de_la_lecture(
+                    "transcription du texte vers un fichier mp3"
+                )
+                simple_dialog = simpledialog.askstring(
+                    parent=self,
+                    prompt="Enregistrement : veuillez choisir un nom au fichier",
+                    title="Enregistrer vers audio",
+                )
+                engine_lecteur_init().save_to_file(
+                    texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
+                )
+                lancement_de_la_lecture("terminé")
+            else : 
+                print ("rien à transformer")
+            
 
         def replace_in_place(
             texte: str, index1: str, index2: str, ponctuel: bool = True
         ):
+            """traduit sur place (remplacement) le texte sélectionné"""
             self.entree_prompt_principal.replace(
                 chars=texte, index1=index1, index2=index2
             )
 
-        def lance_thread_lecture(obj:SimpleMarkdownText):
+        def lance_thread_lecture(obj: SimpleMarkdownText):
             try:
                 texte_to_talk = obj.get(tk.SEL_FIRST, tk.SEL_LAST)
             except:
@@ -1436,7 +1438,6 @@ class FenetrePrincipale(tk.Frame):
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=sortie,
-                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
@@ -1450,7 +1451,6 @@ class FenetrePrincipale(tk.Frame):
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=translated_text,
-                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
@@ -1464,7 +1464,6 @@ class FenetrePrincipale(tk.Frame):
                         agent_appel=self.get_client(),
                         simple_markdown_text=self.entree_prompt_principal,
                         ai_response=translated_text,
-                        talker=self.say_txt,
                         model=self.get_model(),
                         submit_func=self.soumettre,
                     )
@@ -1586,7 +1585,9 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour Dicter
         self.bouton_commencer_diction = tk.Button(
-            self.frame_of_buttons_principal, text=" ф ", command=self.lance_thread_ecoute
+            self.frame_of_buttons_principal,
+            text=" ф ",
+            command=self.lance_thread_ecoute,
         )
         self.bouton_commencer_diction.configure(
             bg="red", fg=from_rgb_to_tkColors(LIGHT3), width=10

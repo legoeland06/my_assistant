@@ -7,7 +7,7 @@ from groq import Groq
 from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370B
 from FenetreResponse import FenetreResponse
 from SimpleMarkdownText import SimpleMarkdownText
-from outils import ask_quick, engine_lecteur_init, from_rgb_to_tkColors, say_txt
+from outils import ask_to_resume, engine_lecteur_init, from_rgb_to_tkColors, lancement_de_la_lecture
 from secret import GROQ_API_KEY
 
 
@@ -15,7 +15,6 @@ class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
         self.parent = parent
         self.prompts_history = []
-        self.talker = self.say_txt
         tk.Frame.__init__(self, parent)
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -84,7 +83,6 @@ class FenetreScrollable(tk.Frame):
         agent_appel,
         simple_markdown_text: SimpleMarkdownText,
         ai_response: str,
-        talker,
         model,
         submit_func,
     ):
@@ -106,7 +104,6 @@ class FenetreScrollable(tk.Frame):
             "<Destroy>",
             func=self.supprimer_conversation,
         )
-        fenetre_response.set_talker(talker=talker)
         fenetre_response.get_entree_response().configure(font=self.fontdict)
         fenetre_response.get_entree_response().tag_configure(
             tagName="boldtext",
@@ -237,7 +234,7 @@ class FenetreScrollable(tk.Frame):
 
     def save_to_history(self, fenetre_name, question, ai_response):
         """
-        ## crée une sauvegarde des anciens échanges:
+        #### crée une sauvegarde des anciens échanges:
         Lorsque les conversations sont effacées de la fenêtre scrollable,
         la conversation correspondande est effacée aussi de la liste.
         cela permet de gerer la continuite de la conversation avec
@@ -249,9 +246,9 @@ class FenetreScrollable(tk.Frame):
         longueur = len(self.get_prompts_history())
         if longueur >= MAX_HISTORY:
             # TODO: ici on va faire un résumé des 10 anciennes conversations (MAX_HISTORY=10)
-            conversation_resumee = ask_quick(
+            conversation_resumee = ask_to_resume(
                 agent_appel=Groq(api_key=GROQ_API_KEY),
-                prompt=self.get_prompts_history(),
+                prompt="".join(map(str,self.get_prompts_history())),
                 model_to_use=LLAMA370B,
             )
 
@@ -266,7 +263,7 @@ class FenetreScrollable(tk.Frame):
                     "response": conversation_resumee,
                 },
             )
-            self.talker("un résumé des anciennes conversations à été effectué")
+            lancement_de_la_lecture("un résumé des anciennes conversations à été effectué")
             # assert len(self.get_prompts_history()) == 1
 
         self.get_prompts_history().append(
