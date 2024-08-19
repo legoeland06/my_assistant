@@ -6,6 +6,7 @@ from groq import Groq
 from openai import ChatCompletion
 
 import pyaudio
+import pygame
 import pyttsx3
 import datetime
 import json
@@ -67,6 +68,37 @@ async def say_txt(alire: str):
     lit le texte passé en paramètre
     """
 
+    class Lecture:
+
+        def __init__(self) -> None:
+            pass
+        def read(self):
+            self.mixer=pygame.mixer
+            self.mixer.init()
+            self.mixer_music = self.mixer.music
+            self.mixer_music.load("mywav.wav")
+            # unpause_button.pack_forget()
+            # pause_button.pack(side=LEFT)
+            self.mixer_music.play()
+            # if self.mixer_music.get_endevent:
+            #     self.unload()
+
+        def unload(self):
+            self.mixer_music.unload()
+
+        # def stop(self):
+        #     self.mixer_music.stop()
+
+        # def pause(self):
+        #     self.mixer_music.pause()
+        #     self.pause_button.pack_forget()
+        #     self.unpause_button.pack(side=LEFT)
+
+        # def unpause(self):
+        #     self.mixer_music.unpause()
+        #     self.unpause_button.pack_forget()
+        #     self.pause_button.pack(side=LEFT)
+
     texte_reformate = (
         alire.replace("*", " ")
         .replace("-", " ")
@@ -79,9 +111,16 @@ async def say_txt(alire: str):
     )
     lecteur = engine_lecteur_init()
     if not lecteur._inLoop:
+        # lecteur.save_to_file(texte_reformate,"mywav.wav")
+        # lecture=Lecture()
+        
+        # del lecture
+        # lecture.read()
         lecteur.say(texte_reformate)
-        lecteur.runAndWait()
-    lecteur.stop()
+        lecteur.proxy.runAndWait()
+
+    if lecteur._inLoop:
+        lecteur.proxy.stop()
 
 
 def from_rgb_to_tkColors(rgb):

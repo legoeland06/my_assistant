@@ -94,7 +94,7 @@ class FenetrePrincipale(tk.Frame):
         self.motcles = []
         self.configure(padx=5, pady=5, width=96 + 10)
         self.pack()
-        
+
         ##
         # phase de construction de la fenetre principale
         self.creer_fenetre(
@@ -858,7 +858,7 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.addthing(
             _timing=timing if necessite_ai else 0,
             agent_appel=self.get_client(),
-            simple_markdown_text=self.entree_prompt_principal,
+            simple_text=self.entree_prompt_principal.get_text(),
             ai_response=response if necessite_ai else content_discussion,
             model=self.get_model(),
             submit_func=self.soumettre,
@@ -1208,7 +1208,7 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.addthing(
             _timing=_timing,
             agent_appel=agent_appel,
-            simple_markdown_text=self.entree_prompt_principal,
+            simple_text=self.entree_prompt_principal.get_text(),
             ai_response=response_ai,
             model=self.get_model(),
             submit_func=self.soumettre,
@@ -1345,22 +1345,20 @@ class FenetrePrincipale(tk.Frame):
         def textwidget_to_mp3(obj: SimpleMarkdownText):
             """
             #### txt vers mp3
-            Transforme le text sélectionné dans l'object de type 
+            Transforme le text sélectionné dans l'object de type
             SimpleMarkdownText donné en parametre en dictée mp3.
                 Si rien n'est sélectionné, tout le text est traité.
             """
 
-            if None==obj.get_selection() or len(obj.get_selection())==0:
+            if None == obj.get_selection() or len(obj.get_selection()) == 0:
                 # on reécupère tout le contenu de l'objet
                 texte_to_save_to_mp3 = obj.get("1.0", tk.END)
             else:
-                texte_to_save_to_mp3=obj.get_selection()
-            
-            if len(texte_to_save_to_mp3)>0:
+                texte_to_save_to_mp3 = obj.get_selection()
 
-                lancement_de_la_lecture(
-                    "transcription du texte vers un fichier mp3"
-                )
+            if len(texte_to_save_to_mp3) > 0:
+
+                lancement_de_la_lecture("transcription du texte vers un fichier mp3")
                 simple_dialog = simpledialog.askstring(
                     parent=self,
                     prompt="Enregistrement : veuillez choisir un nom au fichier",
@@ -1370,9 +1368,8 @@ class FenetrePrincipale(tk.Frame):
                     texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
                 )
                 lancement_de_la_lecture("terminé")
-            else : 
-                print ("rien à transformer")
-            
+            else:
+                print("rien à transformer")
 
         def replace_in_place(
             texte: str, index1: str, index2: str, ponctuel: bool = True
@@ -1437,7 +1434,7 @@ class FenetrePrincipale(tk.Frame):
                     self.fenetre_scrollable.addthing(
                         _timing=timing,
                         agent_appel=self.get_client(),
-                        simple_markdown_text=self.entree_prompt_principal,
+                        simple_text=self.entree_prompt_principal.get_text(),
                         ai_response=sortie,
                         model=self.get_model(),
                         submit_func=self.soumettre,
@@ -1450,7 +1447,7 @@ class FenetrePrincipale(tk.Frame):
                     self.fenetre_scrollable.addthing(
                         _timing=timing,
                         agent_appel=self.get_client(),
-                        simple_markdown_text=self.entree_prompt_principal,
+                        simple_text=self.entree_prompt_principal.get_text(),
                         ai_response=translated_text,
                         model=self.get_model(),
                         submit_func=self.soumettre,
@@ -1463,7 +1460,7 @@ class FenetrePrincipale(tk.Frame):
                     self.fenetre_scrollable.addthing(
                         _timing=timing,
                         agent_appel=self.get_client(),
-                        simple_markdown_text=self.entree_prompt_principal,
+                        simple_text=self.entree_prompt_principal.get_text(),
                         ai_response=translated_text,
                         model=self.get_model(),
                         submit_func=self.soumettre,

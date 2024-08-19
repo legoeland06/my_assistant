@@ -119,7 +119,7 @@ def main(prompt=False):
         exit(0)
 
     model_used = cst.LLAMA370B.split(":")[0]
-    lancement_de_la_lecture("Ia séléctionnée :"+model_used)
+    lancement_de_la_lecture("Ia sélectionnée :"+model_used)
     print(
         "ZicChatbotAudio\n"
         + cst.STARS * cst.WIDTH_TERM

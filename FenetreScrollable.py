@@ -86,7 +86,7 @@ class FenetreScrollable(tk.Frame):
         self,
         _timing,
         agent_appel,
-        simple_markdown_text: SimpleMarkdownText,
+        simple_text: str,
         ai_response: str,
         model,
         submit_func,
@@ -94,7 +94,7 @@ class FenetreScrollable(tk.Frame):
         self.model = model
         fenetre_response = Conversation(
             ai_response=ai_response,
-            entree_recup=simple_markdown_text,
+            text=simple_text,
             master=self.frame,
             submit=submit_func,
             agent_appel=agent_appel,
@@ -102,9 +102,7 @@ class FenetreScrollable(tk.Frame):
         )
         self.responses.append(fenetre_response)
 
-        self.save_to_history(
-            fenetre_response.winfo_name(), simple_markdown_text.get_text(), ai_response
-        )
+        self.save_to_history(fenetre_response.winfo_name(), simple_text, ai_response)
         fenetre_response.bind(
             "<Destroy>",
             func=self.supprimer_conversation,
@@ -208,9 +206,7 @@ class FenetreScrollable(tk.Frame):
             "balise_bold",
         )
 
-        fenetre_response.get_entree_question().insert_markdown(
-            simple_markdown_text.get_text() + "\n"
-        )
+        fenetre_response.get_entree_question().insert_markdown(simple_text + "\n")
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()
 

@@ -23,7 +23,7 @@ class Conversation(tk.Frame):
         self,
         master: tk.Frame,
         # TODO : passer plutot une str au lieu de l'objet
-        entree_recup: SimpleMarkdownText,
+        text: str,
         ai_response: str,
         submit,
         agent_appel,
@@ -58,7 +58,7 @@ class Conversation(tk.Frame):
         self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="sunken")
 
         self.entree_question = SimpleMarkdownText(self.cnv_question, font=default_font)
-        self.entree_question.insert_markdown(entree_recup.get_text())
+        self.entree_question.insert_markdown(text)
 
         self.bouton_supprimer_question_response = tk.Button(
             self.boutons_cnv_response,
@@ -141,7 +141,7 @@ class Conversation(tk.Frame):
         scrollbar_response.pack(side=tk.RIGHT, fill="both")
         scrollbar_question = tk.Scrollbar(self.cnv_question)
         scrollbar_question.pack(side=tk.RIGHT, fill="both")
-        
+
         self.entree_response = SimpleMarkdownText(self.cnv_response, font=default_font)
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
