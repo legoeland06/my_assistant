@@ -8,19 +8,21 @@ from SimpleMarkdownText import SimpleMarkdownText
 from tkinter import font
 
 
-class FenetreResponse(tk.Frame):
+class Conversation(tk.Frame):
     """
     affiche une frame constituée de deux frames
     * response
     * question
 
     cette classe devrait être appelée à chaque
-    validarion de prompt principal
+    validarion de prompt principal pour afficher
+    le prompt et le résultat attendu
     """
 
     def __init__(
         self,
         master: tk.Frame,
+        # TODO : passer plutot une str au lieu de l'objet
         entree_recup: SimpleMarkdownText,
         ai_response: str,
         submit,
@@ -33,6 +35,8 @@ class FenetreResponse(tk.Frame):
             slant=ZEFONT[2],
             weight=ZEFONT[3],
         )
+        default_font = font.nametofont("TkDefaultFont")
+        default_font.configure(size=8)
         self.fenexport = None
         self.grande_fenetre = None
         self.submit = submit
@@ -47,12 +51,14 @@ class FenetreResponse(tk.Frame):
             master=master,
             relief="sunken",
         )
-        self.entree_prompt = entree_recup
 
         self.boutons_cnv_response = tk.Frame(self.canvas_edition)
         self.cnv_globals_responses = tk.Frame(self.canvas_edition)
         self.cnv_response = tk.Frame(self.cnv_globals_responses, relief="sunken")
         self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="sunken")
+
+        self.entree_question = SimpleMarkdownText(self.cnv_question, font=default_font)
+        self.entree_question.insert_markdown(entree_recup.get_text())
 
         self.bouton_supprimer_question_response = tk.Button(
             self.boutons_cnv_response,
@@ -135,8 +141,7 @@ class FenetreResponse(tk.Frame):
         scrollbar_response.pack(side=tk.RIGHT, fill="both")
         scrollbar_question = tk.Scrollbar(self.cnv_question)
         scrollbar_question.pack(side=tk.RIGHT, fill="both")
-        default_font = font.nametofont("TkDefaultFont")
-        default_font.configure(size=8)
+        
         self.entree_response = SimpleMarkdownText(self.cnv_response, font=default_font)
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
@@ -149,9 +154,9 @@ class FenetreResponse(tk.Frame):
             pady=6,
             yscrollcommand=scrollbar_response.set,
         )
-        self.entree_question = SimpleMarkdownText(
-            self.cnv_question, height=1, font=default_font
-        )
+        # self.entree_question = SimpleMarkdownText(
+        #     self.cnv_question, height=1, font=default_font
+        # )
         self.entree_question.configure(
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors(DARK3),
@@ -183,10 +188,10 @@ class FenetreResponse(tk.Frame):
     def transferer(self):
         try:
             content = self.get_entree_response().get(tk.SEL_FIRST, tk.SEL_LAST)
-            self.entree_prompt.insert_markdown(content)
+            self.entree_question.insert_markdown(content)
         except:
             (
-                self.entree_prompt.insert_markdown(
+                self.entree_question.insert_markdown(
                     self.get_entree_response().get_text()
                 )
                 if self.get_entree_response().get_text() != ""
@@ -206,9 +211,7 @@ class FenetreResponse(tk.Frame):
         self.entree_response.configure(
             height=int(self.entree_response.cget("height")) + 10, width=100
         )
-        self.entree_question.configure(
-            height=10, width=100
-        )
+        self.entree_question.configure(height=10, width=100)
 
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
@@ -219,8 +222,8 @@ class FenetreResponse(tk.Frame):
     def affiche_fenetre_agrandie(self):
         self.fenexport = tk.Tk()
         self.fenexport.geometry("600x900")
-        self.fenexport.title(self.entree_prompt.get_text()[:20] + "...")
-        
+        self.fenexport.title(self.entree_question.get_text()[:20] + "...")
+
         self.boutlire = tk.Button(
             self.fenexport,
             text="Lire",
@@ -259,7 +262,7 @@ class FenetreResponse(tk.Frame):
         self.grande_fenetre.tag_configure(
             tagName="balise",
             font=self.fontdict,
-            foreground=from_rgb_to_tkColors((0,0,250))
+            foreground=from_rgb_to_tkColors((0, 0, 250)),
             # foreground=from_rgb_to_tkColors((100, 100, 100)),
         )
 

@@ -750,9 +750,10 @@ class FenetrePrincipale(tk.Frame):
                         self.set_timer(time.perf_counter_ns())
 
                     if (
-                        (time.perf_counter_ns() - self.get_timer()) / 100_000_000.0
-                        > 0.05  # en secondes
-                        and is_human_is_talking
+                        # (time.perf_counter_ns() - self.get_timer()) / 100_000_000.0
+                        # > 0.05  # en secondes
+                        # and
+                        is_human_is_talking
                         and mode_ecoute
                         and content_discussion.split().__len__() > 0
                     ):

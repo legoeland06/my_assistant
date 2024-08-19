@@ -5,9 +5,14 @@ import tkinter.font as tkfont
 from groq import Groq
 
 from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370B
-from FenetreResponse import FenetreResponse
+from Conversation import Conversation
 from SimpleMarkdownText import SimpleMarkdownText
-from outils import ask_to_resume, engine_lecteur_init, from_rgb_to_tkColors, lancement_de_la_lecture
+from outils import (
+    ask_to_resume,
+    engine_lecteur_init,
+    from_rgb_to_tkColors,
+    lancement_de_la_lecture,
+)
 from secret import GROQ_API_KEY
 
 
@@ -87,7 +92,7 @@ class FenetreScrollable(tk.Frame):
         submit_func,
     ):
         self.model = model
-        fenetre_response = FenetreResponse(
+        fenetre_response = Conversation(
             ai_response=ai_response,
             entree_recup=simple_markdown_text,
             master=self.frame,
@@ -248,7 +253,7 @@ class FenetreScrollable(tk.Frame):
             # TODO: ici on va faire un résumé des 10 anciennes conversations (MAX_HISTORY=10)
             conversation_resumee = ask_to_resume(
                 agent_appel=Groq(api_key=GROQ_API_KEY),
-                prompt="".join(map(str,self.get_prompts_history())),
+                prompt="".join(map(str, self.get_prompts_history())),
                 model_to_use=LLAMA370B,
             )
 
@@ -263,7 +268,9 @@ class FenetreScrollable(tk.Frame):
                     "response": conversation_resumee,
                 },
             )
-            lancement_de_la_lecture("un résumé des anciennes conversations à été effectué")
+            lancement_de_la_lecture(
+                "un résumé des anciennes conversations à été effectué"
+            )
             # assert len(self.get_prompts_history()) == 1
 
         self.get_prompts_history().append(
