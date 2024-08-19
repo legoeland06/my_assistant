@@ -1,10 +1,10 @@
 import asyncio
 import subprocess
 from threading import Thread
+import time
 from groq import Groq
 from openai import ChatCompletion
 
-import my_search_engine as search
 import pyaudio
 import pyttsx3
 import datetime
@@ -15,6 +15,8 @@ from tkinter import messagebox
 import tkinter.font as tkfont
 from typing import Any, List, Mapping, Tuple
 import imageio.v3 as iio
+import ollama
+from llama_index.llms.ollama import Ollama as Ola
 import PyPDF2
 import markdown
 import requests
@@ -28,15 +30,14 @@ from Constants import (
     PREPROMPTS,
     PROMPTS_SYSTEMIQUES,
     RAPIDITE_VOIX,
-    ROLE_USER,
+    REQUEST_TIMEOUT_DEFAULT,
+    RESUME_WEB,
+    ROLE_TYPE,
     STARS,
-    TEXTE_DEBRIDE,
-    TODAY_WE_ARE,
     TRAITEMENT_EN_COURS,
     WIDTH_TERM,
 )
 from SimpleMarkdownText import SimpleMarkdownText
-from secret import GROQ_API_KEY
 
 
 def initialise_conversation_audio() -> Tuple:
@@ -50,20 +51,24 @@ def make_resume(text: str) -> str:
     )
 
 
-def thread_lecture(text: str):
-    _the_thread = Thread(
-        None,
-        name="the_thread",
-        target=lambda: loop_lecture(
-            # nettoyage sommaire du texte
-            text=nettoyage_sommaire(text)
-        ),
-    ).start()
+def lancement_de_la_lecture(text: str):
+    the_thread = Thread(None, name="the_thread", target=lambda: ecouter(text)).start()
 
 
-def nettoyage_sommaire(text: str):
-    return (
-        text.replace("*", " ")
+def ecouter(text: str):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(say_txt(alire=text))
+    loop.run_forever()
+
+
+async def say_txt(alire: str):
+    """
+    lit le texte passé en paramètre
+    """
+
+    texte_reformate = (
+        alire.replace("*", " ")
         .replace("-", " ")
         .replace("=", " ")
         .replace("#", " ")
@@ -72,91 +77,11 @@ def nettoyage_sommaire(text: str):
         .replace(":", " ")
         .replace("https", " ")
     )
-
-
-def petite_recherche(term: str):
-    # TODO : récupérer le mot dans le prompt directement
-    # en isolant la ligne et en récupérant tout ce qu'il y a après
-    # avoir identifier les mots clés "recherche web : "
-    expression_found = (term.split(" : ")[1]).replace(" ", "+")
-
-    # on execute cette recherche sur le web
-    # avec l'agent de recherche search.main()
-    thread_lecture("recherche web " + term.split(" : ")[1])
-    search_results: list = search.main(expression_found)
-
-    goodlist = "\n".join(
-        [
-            str(element["snippet"] + "\n" + element["formattedUrl"] + "\n")
-            for element in search_results
-        ]
-    )
-    return goodlist
-
-
-def check_content(content: str):
-    """
-    ### check the content
-    Verify some keywords like :
-        << rechercher sur le web : >>
-        << en mode débridé >>
-
-        @param: content type str
-
-        @return: content type str ,
-        @return: isAskToDebride type bool,
-        @return: timing type float
-    """
-    result_recherche = []
-    isAskToDebride = False
-    for line in [line for line in content.splitlines() if line.strip()]:
-        # si on a trouvé la phrase << rechercher sur le web : >>
-        if "rechercher sur le web : " in line:
-
-            goodlist = petite_recherche(line)
-
-            result_recherche.append(
-                {
-                    "resultat_de_recherche": line.split(" : ")[1]
-                    + "\n"
-                    + "".join(goodlist)
-                }
-            )
-
-            bonne_liste = "Recherche sur le Web : \n"
-            for recherche in [
-                element["resultat_de_recherche"] for element in result_recherche
-            ]:
-                bonne_liste += recherche + "\n\n"
-
-            content += "\nRésultat des recherches : \n" + str(
-                bonne_liste if len(str(recherche)) else ""
-            )
-
-        if not isAskToDebride and "en mode débridé" in line:
-            isAskToDebride = True
-
-    return content, isAskToDebride
-
-
-def loop_lecture(text: str):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.create_task(lecture_texte(text=text))
-    loop.run_forever()
-
-
-async def lecture_texte(text: str):
-    """
-    lit le texte passé en paramètre
-    """
-
     lecteur = engine_lecteur_init()
-   
     if not lecteur._inLoop:
-        lecteur.say(text)
+        lecteur.say(texte_reformate)
         lecteur.runAndWait()
-        lecteur.stop()
+    lecteur.stop()
 
 
 def from_rgb_to_tkColors(rgb):
@@ -194,7 +119,7 @@ def load_txt(parent):
         )
         print(file_to_read.name)
         resultat_txt = read_text_file(file_to_read.name)
-        lecture_texte("Fin de l'extraction")
+        say_txt("Fin de l'extraction")
 
         # on prepare le text pour le présenter à la méthode insert_markdown
         # qui demande un texte fait de lignes séparées par des \n
@@ -216,9 +141,9 @@ def load_pdf(parent) -> str:
             mode="r",
             initialdir=".",
         )
-        lecture_texte("Extraction du PDF")
+        say_txt("Extraction du PDF")
         resultat_txt = read_pdf(file_to_read.name)
-        lecture_texte("Fin de l'extraction")
+        say_txt("Fin de l'extraction")
         return resultat_txt
     except:
         messagebox("Problème avec ce fichier pdf")
@@ -241,12 +166,10 @@ def append_response_to_file(file_to_append, readable_ai_response):
         )
         target_file.write(markdown_content + "\n")
     with open(file_to_append + ".md", "a", encoding="utf-8") as target_file:
-        target_file.write(
-            "\n=============================="
-            + "\n==============================\n\n"
-            + readable_ai_response
-            + "\n"
-        )
+        # markdown_content = markdown.markdown(
+        #     readable_ai_response, output_format="xhtml"
+        # )
+        target_file.write("\n" + readable_ai_response + "\n")
     with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
         markdown_content = readable_ai_response
         target_file.write(
@@ -290,6 +213,32 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     ]
 
     return liste_of_sentences
+    # return (" ".join(liste_of_sentences))
+    # TODO : definir la coupure par phrases , on découpe le texte par mots
+    # import spacy as spc
+    # import nltk
+
+    # _langague = spc.language.Language.lang = "fr"
+    # _classlang = spc.util.set_lang_class("french")
+    # doc = spc.util.dot_to_object()   (u'Hello world')
+    # liste_of_words = " ".join(liste_of_sentences).split()
+
+    # if len(liste_of_words) >= number:
+    #     list_of_large_text: list[list[str]] = []
+    #     new_list: list[str] = []
+    #     counter = 0
+
+    #     for sentence in liste_of_sentences:
+    #         counter += len(sentence) + 1
+    #         new_list.append(sentence)
+    #         if counter >= number:
+    #             list_of_large_text.append(new_list)
+    #             new_list = []
+    #             counter = 0
+    #     return list_of_large_text
+
+    # else:
+    #     return liste_of_sentences
 
 
 def translate_it(text_to_translate: str) -> str:
@@ -348,7 +297,7 @@ def lire_text_from_object(object: SimpleMarkdownText | tk.Text | tk.Listbox):
     except:
         texte_to_talk = object.get_text()
     finally:
-        lecture_texte(texte_to_talk) if texte_to_talk != "" else None
+        say_txt(texte_to_talk) if texte_to_talk != "" else None
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
@@ -362,7 +311,7 @@ def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
 
 def lire_ligne(evt: tk.Event):
     widget_to_read: tk.Listbox = evt.widget
-    lecture_texte(
+    say_txt(
         str(
             widget_to_read.get(
                 widget_to_read.curselection(), widget_to_read.curselection() + 1
@@ -415,9 +364,7 @@ def engine_lecteur_init():
     """
     lecteur = pyttsx3.init()
     lecteur.setProperty("lang", "french")
-    lecteur.setProperty('voice','com.apple.speech.synthesis.voice.fiona')
     lecteur.setProperty("rate", RAPIDITE_VOIX)
-
 
     return lecteur
 
@@ -498,13 +445,23 @@ def get_groq_ia_list(api_key):
     return sortie
 
 
+# def changer_ia(app: any, evt: tk.Event):
+#     # Note here that Tkinter passes an event object to onselect()
+#     w: tk.Listbox = evt.widget
+#     if type(w) is tk.Listbox:
+#         index = int(w.curselection()[0])
+#         value = w.get(index)
+#         print('You selected item %d: "%s"' % (index, value))
+#         app.set_model(value)
+
+
 def ask_to_resume(agent_appel, prompt, model_to_use):
 
     if isinstance(agent_appel, Groq):
 
         this_message = [
             {
-                "role": ROLE_USER,
+                "role": "user",
                 "content": str(prompt)
                 + "\n Instruction: faire un résumé de toutes les conversations ci-dessus en un prompt concentré",
             },
@@ -531,33 +488,55 @@ def ask_to_resume(agent_appel, prompt, model_to_use):
     return ai_response
 
 
-def askToAi(prompt: str, model_to_use) -> Any:
+def askToAi(agent_appel, prompt, model_to_use) -> tuple:
 
-    final_text, isAskToDebride = check_content(prompt)
-    this_message = [
-        {
-            "role": ROLE_USER,
-            "content": TODAY_WE_ARE
-            + (TEXTE_DEBRIDE if isAskToDebride else "")
-            + final_text
-            + "\n Instruction: ",
-        },
-    ]
+    time0 = time.perf_counter_ns()
 
-    try:
-        llm: ChatCompletion = Groq(api_key=GROQ_API_KEY).chat.completions.create(
-            messages=this_message,
-            model=model_to_use,
-            temperature=1,
-            max_tokens=4060,
-            n=1,
-            stream=False,
-            stop=None,
-            timeout=10,
-        )
+    if isinstance(agent_appel, ollama.Client):
+        try:
+            llm: ollama.Client = agent_appel.chat(
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": ROLE_TYPE,
+                        "content": prompt,
+                        "num_ctx": 4096,
+                        "num_predict": 40,
+                        "keep_alive": -1,
+                    },
+                ],
+            )
+            ai_response = llm["message"]["content"]
+        except ollama.RequestError as requestError:
+            print("OOps aucun model chargé : ", requestError)
+        except ollama.ResponseError as responseError:
+            print("OOps la requête ne s'est pas bien déroulée", responseError)
 
-        ai_response = llm.choices[0].message.content
-    except:
-        messagebox.Message("OOps, ")
+    elif isinstance(agent_appel, Ola.__class__):
+        try:
+            llm: Ola = agent_appel(
+                base_url="http://localhost:11434",
+                model=model_to_use,
+                request_timeout=REQUEST_TIMEOUT_DEFAULT,
+                additional_kwargs={
+                    "num_ctx": 4096,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            )
+            ai_response = llm.chat(prompt).message.content
+        except:
+            messagebox.Message("OOps, ")
 
-    return ai_response
+    # calcul le temps écoulé par la thread
+    timing: float = (time.perf_counter_ns() - time0) / 1_000_000_000.0
+    print(ai_response)
+    print("Type_agent_appel::" + str(type(agent_appel)))
+    print("Type_ai_réponse::" + str(type(ai_response)))
+
+    append_response_to_file(RESUME_WEB, ai_response)
+    actualise_index_html(
+        texte=ai_response, question=prompt, timing=timing, model=model_to_use
+    )
+
+    return ai_response, timing
