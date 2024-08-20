@@ -1,6 +1,7 @@
 from datetime import datetime
 import asyncio
 import json
+import random
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any, Tuple
@@ -363,7 +364,7 @@ class FenetrePrincipale(tk.Frame):
     def soumettre(self) -> str:
         if self.save_to_submission():
             this_thread = threading.Thread(target=self.submit_thread)
-            lire_haute_voix("un instant s'il vous plait")
+            lire_haute_voix(self.get_synonymsOf("un instant s'il vous plait"))
             list_of_words = self.get_submission().split()
             print("longeur du prompt:: " + str(len(list_of_words)))
             # TODO
@@ -375,7 +376,6 @@ class FenetrePrincipale(tk.Frame):
                     + " blocs"
                 )
                 for number, bloc in enumerate(new_prompt_list):
-                    this_thread_splited = threading.Thread()
                     print(str(number) + " " + str(bloc))
                     self.set_submission(str(bloc))
                     threading.Thread(target=self.submit_thread).start()
@@ -389,7 +389,9 @@ class FenetrePrincipale(tk.Frame):
                 this_thread.start()
 
         else:
-            messagebox.showinfo(message="Veuillez poser au moins une question")
+            messagebox.showinfo(
+                message=self.get_synonymsOf("Veuillez poser au moins une question")
+            )
 
     def lance_thread_ecoute(self):
         if self.get_thread() == None or self.get_thread().stopped():
@@ -404,39 +406,51 @@ class FenetrePrincipale(tk.Frame):
         loop.create_task(self.dialog_ia())
         loop.run_forever()
 
-    async def get_je_suis_a_lecoute(self):
+    def get_synonymsOf(self, expression):
         prompt = (
-            "Donne une liste de 10 façons différentes de dire : (je vous écoute) dans le contexte d'un échange verbal, réponds de façons simple par une liste du type ['phrase_1','phrase_2',...]",
+            "en français exclusivement et sous la forme d'une liste non numérotée, donne 20 façons différentes de dire : ("
+            + expression
+            + ") dans le contexte d'un échange verbal, en réponse je ne veux rien d'autre que le résultat du type: phrase_1\nphrase_2\nphrase_3\netc...]"
         )
-        agent_appel = (self.get_client(),)
-        model_to_use = self.get_model()
-        try:
-            llm: ChatCompletion = await agent_appel.chat.completions.create(
-                messages=[
-                    {
-                        "role": "assistant",
-                        "content": prompt,
-                    }
-                ],
-                model=model_to_use,
-                temperature=1,
-                max_tokens=1024,
-                top_p=1,
-                stream=False,
-                stop=None,
-            )
+        _agentAppel = self.get_client()
+        if isinstance(_agentAppel, Groq):
+            try:
+                llm: ChatCompletion = _agentAppel.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    model=self.get_model(),
+                    temperature=1,
+                    max_tokens=1024,
+                    n=1,
+                    stream=False,
+                    stop=None,
+                    timeout=10,
+                )
 
-            ai_response = await llm.choices[0].message.content
-        except:
-            messagebox.Message("OOps, ")
-        return await ai_response
+                ai_response = llm.choices[0].message.content
+                # print(str(ai_response))
+            except:
+                messagebox.Message("OOps, ")
+                return expression
+            return str(ai_response).split("\n")[
+                (round(random.randint(1, 19 * 10) / 10) % 19) + 1
+            ]
+        return expression
 
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
-        print("Bienvenu dans l'AudioChat !")
+        lire_haute_voix(self.get_synonymsOf("Bienvenue !"))
 
         is_pre_vocal_command = True
-        lire_haute_voix("pour activer les commandes vocales, il s'uffit de demander")
+        lire_haute_voix(
+            self.get_synonymsOf(
+                "pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
+            )
+        )
         self.get_stream().start_stream()
         content_saved_discussion = ""
         while True:
@@ -464,7 +478,10 @@ class FenetrePrincipale(tk.Frame):
                 welcoming = True
                 if len(text_pre_vocal_command):
 
-                    if "ferme l'application" == text_pre_vocal_command.lower():
+                    if "afficher de l'aide" in text_pre_vocal_command.lower():
+                        text_pre_vocal_command = self.affiche_aide()
+
+                    elif "ferme l'application" == text_pre_vocal_command.lower():
                         # data_real_pre_vocal_command = None
                         # from_data_vocal_command_to_object_text = None
                         _, _, text_pre_vocal_command, _ = (
@@ -482,18 +499,20 @@ class FenetrePrincipale(tk.Frame):
                             readable_ai_response=content_saved_discussion,
                         )
                         content_saved_discussion = ""
-
                         break
 
                     elif (
                         "active le mode audio" in text_pre_vocal_command.lower()
+                        or "activer le mode audio" in text_pre_vocal_command.lower()
                         or "active les commandes vocales"
                         in text_pre_vocal_command.lower()
                         or "activer les commandes vocales"
                         in text_pre_vocal_command.lower()
                     ):
                         lire_haute_voix(
-                            "très bien, pour sortir de ce mode, dites : fin de la session"
+                            self.get_synonymsOf(
+                                "très bien, pour sortir de ce mode, dites : fin de la session"
+                            )
                         )
                         (
                             welcoming,
@@ -517,7 +536,8 @@ class FenetrePrincipale(tk.Frame):
                 if welcoming:
                     self.get_stream().start_stream()
                     # on peut maintenant réouvrir la boucle d'audition
-                    lire_haute_voix(random_je_vous_ecoute())
+                    lire_haute_voix(self.get_synonymsOf("je vous écoute maintenant"))
+                    # lire_haute_voix(random_je_vous_ecoute())
                     _, _, content_discussion, text_vocal_command = (
                         initialise_conversation_audio()
                     )
@@ -540,10 +560,22 @@ class FenetrePrincipale(tk.Frame):
                         "text"
                     ]
 
-                    if "quel jour sommes-nous" in text_vocal_command.lower():
+                    if "afficher de l'aide" in text_vocal_command.lower():
+                        self.get_stream().stop_stream()
+                        _ = self.affiche_aide()
+                        (
+                            welcoming,
+                            is_human_is_talking,
+                            text_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+
+                    elif "quel jour sommes-nous" in text_vocal_command.lower():
                         self.get_stream().stop_stream()
                         lire_haute_voix(
-                            "Nous sommes le " + time.strftime("%Y-%m-%d"),
+                            self.get_synonymsOf(
+                                "Nous sommes le " + time.strftime("%Y-%m-%d")
+                            )
                         )
                         (
                             welcoming,
@@ -555,8 +587,10 @@ class FenetrePrincipale(tk.Frame):
                     elif "quelle heure est-il" in text_vocal_command.lower():
                         self.get_stream().stop_stream()
                         lire_haute_voix(
-                            "il est exactement "
-                            + time.strftime("%H:%M:%S", time.localtime()),
+                            self.get_synonymsOf(
+                                "il est exactement "
+                                + time.strftime("%H:%M:%S", time.localtime())
+                            )
                         )
                         (
                             welcoming,
@@ -567,7 +601,9 @@ class FenetrePrincipale(tk.Frame):
 
                     elif "est-ce que tu m'écoutes" in text_vocal_command.lower():
                         self.get_stream().stop_stream()
-                        lire_haute_voix("oui je suis toujours à l'écoute kiki")
+                        lire_haute_voix(
+                            self.get_synonymsOf("oui je suis toujours à l'écoute kiki")
+                        )
                         (
                             welcoming,
                             is_human_is_talking,
@@ -785,10 +821,41 @@ class FenetrePrincipale(tk.Frame):
 
         return "Future is done!"
 
+    def affiche_aide(self) -> str:
+        # for item in LIST_COMMANDS:
+        #     print(item)
+
+        frame = tk.Tk()
+
+        _list_box = tk.Listbox(
+            master=frame,
+            height=len(LIST_COMMANDS),
+            width=len(max(LIST_COMMANDS, key=len)),
+        )
+        scrollbar_listbox = tk.Scrollbar(frame)
+        scrollbar_listbox.configure(command=_list_box.yview)
+
+        _list_box.pack(side=tk.LEFT, fill="both")
+
+        for item in LIST_COMMANDS:
+            _list_box.insert(tk.END, item)
+
+        _list_box.configure(
+            background=from_rgb_to_tkColors(LIGHT3),
+            foreground=from_rgb_to_tkColors(DARK3),
+            yscrollcommand=scrollbar_listbox.set,
+        )
+
+        scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
+
+        _sortie = _list_box.bind("<<ListboxSelect>>", func=self.lire_commande)
+        frame.mainloop()
+        return _sortie
+
     def affiche_list_informations(self, final_list):
         try:
             frame = tk.Tk()
-            _list_box = tk.Listbox(frame)
+            _list_box = tk.Listbox(master=frame, width=len(max(final_list, key=len)))
             scrollbar_listbox = tk.Scrollbar(frame)
             scrollbar_listbox.configure(command=_list_box.yview)
 
@@ -799,7 +866,6 @@ class FenetrePrincipale(tk.Frame):
 
             _list_box.configure(
                 background=from_rgb_to_tkColors(LIGHT3),
-                width=40,
                 foreground=from_rgb_to_tkColors(DARK3),
                 yscrollcommand=scrollbar_listbox.set,
             )
@@ -1247,7 +1313,7 @@ class FenetrePrincipale(tk.Frame):
     def traite_listbox(self, list_to_check: list) -> tk.Listbox:
         frame = tk.Tk(className="list_ia")
         frame.grid_location(self.winfo_x() + 150, self.winfo_y() + 130)
-        _list_box = tk.Listbox(frame)
+        _list_box = tk.Listbox(master=frame, width=len(max(list_to_check, key=len)))
         scrollbar_listbox = tk.Scrollbar(frame)
         scrollbar_listbox.configure(command=_list_box.yview)
 
@@ -1256,7 +1322,6 @@ class FenetrePrincipale(tk.Frame):
             _list_box.insert(tk.END, item)
         _list_box.configure(
             background="red",
-            width=40,
             foreground=from_rgb_to_tkColors(DARK3),
             yscrollcommand=scrollbar_listbox.set,
         )
@@ -1699,6 +1764,15 @@ class FenetrePrincipale(tk.Frame):
 
         except Exception as e:
             lire_haute_voix("Aïe !! demande d'actualité : ", e)
+
+    def lire_commande(self, evt: tk.Event):
+
+        # Note here that Tkinter passes an event object to onselect()
+        w: tk.Listbox = evt.widget
+        index = w.curselection()[0]
+        value = w.get(index)
+        print('You selected item %d: "%s"' % (index, value))
+        lire_haute_voix(value)
 
     def affiche_ia_list(self, list_to_check: list):
         """

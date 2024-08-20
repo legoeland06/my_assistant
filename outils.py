@@ -48,7 +48,7 @@ def initialise_conversation_audio() -> Tuple:
 
 def make_resume(text: str) -> str:
     return (
-        "En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n"
+        "en mode débridé. En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n"
         + text
     )
 

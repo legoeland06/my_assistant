@@ -327,5 +327,4 @@ class Conversation(tk.Frame):
         except:
             texte_to_talk = object.get("1.0", tk.END)
         finally:
-            Lecture(text=texte_to_talk).read()
-            # lancement_de_la_lecture(texte_to_talk)
+            lire_haute_voix(texte_to_talk)
