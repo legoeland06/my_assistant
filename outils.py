@@ -1,4 +1,5 @@
 import asyncio
+import random
 import subprocess
 from threading import Thread
 import time
@@ -6,7 +7,6 @@ from groq import Groq
 from openai import ChatCompletion
 
 import pyaudio
-import pygame
 import pyttsx3
 import datetime
 import json
@@ -16,6 +16,7 @@ from tkinter import messagebox
 import tkinter.font as tkfont
 from typing import Any, List, Mapping, Tuple
 import imageio.v3 as iio
+import vosk
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
 import PyPDF2
@@ -52,8 +53,69 @@ def make_resume(text: str) -> str:
     )
 
 
-def lancement_de_la_lecture(text: str):
-    the_thread = Thread(None, name="the_thread", target=lambda: ecouter(text)).start()
+def askToRead(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream, text_to_read: str):
+    lire_haute_voix("voulez-vous que je lise ?")
+    if questionOuiouNon(engine, stream):
+        # ennonce le résultat de l'ia
+        if lire_haute_voix(text_to_read):
+            stream.start_stream()
+        else:
+            stream.stop_stream()
+
+    else:
+        lire_haute_voix("D'accord")
+
+
+def lire_haute_voix(text: str):
+    the_thread = Thread(None, name="the_thread", target=lambda: ecouter(text))
+    the_thread.start()
+    if the_thread.ident and not the_thread.daemon:
+        return True
+
+
+def random_je_vous_ecoute() -> str:
+    random_expression = [
+        "à vous",
+        "je vous écoute",
+        "je suis tout ouïe",
+        "dites moi maintenant",
+        "...",
+    ]
+    return random_expression[
+        round(random.randint(0, random_expression.__len__() * 10) / 10)
+        % random_expression.__len__()
+    ]
+
+
+def questionOuiouNon(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
+    stream.start_stream()
+    while True:
+        if engine.AcceptWaveform(
+            stream.read(
+                num_frames=8192, exception_on_overflow=False
+            )  # read in chunks of 4096 bytes
+        ):  # accept waveform of input voice
+            response = json.loads(engine.Result())["text"].lower()
+            if "oui" in response:
+                stream.stop_stream()
+                return True
+            elif "non" in response:
+                stream.stop_stream()
+                return False
+
+
+def questionOuverte(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
+    stream.start_stream()
+    while True:
+        if engine.AcceptWaveform(
+            stream.read(
+                num_frames=8192, exception_on_overflow=False
+            )  # read in chunks of 4096 bytes
+        ):  # accept waveform of input voice
+            response = json.loads(engine.Result())["text"].lower()
+            if len(response.split()) >= 1:
+                stream.stop_stream()
+                return response
 
 
 def ecouter(text: str):
@@ -67,38 +129,6 @@ async def say_txt(alire: str):
     """
     lit le texte passé en paramètre
     """
-
-    class Lecture:
-
-        def __init__(self) -> None:
-            pass
-        def read(self):
-            self.mixer=pygame.mixer
-            self.mixer.init()
-            self.mixer_music = self.mixer.music
-            self.mixer_music.load("mywav.wav")
-            # unpause_button.pack_forget()
-            # pause_button.pack(side=LEFT)
-            self.mixer_music.play()
-            # if self.mixer_music.get_endevent:
-            #     self.unload()
-
-        def unload(self):
-            self.mixer_music.unload()
-
-        # def stop(self):
-        #     self.mixer_music.stop()
-
-        # def pause(self):
-        #     self.mixer_music.pause()
-        #     self.pause_button.pack_forget()
-        #     self.unpause_button.pack(side=LEFT)
-
-        # def unpause(self):
-        #     self.mixer_music.unpause()
-        #     self.unpause_button.pack_forget()
-        #     self.pause_button.pack(side=LEFT)
-
     texte_reformate = (
         alire.replace("*", " ")
         .replace("-", " ")
@@ -111,11 +141,6 @@ async def say_txt(alire: str):
     )
     lecteur = engine_lecteur_init()
     if not lecteur._inLoop:
-        # lecteur.save_to_file(texte_reformate,"mywav.wav")
-        # lecture=Lecture()
-        
-        # del lecture
-        # lecture.read()
         lecteur.say(texte_reformate)
         lecteur.proxy.runAndWait()
 
@@ -205,9 +230,6 @@ def append_response_to_file(file_to_append, readable_ai_response):
         )
         target_file.write(markdown_content + "\n")
     with open(file_to_append + ".md", "a", encoding="utf-8") as target_file:
-        # markdown_content = markdown.markdown(
-        #     readable_ai_response, output_format="xhtml"
-        # )
         target_file.write("\n" + readable_ai_response + "\n")
     with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
         markdown_content = readable_ai_response
@@ -252,32 +274,6 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
     ]
 
     return liste_of_sentences
-    # return (" ".join(liste_of_sentences))
-    # TODO : definir la coupure par phrases , on découpe le texte par mots
-    # import spacy as spc
-    # import nltk
-
-    # _langague = spc.language.Language.lang = "fr"
-    # _classlang = spc.util.set_lang_class("french")
-    # doc = spc.util.dot_to_object()   (u'Hello world')
-    # liste_of_words = " ".join(liste_of_sentences).split()
-
-    # if len(liste_of_words) >= number:
-    #     list_of_large_text: list[list[str]] = []
-    #     new_list: list[str] = []
-    #     counter = 0
-
-    #     for sentence in liste_of_sentences:
-    #         counter += len(sentence) + 1
-    #         new_list.append(sentence)
-    #         if counter >= number:
-    #             list_of_large_text.append(new_list)
-    #             new_list = []
-    #             counter = 0
-    #     return list_of_large_text
-
-    # else:
-    #     return liste_of_sentences
 
 
 def translate_it(text_to_translate: str) -> str:
@@ -482,16 +478,6 @@ def get_groq_ia_list(api_key):
         sortie.append(item["id"])
     print(str(sortie))
     return sortie
-
-
-# def changer_ia(app: any, evt: tk.Event):
-#     # Note here that Tkinter passes an event object to onselect()
-#     w: tk.Listbox = evt.widget
-#     if type(w) is tk.Listbox:
-#         index = int(w.curselection()[0])
-#         value = w.get(index)
-#         print('You selected item %d: "%s"' % (index, value))
-#         app.set_model(value)
 
 
 def ask_to_resume(agent_appel, prompt, model_to_use):

@@ -1,6 +1,7 @@
 import tkinter as tk
 
-from outils import askToAi, from_rgb_to_tkColors, lancement_de_la_lecture
+from Lecture import Lecture
+from outils import askToAi, from_rgb_to_tkColors, lire_haute_voix
 from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
 
@@ -35,6 +36,7 @@ class Conversation(tk.Frame):
             slant=ZEFONT[2],
             weight=ZEFONT[3],
         )
+
         default_font = font.nametofont("TkDefaultFont")
         default_font.configure(size=8)
         self.fenexport = None
@@ -325,4 +327,5 @@ class Conversation(tk.Frame):
         except:
             texte_to_talk = object.get("1.0", tk.END)
         finally:
-            lancement_de_la_lecture(texte_to_talk)
+            Lecture(text=texte_to_talk).read()
+            # lancement_de_la_lecture(texte_to_talk)

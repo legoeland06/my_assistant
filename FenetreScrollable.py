@@ -6,12 +6,11 @@ from groq import Groq
 
 from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370B
 from Conversation import Conversation
-from SimpleMarkdownText import SimpleMarkdownText
 from outils import (
     ask_to_resume,
     engine_lecteur_init,
     from_rgb_to_tkColors,
-    lancement_de_la_lecture,
+    lire_haute_voix,
 )
 from secret import GROQ_API_KEY
 
@@ -210,7 +209,7 @@ class FenetreScrollable(tk.Frame):
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()
 
-        # self.print_liste_des_conversations()
+        self.print_liste_des_conversations()
 
     def print_liste_des_conversations(self):
         print("liste des conversations\n************************************")
@@ -246,17 +245,17 @@ class FenetreScrollable(tk.Frame):
         response = ai_response[:499] if len(ai_response) >= 500 else ai_response
         longueur = len(self.get_prompts_history())
         if longueur >= MAX_HISTORY:
-            # TODO: ici on va faire un résumé des 10 anciennes conversations (MAX_HISTORY=10)
+            # on fait un résumé des 10 anciennes conversations (MAX_HISTORY=15)
             conversation_resumee = ask_to_resume(
                 agent_appel=Groq(api_key=GROQ_API_KEY),
                 prompt="".join(map(str, self.get_prompts_history())),
                 model_to_use=LLAMA370B,
             )
 
-            # TODO: puis on va les effacer
+            # on les efface
             self.get_prompts_history().clear()
 
-            # TODO: puis on va insère le résumé des conversations
+            # on insère le résumé des conversations
             self.get_prompts_history().append(
                 {
                     "fenetre_name": fenetre_name,
@@ -264,10 +263,7 @@ class FenetreScrollable(tk.Frame):
                     "response": conversation_resumee,
                 },
             )
-            lancement_de_la_lecture(
-                "un résumé des anciennes conversations à été effectué"
-            )
-            # assert len(self.get_prompts_history()) == 1
+            lire_haute_voix("un résumé des anciennes conversations à été effectué")
 
         self.get_prompts_history().append(
             {

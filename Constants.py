@@ -89,7 +89,7 @@ CONVERSATIONS_HISTORY = "voici l'historique des conversations :"
 STARS = "*"
 LINE = "-"
 DOUBLE_LINE = "="
-TIMING_COEF = 1_000_000_000.0
+TIMING_COEF = 100_000_000.0
 INFOS_CHAT = "\
  ******************************************************\n\
  * COMMANDES ACCESSIBLES du mode chat\n\

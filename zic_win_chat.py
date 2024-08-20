@@ -11,7 +11,7 @@ import vosk
 import pyaudio
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
-from outils import engine_lecteur_init, lancement_de_la_lecture, say_txt
+from outils import engine_lecteur_init, lire_haute_voix, say_txt
 from secret import GROQ_API_KEY
 
 
@@ -87,7 +87,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
             messagebox.Message("OOps, ")
 
     # calcul le temps écoulé par la thread
-    timing: float = (time.perf_counter_ns() - mytime) / 1_000_000_000.0
+    timing: float = (time.perf_counter_ns() - mytime) / cst.TIMING_COEF
 
     # TODO
     print(ai_response)
@@ -102,7 +102,7 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
         agent_appel=groq_client, prompt=texte, model_to_use=model_to_use
     )
     readable_ai_response = ai_response
-    lancement_de_la_lecture(readable_ai_response) if talking else None
+    lire_haute_voix(readable_ai_response) if talking else None
     return readable_ai_response
 
 
@@ -119,7 +119,7 @@ def main(prompt=False):
         exit(0)
 
     model_used = cst.LLAMA370B.split(":")[0]
-    lancement_de_la_lecture("Ia sélectionnée :"+model_used)
+    lire_haute_voix("Ia sélectionnée :" + model_used)
     print(
         "ZicChatbotAudio\n"
         + cst.STARS * cst.WIDTH_TERM
@@ -127,14 +127,14 @@ def main(prompt=False):
         + cst.STARS * cst.WIDTH_TERM
     )
 
-    lancement_de_la_lecture("chargement du moteur de reconnaissance vocale ")
+    lire_haute_voix("chargement du moteur de reconnaissance vocale ")
     model_ecouteur_micro = engine_ecouteur_init()
-    lancement_de_la_lecture("reconnaissance vocale initialisée")
+    lire_haute_voix("reconnaissance vocale initialisée")
 
     # initialise a voice recognizer
-    lancement_de_la_lecture("initialisation du micro")
+    lire_haute_voix("initialisation du micro")
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    lancement_de_la_lecture("micro initialisé")
+    lire_haute_voix("micro initialisé")
 
     root.title = "RootTitle - "
 
