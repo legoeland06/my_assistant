@@ -70,7 +70,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
         ]
 
         try:
-            llm: openai.ChatCompletion = agent_appel.chat.completions.create(
+            llm: openai.ChatCompletion = agent_appel.chat.completions.create( # type: ignore
                 messages=this_message,
                 model=model_to_use,
                 temperature=1,
@@ -115,7 +115,7 @@ def main(prompt=False):
     """
     if prompt:
         model_used = cst.LLAMA370B
-        traitement_rapide(prompt, model_to_use=model_used, talking=False)
+        traitement_rapide(str(prompt), model_to_use=model_used, talking=False)
         exit(0)
 
     model_used = cst.LLAMA370B.split(":")[0]
@@ -136,7 +136,7 @@ def main(prompt=False):
     rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
     lire_haute_voix("micro initialisé")
 
-    root.title = "RootTitle - "
+    root.title = "RootTitle - " # type: ignore
 
     app.title = "MyApp"
 
@@ -179,13 +179,11 @@ lecteur, stream = init_start(engine_lecteur_init, init_main)
 
 root = tk.Tk(className="YourAssistant")
 
-
 app = FenetrePrincipale(
     master=root,
     stream=stream,
     model_to_use=cst.LLAMA3,
 )
-
 
 if __name__ == "__main__":
     import argparse

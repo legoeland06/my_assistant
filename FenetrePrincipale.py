@@ -3,12 +3,13 @@ import asyncio
 import json
 import random
 import time
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import PhotoImage, filedialog, messagebox, simpledialog
 from typing import Any, Tuple
 from groq import Groq
+from numpy import unicode_
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
-from openai import ChatCompletion
+from openai import ChatCompletion  # type: ignore
 import pyaudio
 from Constants import *
 import tkinter.font as tkfont
@@ -38,7 +39,6 @@ from outils import (
     load_pdf,
     load_txt,
     make_resume,
-    random_je_vous_ecoute,
     read_text_file,
     traitement_du_texte,
     translate_it,
@@ -57,9 +57,9 @@ class FenetrePrincipale(tk.Frame):
     # moteur de reconnaissance vocale et d'écoute
     engine_model: vosk.KaldiRecognizer
 
-    image: ImageTk
+    image: ImageTk  # type: ignore
     image_link: str
-    client: any = None
+    client: any = None  # type: ignore
     ai_response: str
     timer: float
     thread: threading.Thread
@@ -77,7 +77,7 @@ class FenetrePrincipale(tk.Frame):
         super().__init__(master)
         self.master = master
         self.ia = LLAMA3
-        self.thread = None
+        # self.thread = None
         self.submission = ""
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -85,12 +85,17 @@ class FenetrePrincipale(tk.Frame):
             slant=ZEFONT[2],
             weight=ZEFONT[3],
         )
+        print(tkfont.names())
+        self.default_font = tkfont.nametofont("TkDefaultFont")
+        self.default_font.configure(size=12)
+        self.btn_font = tkfont.nametofont("TkIconFont")
+        self.btn_font.configure(size=14)
         self.timer: float = 0
         self.model_to_use = model_to_use
         self.streaming = stream
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
-        )
+        )  # type: ignore
         self.image_link = ""
         self.content = ""
         self.motcles = []
@@ -127,7 +132,7 @@ class FenetrePrincipale(tk.Frame):
         self.thread = thread
 
     def get_thread(self) -> StoppableThread:
-        return self.thread
+        return self.thread  # type: ignore
 
     def set_timer(self, timer: float):
         self.timer = timer
@@ -162,6 +167,9 @@ class FenetrePrincipale(tk.Frame):
         return self.content
 
     def set_submission(self, content: str):
+        """
+        remplace tout le contenu de l'attribut **submission** de lma classe, par la valeur de **content**
+        """
         self.submission = content
 
     def get_submission(self) -> str:
@@ -175,7 +183,9 @@ class FenetrePrincipale(tk.Frame):
 
     def set_model(self, name_ia: str) -> bool:
         self.model_to_use = name_ia
-        lire_haute_voix("changement d'ia: " + self.model_to_use)
+        return (
+            True if lire_haute_voix("changement d'ia: " + self.model_to_use) else False
+        )
 
     def get_model(self) -> str:
         return self.model_to_use
@@ -194,10 +204,10 @@ class FenetrePrincipale(tk.Frame):
     def get_engine(self) -> vosk.KaldiRecognizer:
         return self.engine_model
 
-    def get_image(self) -> ImageTk:
+    def get_image(self) -> ImageTk:  # type: ignore
         return self.image
 
-    def set_image(self, image: ImageTk) -> bool:
+    def set_image(self, image: ImageTk) -> bool:  # type: ignore
         self.image = image
         return True
 
@@ -209,7 +219,7 @@ class FenetrePrincipale(tk.Frame):
             print(self.motcles_widget.get())
         # récupère le texte contenu dans le widget_mot_clé
         speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
-        self.set_motcles([speciality])
+        self.get_motcles().append(speciality)
         # self.get_motcles().append(speciality)
 
         # si une sélection est faite dans le prompt principale,
@@ -246,9 +256,10 @@ class FenetrePrincipale(tk.Frame):
             self.destroy()
         else:
             print("L'utilisateur a annulé.")
+        return "Merci Au revoir"
 
     # open a windows
-    def affiche_banniere(self, image_banniere: ImageTk, slogan, quitter_app):
+    def affiche_banniere(self, image_banniere: ImageTk, slogan):  # type: ignore
         """affiche l'illustration (la bannière) et les boutons de saisie système
         * bouton quitter
         * sélection du clien Ola ou ollama...
@@ -274,73 +285,79 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour quitter
         bouton_quitter = tk.Button(
-            canvas_buttons_banniere, text="Quitter", command=self.master.destroy
+            canvas_buttons_banniere,
+            font=self.btn_font,
+            relief="flat",
+            text="📴",
+            border=0,
+            command=self.master.destroy,
         )
-        bouton_quitter.configure(
-            background=from_rgb_to_tkColors(DARK3), foreground="red"
-        )
+        bouton_quitter.configure(background="black", foreground="red")
         bouton_quitter.pack(side=tk.LEFT)
 
-        bouton_Ola = tk.Button(
-            canvas_buttons_banniere,
-            text="Ola",
-            command=lambda: self.set_client(Ola),
-            highlightthickness=3,
-            highlightcolor="yellow",
-        )
-        bouton_Ola.configure(
-            background=from_rgb_to_tkColors(LIGHT3),
-            foreground=from_rgb_to_tkColors(DARK3),
-        )
-        bouton_Ola.pack(side=tk.LEFT)
+        # bouton_Ola = tk.Button(
+        #     canvas_buttons_banniere,
+        #     font=self.btn_font,
+        #     text="Ola",
+        #     command=lambda: self.set_client(Ola),
+        #     highlightthickness=3,
+        #     highlightcolor="yellow",
+        # )
+        # bouton_Ola.configure(
+        #     background=from_rgb_to_tkColors(LIGHT3),
+        #     foreground=from_rgb_to_tkColors(DARK3),
+        # )
+        # bouton_Ola.pack(side=tk.LEFT)
 
         bouton_Groq = tk.Button(
             canvas_buttons_banniere,
-            text="CLient_groq",
+            # text="CLient_groq",
+            font=self.btn_font,
+            text="🚹",
             command=self.groq_choix_ia,
+            relief="flat",
             highlightthickness=3,
             highlightcolor="yellow",
         )
-        bouton_Groq.configure(
-            background=from_rgb_to_tkColors(LIGHT3),
-            foreground=from_rgb_to_tkColors(DARK3),
-        )
+        bouton_Groq.configure(foreground="red", background="black")
         bouton_Groq.pack(side=tk.LEFT)
 
-        bouton_Ollama = tk.Button(
-            canvas_buttons_banniere,
-            text="Ollama",
-            command=lambda: self.set_client(
-                ollama.Client(host="http://127.0.0.1:11434")
-            ),
-            highlightthickness=3,
-            highlightcolor="yellow",
-        )
-        bouton_Ollama.configure(
-            background=from_rgb_to_tkColors(LIGHT3),
-            foreground=from_rgb_to_tkColors(DARK3),
-        )
-        bouton_Ollama.pack(side=tk.LEFT)
+        # bouton_Ollama = tk.Button(
+        #     canvas_buttons_banniere,
+        #     text="Ollama",
+        #     command=lambda: self.set_client(
+        #         ollama.Client(host="http://127.0.0.1:11434")
+        #     ),
+        #     highlightthickness=3,
+        #     highlightcolor="yellow",
+        # )
+        # bouton_Ollama.configure(
+        #     background=from_rgb_to_tkColors(LIGHT3),
+        #     foreground=from_rgb_to_tkColors(DARK3),
+        # )
+        # bouton_Ollama.pack(side=tk.LEFT)
 
-        bouton_display_list_models = tk.Button(
-            canvas_buttons_banniere,
-            name="btnlist",
-            text="Changer d'IA",
-            background="red",
-            foreground=from_rgb_to_tkColors(DARK3),
-            command=lambda: self.affiche_ia_list(self.getListOfModels()),
-        )
+        # bouton_display_list_models = tk.Button(
+        #     canvas_buttons_banniere,
+        #     name="btnlist",
+        #     text="Changer d'IA",
+        #     background="red",
+        #     foreground=from_rgb_to_tkColors(DARK3),
+        #     command=lambda: self.affiche_ia_list(self.getListOfModels()),
+        # )
 
         label_slogan = tk.Label(
             canvas_buttons_banniere,
             text=slogan,
-            font=("Trebuchet", 8),
+            font=("Trebuchet Bold Italic", 8),
+            bg="black",
+            border=0,
+            relief="flat",
             fg=from_rgb_to_tkColors(LIGHT3),
-            bg=from_rgb_to_tkColors(DARK2),
         )
 
         label_slogan.pack(side=tk.RIGHT, expand=False)
-        bouton_display_list_models.pack(side=tk.RIGHT, expand=False)
+        # bouton_display_list_models.pack(side=tk.RIGHT, expand=False)
 
         # Add the image to the canvas, anchored at the top-left (northwest) corner
         canvas_image_banniere.create_image(
@@ -351,8 +368,7 @@ class FenetrePrincipale(tk.Frame):
     def affiche_ban(self):
         self.affiche_banniere(
             image_banniere=self.image,
-            quitter_app=self.quitter,
-            slogan="... Jonathan LivingStone, dit legoeland",
+            slogan="... Jonathan LivingStone, dit legoeland... ",
         )
 
     def groq_choix_ia(self):
@@ -393,18 +409,24 @@ class FenetrePrincipale(tk.Frame):
                 message=self.get_synonymsOf("Veuillez poser au moins une question")
             )
 
+        return "Ok c'est soummis"
+
     def lance_thread_ecoute(self):
-        if self.get_thread() == None or self.get_thread().stopped():
-            self.bouton_commencer_diction.flash()
-            my_thread = StoppableThread(None, name="my_thread", target=self.ecouter)
-            self.set_thread(my_thread)
-            self.get_thread().start()
+        self.bouton_commencer_diction.flash()
+        self.set_thread(
+            StoppableThread(
+                None,
+                name="my_thread",
+                target=self.ecouter,
+            )
+        )
+        self.get_thread().start()
 
     def ecouter(self):
         loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.create_task(self.dialog_ia())
-        loop.run_forever()
+        # asyncio.set_event_loop(loop)
+        task = loop.create_task(self.dialog_ia())  # type: ignore
+        loop.run_until_complete(task)
 
     def get_synonymsOf(self, expression):
         prompt = (
@@ -436,8 +458,10 @@ class FenetrePrincipale(tk.Frame):
             except:
                 messagebox.Message("OOps, ")
                 return expression
-            return str(ai_response).split("\n")[
-                (round(random.randint(1, 19 * 10) / 10) % 19) + 1
+            ai_response_list = str(ai_response).split("\n")
+            return ai_response_list[
+                (round(random.randint(1, 19 * 10) / 10) % (len(ai_response_list) - 1))
+                + 1
             ]
         return expression
 
@@ -481,7 +505,10 @@ class FenetrePrincipale(tk.Frame):
                     if "afficher de l'aide" in text_pre_vocal_command.lower():
                         text_pre_vocal_command = self.affiche_aide()
 
-                    elif "ferme l'application" == text_pre_vocal_command.lower():
+                    elif (
+                        "ferme l'application" == text_pre_vocal_command.lower()
+                        or "fermer l'application" == text_pre_vocal_command.lower()
+                    ):
                         # data_real_pre_vocal_command = None
                         # from_data_vocal_command_to_object_text = None
                         _, _, text_pre_vocal_command, _ = (
@@ -489,7 +516,7 @@ class FenetrePrincipale(tk.Frame):
                         )
                         is_pre_vocal_command = True
                         self.get_stream().stop_stream()
-                        self.get_thread().stop()
+                        # self.get_thread().stop()
                         lire_haute_voix(
                             "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton rouge"
                         )
@@ -644,8 +671,7 @@ class FenetrePrincipale(tk.Frame):
                         in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
-                        kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
-                        kiki.destroy()
+                        self.delete_last_discussion()
                         lire_haute_voix("c'est fait !")
                         (
                             welcoming,
@@ -694,7 +720,7 @@ class FenetrePrincipale(tk.Frame):
                                     liste_rss["content"].split(" | ")
                                 )
 
-                            response = self.envoyer_audio_prompt(
+                            response = self.envoyer_prompt(
                                 content_discussion=make_resume(feed_rss),
                                 necessite_ai=True,
                                 grorOrNot=False,
@@ -721,20 +747,19 @@ class FenetrePrincipale(tk.Frame):
                         if not self.fenetre_scrollable.winfo_exists:
                             self.fenetre_scrollable = FenetreScrollable(self)
                         final_list = [item["title"] for item in RULS_RSS]
-                        for truc in final_list:
-                            print(truc)
-
                         content_discussion, text_vocal_command = (
                             self.affiche_list_informations(final_list)
                         )
-                        askToRead(
+                        if "annulé" == askToRead(
                             self.get_engine(),
                             self.get_stream(),
-                            self.envoyer_audio_prompt(
-                                content_discussion, necessite_ai=True, grorOrNot=True
-                            ),
-                        )
-
+                            self.get_submission(),
+                            # self.envoyer_audio_prompt(
+                            #     content_discussion, necessite_ai=True, grorOrNot=True
+                            # ),
+                        ):
+                            # effacement de la dernière conversation
+                            self.delete_last_discussion()
                         (
                             welcoming,
                             is_human_is_talking,
@@ -748,8 +773,10 @@ class FenetrePrincipale(tk.Frame):
                             " faire une recherche web sur", "\nrechercher sur le web : "
                         )
 
-                        content_discussion += text_vocal_command
-                        response = self.envoyer_audio_prompt(
+                        content_discussion = (
+                            str(content_discussion) + text_vocal_command
+                        )
+                        _ = self.envoyer_prompt(
                             content_discussion, necessite_ai=True, grorOrNot=False
                         )
                         (
@@ -759,9 +786,13 @@ class FenetrePrincipale(tk.Frame):
                             content_discussion,
                         ) = initialise_conversation_audio()
 
-                    elif "fin de la session" in text_vocal_command.lower():
+                    elif (
+                        "fin de la session" in text_vocal_command.lower()
+                        or "fermer la session" in text_vocal_command.lower()
+                    ):
                         # sortie de la boucle d'audition
                         self.get_stream().stop_stream()
+                        # self.get_stream().close()
 
                         welcoming, _, text_vocal_command, content_discussion = (
                             initialise_conversation_audio()
@@ -775,7 +806,9 @@ class FenetrePrincipale(tk.Frame):
                     elif text_vocal_command.lower() != "":
                         mode_ecoute = True
                         is_human_is_talking = True
-                        content_discussion += "\n" + text_vocal_command
+                        content_discussion = (
+                            str(content_discussion) + "\n" + text_vocal_command
+                        )
                         print("texte reconnu : " + text_vocal_command.lower())
 
                         self.set_timer(time.perf_counter_ns())
@@ -803,15 +836,17 @@ class FenetrePrincipale(tk.Frame):
                             + " ::secondes "
                         )
 
-                        askToRead(
+                        if "annulé" == askToRead(
                             self.get_engine(),
                             self.get_stream(),
-                            self.envoyer_audio_prompt(
+                            self.envoyer_prompt(
                                 content_discussion, necessite_ai=True, grorOrNot=True
                             ),
-                        )
-
-                        # efface le fil de discussion
+                        ):
+                            # effacement de la dernière conversation
+                            self.delete_last_discussion()
+                            
+                            # efface le fil de discussion
                         (
                             welcoming,
                             is_human_is_talking,
@@ -821,11 +856,12 @@ class FenetrePrincipale(tk.Frame):
 
         return "Future is done!"
 
-    def affiche_aide(self) -> str:
-        # for item in LIST_COMMANDS:
-        #     print(item)
+    def delete_last_discussion(self):
+        kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
+        kiki.destroy()
 
-        frame = tk.Tk()
+    def affiche_aide(self) -> str:
+        frame = tk.Toplevel()
 
         _list_box = tk.Listbox(
             master=frame,
@@ -849,12 +885,16 @@ class FenetrePrincipale(tk.Frame):
         scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
 
         _sortie = _list_box.bind("<<ListboxSelect>>", func=self.lire_commande)
-        frame.mainloop()
         return _sortie
 
     def affiche_list_informations(self, final_list):
+        """
+        ouvre une listbox avec toute les catégories d'informations disponibles à la recherche
+        chaque clic appelle une focntion de recherche de la catégorie en question : demander_actu(),
+        retourn self.get_submission() initialisée auparavant dans demander_actu()
+        """
         try:
-            frame = tk.Tk()
+            frame = tk.Toplevel()
             _list_box = tk.Listbox(master=frame, width=len(max(final_list, key=len)))
             scrollbar_listbox = tk.Scrollbar(frame)
             scrollbar_listbox.configure(command=_list_box.yview)
@@ -874,13 +914,10 @@ class FenetrePrincipale(tk.Frame):
 
             _ = _list_box.bind("<<ListboxSelect>>", func=self.demander_actu)
 
-            frame.mainloop()
         except:
             lire_haute_voix("oups problème de liste d'information")
         finally:
-            _, _, text_vocal_command, content_discussion = (
-                initialise_conversation_audio()
-            )
+            _, _, text_vocal_command, _ = initialise_conversation_audio()
         return self.get_submission(), text_vocal_command
 
     def marge_text(self, texte):
@@ -899,23 +936,30 @@ class FenetrePrincipale(tk.Frame):
         else:
             print(texte)
 
-    def envoyer_audio_prompt(
+    def envoyer_prompt(
         self, content_discussion, necessite_ai: bool, grorOrNot: bool
     ) -> str:
+        """
+        cet méthode re-travaille le texte entrant selon qu'il doit être requestionné ou non
+        voir le booléen **necessite_ai**
+        """
         self.set_submission(content=content_discussion)
         self.entree_prompt_principal.clear_text()
         self.entree_prompt_principal.insert_markdown(mkd_text=content_discussion)
         self.save_to_submission()
 
+        # ask question to AI and get (response,timing)
         if necessite_ai:
             if grorOrNot:
                 response, timing = self.demander_ai_groq()
             else:
                 response, timing = self.demander_ai()
-        # ajoute la réponse à la fenetre scrollable
+
+        # check if exist else initialize it
         if not self.fenetre_scrollable.winfo_exists():
             self.fenetre_scrollable = FenetreScrollable(self)
 
+        # ajoute la réponse à la fenetre scrollable
         self.fenetre_scrollable.addthing(
             _timing=timing if necessite_ai else 0,
             agent_appel=self.get_client(),
@@ -941,7 +985,7 @@ class FenetrePrincipale(tk.Frame):
             self.get_client(), self.get_submission(), self.get_model()
         )
 
-        return response, timing
+        return str(response), timing
 
     def submit_thread(self):
         loop = asyncio.new_event_loop()
@@ -970,7 +1014,7 @@ class FenetrePrincipale(tk.Frame):
                     + "\n"
                 )
             )
-        sortie
+        return sortie
 
     def lancer_chrome(self, word_to_search: str) -> subprocess.Popen[str]:
         link_search = "https://www.google.fr/search?q="
@@ -984,6 +1028,19 @@ class FenetrePrincipale(tk.Frame):
         )
 
     def petite_recherche(self, term: str):
+        """
+        ### make a litle web-search
+
+        récupérer le mot dans le prompt directement
+        en isolant la ligne et en récupérant tout ce qu'il y a après
+        avoir identifier les mots clés "recherche web : "
+        expression_found = (term.split(" : ")[1]).replace(" ", "+")
+        resultat_de_recherche = str(self.lancer_chrome(expression_found))
+
+        on execute cette recherche sur le web
+        avec l'agent de recherche search.main()
+        """
+
         # TODO : récupérer le mot dans le prompt directement
         # en isolant la ligne et en récupérant tout ce qu'il y a après
         # avoir identifier les mots clés "recherche web : "
@@ -1003,19 +1060,15 @@ class FenetrePrincipale(tk.Frame):
         )
         return goodlist
 
-    def check_content(self, content: str):
+    def check_content(self, content: str) -> tuple:
         """
-        ### check the content
-        Verify some keywords like :
-            << rechercher sur le web : >>
-            << en mode débridé >>
+        content (str) : content to check
 
-            @param: content type str
-
-            @return: content type str ,
-            @return: isAskToDebride type bool,
-            @return: timing type float
-        """
+        str : content augmented with potentialy web-searches
+        bool : isAskToDebride wich notify to débride AI
+        float : timing
+        Exemple :
+            >>> a, b, c = check_content(content)"""
         result_recherche = []
         isAskToDebride = False
         for line in [line for line in content.splitlines() if line.strip()]:
@@ -1033,7 +1086,7 @@ class FenetrePrincipale(tk.Frame):
                     {
                         "resultat_de_recherche": line.split(" : ")[1]
                         + "\n"
-                        + super_result
+                        + str(super_result)
                     }
                 )
 
@@ -1061,19 +1114,19 @@ class FenetrePrincipale(tk.Frame):
 
         if isinstance(agent_appel, ollama.Client):
             try:
-                llm: ollama.Client = agent_appel.chat(
+                llm: ollama.Client = agent_appel.chat(  # type: ignore
                     model=model_to_use,
                     messages=[
                         {
                             "role": "user",
-                            "content": letexte,
+                            "content": str(letexte),
                             "num_ctx": 2048,
                             "num_predict": 40,
                             "keep_alive": -1,
                         },
-                    ],
+                    ],  # type: ignore
                 )
-                ai_response = llm["message"]["content"]
+                ai_response = llm["message"]["content"]  # type: ignore
 
             except ollama.RequestError as requestError:
                 print("OOps aucun model chargé : ", requestError)
@@ -1114,7 +1167,7 @@ class FenetrePrincipale(tk.Frame):
             ]
 
             try:
-                llm: ChatCompletion = agent_appel.chat.completions.create(
+                llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
                     messages=this_message,
                     model=model_to_use,
                     temperature=1,
@@ -1125,7 +1178,7 @@ class FenetrePrincipale(tk.Frame):
                     timeout=10,
                 )
 
-                ai_response = llm.choices[0].message.content
+                ai_response = llm.choices[0].message.content  # type: ignore
 
             except:
                 messagebox.Message("OOps, ")
@@ -1157,7 +1210,7 @@ class FenetrePrincipale(tk.Frame):
             print(ai_response)
             append_response_to_file(RESUME_WEB, ai_response)
             actualise_index_html(
-                texte=ai_response,
+                texte=str(ai_response),
                 question=letexte,
                 timing=timing,
                 model=self.get_model(),
@@ -1249,28 +1302,28 @@ class FenetrePrincipale(tk.Frame):
 
         return "pas de réponse", timing
 
-    async def asking(self) -> asyncio.futures.Future:
+    async def asking(self) -> str:
 
         if not self.get_client():
             messagebox.showerror(
                 title="Client absent",
                 message="Vous devez choisir un client, en haut à gauche de l'écran",
             )
-            return
+            return  # type: ignore
         agent_appel = self.get_client()
         response_ai, _timing = self.ask_to_ai(
             agent_appel=agent_appel,
             model_to_use=self.get_model(),
             prompt=self.get_submission(),
         )
-        readable_ai_response = response_ai
+        readable_ai_response = str(response_ai)
         self.set_ai_response(readable_ai_response)
 
         self.fenetre_scrollable.addthing(
             _timing=_timing,
             agent_appel=agent_appel,
             simple_text=self.entree_prompt_principal.get_text(),
-            ai_response=response_ai,
+            ai_response=self.get_ai_response(),
             model=self.get_model(),
             submit_func=self.soumettre,
         )
@@ -1281,13 +1334,13 @@ class FenetrePrincipale(tk.Frame):
         try:
             file_to_read = filedialog.askopenfile(
                 parent=self,
-                title="Ouvrir un fichier txt",
+                title="ouvrir un txt",
                 defaultextension="txt",
                 mode="r",
                 initialdir=".",
             )
-            print(file_to_read.name)
-            resultat_txt = read_text_file(file_to_read.name)
+            print(file_to_read.name)  # type: ignore
+            resultat_txt = read_text_file(file_to_read.name)  # type: ignore
             lire_haute_voix("Fin de l'extraction")
 
             # on prepare le text pour le présenter à la méthode insert_markdown
@@ -1297,7 +1350,7 @@ class FenetrePrincipale(tk.Frame):
             self.entree_prompt_principal.insert_markdown(mkd_text=resultat_reformater)
 
         except:
-            messagebox("Problème avec ce fichier txt")
+            messagebox("Problème avec ce fichier txt")  # type: ignore
 
     def load_and_affiche_txt(self):
         resultat_txt: str = load_txt(self)
@@ -1311,7 +1364,7 @@ class FenetrePrincipale(tk.Frame):
         self.entree_prompt_principal.replace("1.0", tk.END, "")
 
     def traite_listbox(self, list_to_check: list) -> tk.Listbox:
-        frame = tk.Tk(className="list_ia")
+        frame = tk.Toplevel(name="list_ia")
         frame.grid_location(self.winfo_x() + 150, self.winfo_y() + 130)
         _list_box = tk.Listbox(master=frame, width=len(max(list_to_check, key=len)))
         scrollbar_listbox = tk.Scrollbar(frame)
@@ -1345,17 +1398,22 @@ class FenetrePrincipale(tk.Frame):
 
             preprompt = get_pre_prompt(
                 rubrique=value,
-                prompt_name=str(self.get_motcles()).lower(),
+                prompt_name=" ".join(self.get_motcles()).lower(),
             )
-            self.set_submission(preprompt)
 
-            lire_haute_voix("prépromt ajouté : " + preprompt)
+            self.entree_prompt_principal.insert(
+                tk.END, "en mode débridé, \n" + preprompt
+            )
+            # self.set_submission(preprompt)
+
+            lire_haute_voix("en mode débridé, " + preprompt)
 
         except:
             print("aucun préprompt sélectionné")
             lire_haute_voix("Oups")
         finally:
-            w.focus_get().destroy()
+            if not w.focus_get() is None:
+                w.focus_get().destroy()  # type: ignore
 
     def stoppeur(self):
         lecteur = engine_lecteur_init()
@@ -1371,14 +1429,17 @@ class FenetrePrincipale(tk.Frame):
         * affiche la listebox avec la liste donnée en paramètre list_to_check
         """
         # ouvre une boite dialog et récupère la sortie
-        mots_cle = simpledialog.askstring(
-            title="YourAssistant - pré-prompts",
-            initialvalue="Python",
-            prompt="Veuillez entrer le mot-clé à traiter",
+        mots_cle = (
+            simpledialog.askstring(
+                title="YourAssistant - pré-prompts",
+                initialvalue="Python",
+                prompt="Veuillez entrer le mot-clé à traiter",
+            )
+            or ""
         )
 
         # on set l'attribut motcle de la classe
-        self.set_motcles(mots_cle.split())
+        self.get_motcles().extend(mots_cle.split())
 
         # on récupère le tk.Entry de la fenetre principale : frame_of_buttons_principal.motcles_widget
         # on le clean et on y insère le thème récupéré par la simpledialog auparavant
@@ -1398,7 +1459,7 @@ class FenetrePrincipale(tk.Frame):
         # vers la fonction charge_preprompt
         _listbox.bind("<<ListboxSelect>>", func=self.charge_preprompt)
 
-    def creer_fenetre(self, image: ImageTk, msg_to_write):
+    def creer_fenetre(self, image: ImageTk, msg_to_write):  # type: ignore
         """
         Méthode de création de la fenetre principale"""
 
@@ -1410,24 +1471,28 @@ class FenetrePrincipale(tk.Frame):
                 Si rien n'est sélectionné, tout le text est traité.
             """
 
-            if None == obj.get_selection() or len(obj.get_selection()) == 0:
+            if None == obj.get_selection():
                 # on reécupère tout le contenu de l'objet
                 texte_to_save_to_mp3 = obj.get("1.0", tk.END)
             else:
                 texte_to_save_to_mp3 = obj.get_selection()
 
-            if len(texte_to_save_to_mp3) > 0:
+            if None != texte_to_save_to_mp3:
+                if len(str(texte_to_save_to_mp3)) > 0:
 
-                lire_haute_voix("transcription du texte vers un fichier mp3")
-                simple_dialog = simpledialog.askstring(
-                    parent=self,
-                    prompt="Enregistrement : veuillez choisir un nom au fichier",
-                    title="Enregistrer vers audio",
-                )
-                engine_lecteur_init().save_to_file(
-                    texte_to_save_to_mp3, simple_dialog.lower() + ".mp3"
-                )
-                lire_haute_voix("terminé")
+                    lire_haute_voix("transcription du texte vers un fichier mp3")
+                    file_name_mp3 = (
+                        simpledialog.askstring(
+                            parent=self,
+                            prompt="Enregistrement : veuillez choisir un nom au fichier",
+                            title="Enregistrer vers audio",
+                        )
+                        or "my_texte"
+                    )
+                    engine_lecteur_init().save_to_file(
+                        texte_to_save_to_mp3, file_name_mp3.lower() + ".mp3"
+                    )
+                    lire_haute_voix("terminé")
             else:
                 print("rien à transformer")
 
@@ -1459,7 +1524,7 @@ class FenetrePrincipale(tk.Frame):
                 indx1 = self.entree_prompt_principal.index(tk.SEL_FIRST)
                 indx2 = self.entree_prompt_principal.index(tk.SEL_LAST)
 
-                texte_traite = traitement_du_texte(texte_initial, 500)
+                texte_traite = traitement_du_texte(str(texte_initial), 500)
                 if isinstance(texte_traite, list):
                     for element in texte_traite:
                         translated_text = str(translate_it(text_to_translate=element))
@@ -1469,6 +1534,7 @@ class FenetrePrincipale(tk.Frame):
                             index2=indx2,
                             ponctuel=False,
                         )
+
                 else:
                     translated_text = str(translate_it(text_to_translate=texte_traite))
                     replace_in_place(
@@ -1550,9 +1616,6 @@ class FenetrePrincipale(tk.Frame):
         )
         self.frame_actual_prompt.pack(side=tk.BOTTOM)
 
-        self.default_font = tkfont.nametofont("TkDefaultFont")
-        self.default_font.configure(size=8)
-
         self.entree_prompt_principal = SimpleMarkdownText(
             self.frame_actual_prompt, height=15, font=self.default_font
         )
@@ -1570,21 +1633,23 @@ class FenetrePrincipale(tk.Frame):
         )
         self.boutton_effacer_entree_prompt_principal = tk.Button(
             self.frame_of_buttons_principal,
-            text="x",
+            font=self.btn_font,
+            relief="flat",
+            text="🚫",
+            fg="red",
             command=self.clear_entree_prompt_principal,
         )
         self.boutton_historique = tk.Button(
             self.frame_of_buttons_principal,
-            text="historique",
-            command=lambda: self.affiche_histoy(
+            font=self.btn_font,
+            relief="flat",
+            text="📆",
+            command=lambda: self.display_history(
                 [
                     element["response"]
                     for element in self.fenetre_scrollable.get_prompts_history()
                 ]
             ),
-        )
-        self.boutton_effacer_entree_prompt_principal.configure(
-            bg="red", fg=from_rgb_to_tkColors(LIGHT3)
         )
         self.boutton_effacer_entree_prompt_principal.pack(side="right")
         self.boutton_historique.pack(side="right")
@@ -1608,16 +1673,20 @@ class FenetrePrincipale(tk.Frame):
             command=self.entree_prompt_principal.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
-        self.bouton_stop = tk.Button(
-            self.frame_of_buttons_principal, text="Stop", command=self.stoppeur
-        )
-        self.bouton_stop.configure(bg="red", fg="white")
-        # self.bouton_stop.pack(side=tk.LEFT)
+        # self.bouton_stop = tk.Button(
+        #     self.frame_of_buttons_principal, text="Stop", command=self.stoppeur
+        # )
+        # self.bouton_stop.configure(bg="red", fg="white")
 
         # Création d'un bouton pour Lire
         self.bouton_lire1 = tk.Button(
             self.frame_of_buttons_principal,
-            text="Lire",
+            activebackground=from_rgb_to_tkColors((255, 0, 0)),
+            activeforeground=from_rgb_to_tkColors((0, 255, 255)),
+            # text="\u25B6",
+            relief="flat",
+            font=self.btn_font,
+            text=chr(9654),
             command=lambda: lance_thread_lecture(self.entree_prompt_principal),
         )
         self.bouton_lire1.configure(
@@ -1631,7 +1700,11 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour traduction_sur_place
         self.bouton_traduire_sur_place = tk.Button(
-            self.frame_of_buttons_principal, text="Traduire", command=translate_inplace
+            self.frame_of_buttons_principal,
+            font=self.btn_font,
+            relief="flat",
+            text="Traduire",
+            command=translate_inplace,
         )
         self.bouton_traduire_sur_place.configure(
             bg=from_rgb_to_tkColors(DARK2),
@@ -1644,22 +1717,29 @@ class FenetrePrincipale(tk.Frame):
         # Création d'un bouton pour Dicter
         self.bouton_commencer_diction = tk.Button(
             self.frame_of_buttons_principal,
-            text=" ф ",
+            relief="flat",
+            font=self.btn_font,
+            text=chr(9738),
+            # command=self.lance_thread_ecoute,
             command=self.lance_thread_ecoute,
         )
         self.bouton_commencer_diction.configure(
-            bg="red", fg=from_rgb_to_tkColors(LIGHT3), width=10
+            bg="red",
+            fg=from_rgb_to_tkColors(LIGHT3),
         )
 
         self.bouton_commencer_diction.pack(side=tk.LEFT)
-
         # Création d'un bouton pour soumetre
         self.bouton_soumetre = tk.Button(
-            self.frame_of_buttons_principal, text="Ask to AI", command=self.soumettre
+            self.frame_of_buttons_principal,
+            relief="flat",
+            font=self.btn_font,
+            text="🅰ℹ",
+            command=self.soumettre,
         )
         self.bouton_soumetre.configure(
-            bg=from_rgb_to_tkColors((120, 120, 120)),
-            fg=from_rgb_to_tkColors(LIGHT3),
+            # bg=from_rgb_to_tkColors((120, 120, 120)),
+            fg=from_rgb_to_tkColors((255, 0, 0)),
             highlightbackground="red",
             highlightcolor=from_rgb_to_tkColors(LIGHT3),
         )
@@ -1667,7 +1747,9 @@ class FenetrePrincipale(tk.Frame):
 
         self.bouton_save_to_mp3 = tk.Button(
             self.frame_of_buttons_principal,
-            text="texte vers mp3",
+            font=self.btn_font,
+            relief="flat",
+            text="txt \u261B mp3",
             command=lambda: textwidget_to_mp3(self.entree_prompt_principal),
         )
         self.bouton_save_to_mp3.configure(
@@ -1677,7 +1759,9 @@ class FenetrePrincipale(tk.Frame):
 
         self.bouton_load_pdf = tk.Button(
             self.frame_of_buttons_principal,
-            text="Charger Pdf",
+            font=self.btn_font,
+            text="📂 Pdf",
+            relief="flat",
             command=self.load_and_affiche_pdf,
         )
         self.bouton_load_pdf.configure(
@@ -1687,7 +1771,9 @@ class FenetrePrincipale(tk.Frame):
 
         self.bouton_load_txt = tk.Button(
             self.frame_of_buttons_principal,
-            text="Charger TXT",
+            font=self.btn_font,
+            relief="flat",
+            text="📂 TXT",
             command=self.load_and_affiche_txt,
         )
         self.bouton_load_txt.configure(
@@ -1698,18 +1784,20 @@ class FenetrePrincipale(tk.Frame):
         self.motcles_widget = tk.Entry(
             self.frame_of_buttons_principal,
             name="motcles_widget",
+            relief="flat",
             width=30,
             fg="red",
             bg=from_rgb_to_tkColors(DARK3),
             font=("trebuchet", 10, "bold"),
-            relief="flat",
         )
         self.button_keywords = tk.Button(
             self.frame_of_buttons_principal,
-            text="Mot-clé",
+            font=self.btn_font,
+            text="📌",
+            relief="flat",
             background=from_rgb_to_tkColors(DARK2),
             foreground=from_rgb_to_tkColors(LIGHT3),
-            command=lambda: self.affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),
+            command=lambda: self.affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),  # type: ignore
         )
         self.button_keywords.pack(side=tk.RIGHT, expand=False)
         self.motcles_widget.pack(side="left", padx=2, pady=2)
@@ -1729,9 +1817,15 @@ class FenetrePrincipale(tk.Frame):
             print("aucune ia sélectionner")
             lire_haute_voix("Oups problème de listing de modèle")
         finally:
-            w.focus_get().destroy()
+            w.focus_get().destroy()  # type: ignore
 
     def demander_actu(self, evt: tk.Event):
+        """
+        **Flux-rss** : Méthode appelée par la listbox des catégories d'actualités.
+        elle va chercher les flux rss conrrespondants, les récupère, les envois en questionnement
+        via envoyer_prompt()
+
+        """
 
         # Note here that Tkinter passes an event object to onselect()
         w: tk.Listbox = evt.widget
@@ -1754,16 +1848,16 @@ class FenetrePrincipale(tk.Frame):
             else:
                 feed_rss = my_feedparser_rss.lemonde(content_selected.split(" | "))
 
-            response = self.envoyer_audio_prompt(
+            response = self.envoyer_prompt(
                 content_discussion=make_resume(feed_rss),
-                necessite_ai=False,
-                grorOrNot=False,
+                necessite_ai=True,
+                grorOrNot=True,
             )
 
             self.set_submission(response)
 
         except Exception as e:
-            lire_haute_voix("Aïe !! demande d'actualité : ", e)
+            lire_haute_voix("Aïe !! demande d'actualité :  ")
 
     def lire_commande(self, evt: tk.Event):
 
@@ -1783,7 +1877,7 @@ class FenetrePrincipale(tk.Frame):
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
         _listbox.bind("<<ListboxSelect>>", func=self.load_selected_model)
 
-    def affiche_histoy(self, list_to_check: list):
+    def display_history(self, list_to_check: list):
         """
         Display a list of AI you can use
         * affiche la listebox avec la liste donnée en paramètre list_to_check

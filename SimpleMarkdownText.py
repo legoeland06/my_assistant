@@ -13,8 +13,8 @@ class SimpleMarkdownText(tkinter.Text):
         default_font = tkfont.nametofont(self.cget("font"))
         em = default_font.measure("m")
         default_size = default_font.cget("size")
-        bold_font = tkfont.Font(**default_font.configure())
-        italic_font = tkfont.Font(**default_font.configure())
+        bold_font = tkfont.Font(**default_font.configure()) # type: ignore
+        italic_font = tkfont.Font(**default_font.configure()) # type: ignore
 
         bold_font.configure(weight="bold")
         italic_font.configure(slant="italic")
@@ -28,7 +28,7 @@ class SimpleMarkdownText(tkinter.Text):
 
         max_heading = 3
         for i in range(1, max_heading + 1):
-            header_font = tkfont.Font(**default_font.configure())
+            header_font = tkfont.Font(**default_font.configure()) # type: ignore
             header_font.configure(size=int(default_size * i + 3), weight="bold")
             self.tag_configure(
                 "#" * (max_heading - i), font=header_font, spacing3=default_size
@@ -49,7 +49,7 @@ class SimpleMarkdownText(tkinter.Text):
     def get_text(self)->str:
         return self.get("1.0",tkinter.END)
     
-    def get_selection(self) -> str:
+    def get_selection(self) -> str|None:
         """
         récupère le contenu de la sélection
         """
@@ -80,8 +80,8 @@ class SimpleMarkdownText(tkinter.Text):
 
             elif line.startswith("#"):
                 tag = re.match(r"(#+) (.*)", line)
-                line = tag.group(2)
-                self.insert("end", line, tag.group(1))
+                line = tag.group(2) # type: ignore
+                self.insert("end", line, tag.group(1)) # type: ignore
 
             elif line.startswith("* "):
                 line = line[2:]
@@ -118,6 +118,6 @@ class SimpleMarkdownText(tkinter.Text):
 
                     else:
                         accumulated.append(c)
-                self.insert("end", "".join(accumulated), tag)
+                self.insert("end", "".join(accumulated), tag) # type: ignore
 
             self.insert("end", "\n")

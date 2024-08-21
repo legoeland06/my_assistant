@@ -169,7 +169,7 @@ class Conversation(tk.Frame):
             pady=6,
             yscrollcommand=scrollbar_question.set,
         )
-        self.entree_question.bind("<Control-Return>", func=lambda: self.submit())
+        self.entree_question.bind("<Control-Return>", func=lambda: self.submit()) # type: ignore
         self.entree_response.pack(fill="both", expand=False)
         self.entree_question.pack(fill="both", expand=False)
 
@@ -222,22 +222,28 @@ class Conversation(tk.Frame):
         self.affiche_fenetre_agrandie()
 
     def affiche_fenetre_agrandie(self):
-        self.fenexport = tk.Tk()
-        self.fenexport.geometry("600x900")
-        self.fenexport.title(self.entree_question.get_text()[:20] + "...")
+        self.fenexport = tk.Toplevel()
+        # self.fenexport.geometry("600x900")
+        self.fenexport.title(self.entree_response.get_text()[:20] + "...")
 
+        self.grande_fenetre = SimpleMarkdownText(self.fenexport)
         self.boutlire = tk.Button(
             self.fenexport,
             text="Lire",
-            command=lambda: self.lire_text_from_object(self.grande_fenetre),
+            command=lambda: self.lire_text_from_object(self.grande_fenetre), # type: ignore
         )
         self.boutlire.pack(fill="x", expand=False)
-        self.grande_fenetre = SimpleMarkdownText(self.fenexport)
+        _ai_response_list=self.get_ai_response().split("\n")
         self.grande_fenetre.configure(
-            wrap="word", bg=from_rgb_to_tkColors(LIGHT3), fg=from_rgb_to_tkColors(DARK3)
+            font=self.fontdict,
+            width=100,
+            wrap="word",
+            bg=from_rgb_to_tkColors(LIGHT3),
+            fg=from_rgb_to_tkColors(
+                DARK3,
+            ),
         )
 
-        self.grande_fenetre.configure(font=self.fontdict)
         self.grande_fenetre.tag_configure(
             tagName="boldtext",
             font=font.Font(
@@ -282,7 +288,6 @@ class Conversation(tk.Frame):
         self.grande_fenetre.insert_markdown(self.get_ai_response())
 
         self.grande_fenetre.pack(fill="both", expand=True)
-        self.grande_fenetre.configure(width=100)
         self.fenexport.mainloop()
 
     def normalize_me(self):

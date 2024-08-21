@@ -4,7 +4,7 @@ import subprocess
 from threading import Thread
 import time
 from groq import Groq
-from openai import ChatCompletion
+from openai import ChatCompletion  # type: ignore
 
 import pyaudio
 import pyttsx3
@@ -42,32 +42,46 @@ from Constants import (
 from SimpleMarkdownText import SimpleMarkdownText
 
 
-def initialise_conversation_audio() -> Tuple:
+def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
     return True, False, "", ""
 
 
 def make_resume(text: str) -> str:
+    """
+    En mode débridé. En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:
+    """
     return (
-        "en mode débridé. En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n"
+        "en mode débridé. En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n\n"
         + text
     )
 
 
-def askToRead(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream, text_to_read: str):
+def askToRead(
+    engine: vosk.KaldiRecognizer, stream: pyaudio.Stream, text_to_read: str
+) -> str:
     lire_haute_voix("voulez-vous que je lise ?")
-    if questionOuiouNon(engine, stream):
+    result = questionOuiouNon(engine, stream)
+
+    if result == "oui":
         # ennonce le résultat de l'ia
         if lire_haute_voix(text_to_read):
             stream.start_stream()
         else:
             stream.stop_stream()
+        return "oui"
 
-    else:
+    elif result == "non":
         lire_haute_voix("D'accord")
+        return "non"
+    elif result == "annulé":
+        return "annulé"
+    else :
+        askToRead(engine,stream,text_to_read)
+    return result
 
 
 def lire_haute_voix(text: str):
-    the_thread = Thread(None, name="the_thread", target=lambda: ecouter(text))
+    the_thread = Thread(None, name="the_thread", target=lambda: thread_lire(text))
     the_thread.start()
     if the_thread.ident and not the_thread.daemon:
         return True
@@ -87,7 +101,7 @@ def random_je_vous_ecoute() -> str:
     ]
 
 
-def questionOuiouNon(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
+def questionOuiouNon(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> str:
     stream.start_stream()
     while True:
         if engine.AcceptWaveform(
@@ -96,12 +110,19 @@ def questionOuiouNon(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bo
             )  # read in chunks of 4096 bytes
         ):  # accept waveform of input voice
             response = json.loads(engine.Result())["text"].lower()
-            if "oui" in response:
+            if "annulé" in response:
                 stream.stop_stream()
-                return True
+                return "annulé"
+
+            elif "oui" in response:
+                stream.stop_stream()
+                return "oui"
+
             elif "non" in response:
                 stream.stop_stream()
-                return False
+                return "non"
+            else :
+                return response
 
 
 def questionOuverte(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
@@ -118,7 +139,7 @@ def questionOuverte(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> boo
                 return response
 
 
-def ecouter(text: str):
+def thread_lire(text: str):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.create_task(say_txt(alire=text))
@@ -132,6 +153,7 @@ async def say_txt(alire: str):
     texte_reformate = (
         alire.replace("*", " ")
         .replace("-", " ")
+        .replace("+", " ")
         .replace("=", " ")
         .replace("#", " ")
         .replace("|", " ")
@@ -156,7 +178,7 @@ def from_rgb_to_tkColors(rgb):
 
 
 def bold_it(obj: tk.Text | SimpleMarkdownText):
-    return tkfont.Font(**obj.configure())
+    return tkfont.Font(**obj.configure())  # type: ignore
 
 
 def read_text_file(file) -> list:
@@ -181,9 +203,9 @@ def load_txt(parent):
             mode="r",
             initialdir=".",
         )
-        print(file_to_read.name)
-        resultat_txt = read_text_file(file_to_read.name)
-        say_txt("Fin de l'extraction")
+        print(file_to_read.name)  # type: ignore
+        resultat_txt = read_text_file(file_to_read.name)  # type: ignore
+        lire_haute_voix("Fin de l'extraction")  # type: ignore
 
         # on prepare le text pour le présenter à la méthode insert_markdown
         # qui demande un texte fait de lignes séparées par des \n
@@ -192,7 +214,7 @@ def load_txt(parent):
         return resultat_reformater
 
     except:
-        messagebox("Problème avec ce fichier txt")
+        messagebox("Problème avec ce fichier txt")  # type: ignore
         return ""
 
 
@@ -205,13 +227,13 @@ def load_pdf(parent) -> str:
             mode="r",
             initialdir=".",
         )
-        say_txt("Extraction du PDF")
-        resultat_txt = read_pdf(file_to_read.name)
-        say_txt("Fin de l'extraction")
+        lire_haute_voix("Extraction du PDF")
+        resultat_txt = read_pdf(file_to_read.name)  # type: ignore
+        lire_haute_voix("Fin de l'extraction")
         return resultat_txt
     except:
-        messagebox("Problème avec ce fichier pdf")
-        return None
+        messagebox("Problème avec ce fichier pdf")  # type: ignore
+        return "None"
 
 
 def read_pdf(book):
@@ -273,10 +295,10 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         sentence for sentence in liste_of_sent if len(sentence.split(" ")) <= number
     ]
 
-    return liste_of_sentences
+    return liste_of_sentences  # type: ignore
 
 
-def translate_it(text_to_translate: str) -> str:
+def translate_it(text_to_translate: str | list) -> str:
     """
     traduit le text reçu par maximum de 500 caractères. Si le text est une liste,
     on la traduit une à une str
@@ -297,7 +319,7 @@ def translate_it(text_to_translate: str) -> str:
     )  # output -> Weiter so, du bist großartig
 
     # print(translated)
-    return translated
+    return str(translated)
 
 
 def actualise_index_html(texte: str, question: str, timing: float, model: str):
@@ -328,11 +350,11 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
 
 def lire_text_from_object(object: SimpleMarkdownText | tk.Text | tk.Listbox):
     try:
-        texte_to_talk = object.get_selection()
+        texte_to_talk = object.get_selection()  # type: ignore
     except:
-        texte_to_talk = object.get_text()
+        texte_to_talk = object.get_text()  # type: ignore
     finally:
-        say_txt(texte_to_talk) if texte_to_talk != "" else None
+        say_txt(str(texte_to_talk)) if len(str(texte_to_talk)) > 0 else None
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
@@ -352,7 +374,7 @@ def lire_ligne(evt: tk.Event):
                 widget_to_read.curselection(), widget_to_read.curselection() + 1
             )
         )
-    )
+    )  # type: ignore
 
 
 def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
@@ -365,7 +387,7 @@ def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
         canvas_bouton_minimize,
         text="-",
         command=lambda: close_infos_model(
-            button=canvas_bouton_minimize, text_area=infos_model
+            button=canvas_bouton_minimize, text_area=infos_model  # type: ignore
         ),
         fg=from_rgb_to_tkColors(DARK3),
         bg="red",
@@ -421,7 +443,7 @@ def lancer_chrome(url: str) -> subprocess.Popen[str]:
     )
 
 
-def tester_appellation(appelation: str) -> str:
+def tester_appellation(appelation: str) -> str | None:
     for lien in LIENS_CHROME:
         if lien in appelation:
             chrome_pid = lancer_chrome(url=LIENS_CHROME[lien])
@@ -442,7 +464,7 @@ def lire_url(url: str) -> str:
     return url
 
 
-def lire_image(name: str) -> any:
+def lire_image(name: str) -> any:  # type: ignore
     # Load a single image
     im = iio.imread(name)
     print(im.shape)  # Shape of the image (height, width, channels)
@@ -494,7 +516,7 @@ def ask_to_resume(agent_appel, prompt, model_to_use):
 
         try:
             llm: ChatCompletion = agent_appel.chat.completions.create(
-                messages=this_message,
+                messages=this_message,  # type: ignore
                 model=model_to_use,
                 temperature=1,
                 max_tokens=4060,
@@ -502,7 +524,7 @@ def ask_to_resume(agent_appel, prompt, model_to_use):
                 stream=False,
                 stop=None,
                 timeout=10,
-            )
+            )  # type: ignore
 
             ai_response = llm.choices[0].message.content
         except:
@@ -519,11 +541,11 @@ def askToAi(agent_appel, prompt, model_to_use) -> tuple:
 
     if isinstance(agent_appel, ollama.Client):
         try:
-            llm: ollama.Client = agent_appel.chat(
+            llm: ollama.Client = agent_appel.chat(  # type: ignore
                 model=model_to_use,
                 messages=[
                     {
-                        "role": ROLE_TYPE,
+                        "role": ROLE_TYPE,  # type: ignore
                         "content": prompt,
                         "num_ctx": 4096,
                         "num_predict": 40,
@@ -531,7 +553,7 @@ def askToAi(agent_appel, prompt, model_to_use) -> tuple:
                     },
                 ],
             )
-            ai_response = llm["message"]["content"]
+            ai_response = llm["message"]["content"]  # type: ignore
         except ollama.RequestError as requestError:
             print("OOps aucun model chargé : ", requestError)
         except ollama.ResponseError as responseError:
@@ -561,7 +583,7 @@ def askToAi(agent_appel, prompt, model_to_use) -> tuple:
 
     append_response_to_file(RESUME_WEB, ai_response)
     actualise_index_html(
-        texte=ai_response, question=prompt, timing=timing, model=model_to_use
+        texte=str(ai_response), question=prompt, timing=timing, model=model_to_use
     )
 
     return ai_response, timing
