@@ -266,6 +266,8 @@ RULS_RSS = [
     },
 ]
 
+DATE_OF_TODAY="Nous sommes le : " + time.strftime("%Y-%m-%d") + "\n"
+
 BANNIERE_WIDTH = 758
 BANNIERE_HEIGHT = 160
 FENETRE_WIDTH = 800

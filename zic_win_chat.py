@@ -108,9 +108,9 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
 
 def main(prompt=False):
     """
-    ## begining of the application
-    if prompt is True, the application still in terminal
-    and responses were returned and printed in the terminal
+    ## Entry point of the app ##
+    * If --prompt option is True, the application work in terminal
+    and responses will be returned and printed in the terminal
     and exit programme
     """
     if prompt:
@@ -153,35 +153,32 @@ def main(prompt=False):
     app.mainloop(0)
 
 
-def init_main():
-    # Open the microphone stream
-    p = pyaudio.PyAudio()
-    stream = p.open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16000,
-        input=True,
-        frames_per_buffer=8192,
-    )
+# def init_main():
+#     # Open the microphone stream
+#     p = pyaudio.PyAudio()
+#     stream = p.open(
+#         format=pyaudio.paInt16,
+#         channels=1,
+#         rate=16000,
+#         input=True,
+#         frames_per_buffer=8192,
+#     )
 
-    return stream
+#     return stream
 
 
-def init_start(engine_lecteur_init, init_main):
-    stream = init_main()
-
+def init_start(engine_lecteur_init):
     lecteur = engine_lecteur_init()
-    return lecteur, stream
+    return lecteur
 
 
 # Début du programme
-lecteur, stream = init_start(engine_lecteur_init, init_main)
+lecteur = init_start(engine_lecteur_init)
 
 root = tk.Tk(className="YourAssistant")
 
 app = FenetrePrincipale(
     master=root,
-    stream=stream,
     model_to_use=cst.LLAMA3,
 )
 

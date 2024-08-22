@@ -68,8 +68,6 @@ class FenetrePrincipale(tk.Frame):
 
     def __init__(
         self,
-        # Stream audio du micro ouvert
-        stream: pyaudio.Stream,
         # model ia à utiliser
         model_to_use: str,
         master,
@@ -87,12 +85,11 @@ class FenetrePrincipale(tk.Frame):
         )
         print(tkfont.names())
         self.default_font = tkfont.nametofont("TkDefaultFont")
-        self.default_font.configure(size=12)
+        self.default_font.configure(size=14)
         self.btn_font = tkfont.nametofont("TkIconFont")
         self.btn_font.configure(size=14)
         self.timer: float = 0
         self.model_to_use = model_to_use
-        self.streaming = stream
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
         )  # type: ignore
@@ -190,6 +187,10 @@ class FenetrePrincipale(tk.Frame):
     def get_model(self) -> str:
         return self.model_to_use
 
+    def set_stream(self, stream: pyaudio.Stream) -> bool:
+        self.streaming = stream
+        return True
+
     def get_stream(self) -> pyaudio.Stream:
         return self.streaming
 
@@ -213,9 +214,7 @@ class FenetrePrincipale(tk.Frame):
 
     def save_to_submission(self) -> bool:
         """ """
-        if self.motcles_widget.get() is None:
-            print("OOps, rien à sauver")
-        else:
+        if not self.motcles_widget.get() is None:
             print(self.motcles_widget.get())
         # récupère le texte contenu dans le widget_mot_clé
         speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
@@ -237,7 +236,7 @@ class FenetrePrincipale(tk.Frame):
 
             if len(selection) > 1:
                 self.set_submission(
-                    content=selection + "\n",
+                    content=DATE_OF_TODAY + selection + "\n",
                 )
                 return True
             # renvois aussi True si il y avait toujourss quelque chose dans la variable submission
@@ -467,6 +466,19 @@ class FenetrePrincipale(tk.Frame):
 
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
+
+        # Open the microphone stream
+        p = pyaudio.PyAudio()
+        self.set_stream(
+            p.open(
+                format=pyaudio.paInt16,
+                channels=1,
+                rate=16000,
+                input=True,
+                frames_per_buffer=8192,
+            )
+        )
+
         lire_haute_voix(self.get_synonymsOf("Bienvenue !"))
 
         is_pre_vocal_command = True
@@ -475,7 +487,9 @@ class FenetrePrincipale(tk.Frame):
                 "pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
             )
         )
-        self.get_stream().start_stream()
+        if self.get_stream().is_stopped():
+            self.get_stream().start_stream()
+
         content_saved_discussion = ""
         while True:
             self.bouton_commencer_diction.configure(bg="blue")
@@ -516,6 +530,7 @@ class FenetrePrincipale(tk.Frame):
                         )
                         is_pre_vocal_command = True
                         self.get_stream().stop_stream()
+                        self.get_stream().close()
                         # self.get_thread().stop()
                         lire_haute_voix(
                             "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton rouge"
@@ -649,15 +664,8 @@ class FenetrePrincipale(tk.Frame):
                         in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
+                        self.delete_history()
 
-                        # ici on supprime complètement la fenetre scrollable
-                        # et tout ce qu'il y a dedans
-                        for resp in self.fenetre_scrollable.responses:
-                            resp.destroy()
-
-                        self.fenetre_scrollable.responses.clear()
-
-                        lire_haute_voix("historique effacé !")
                         (
                             welcoming,
                             is_human_is_talking,
@@ -669,10 +677,13 @@ class FenetrePrincipale(tk.Frame):
                         "effacer la dernière conversation" in text_vocal_command.lower()
                         or "effacer la dernière discussion"
                         in text_vocal_command.lower()
+                        or "supprimer la dernière discussion"
+                        in text_vocal_command.lower()
+                        or "supprimer la dernière conversation"
+                        in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
                         self.delete_last_discussion()
-                        lire_haute_voix("c'est fait !")
                         (
                             welcoming,
                             is_human_is_talking,
@@ -744,22 +755,22 @@ class FenetrePrincipale(tk.Frame):
                         or "affiche des informations" in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
-                        if not self.fenetre_scrollable.winfo_exists:
-                            self.fenetre_scrollable = FenetreScrollable(self)
+                        # if not self.fenetre_scrollable.winfo_exists:
+                        #     self.fenetre_scrollable = FenetreScrollable(self)
                         final_list = [item["title"] for item in RULS_RSS]
                         content_discussion, text_vocal_command = (
                             self.affiche_list_informations(final_list)
                         )
-                        if "annulé" == askToRead(
-                            self.get_engine(),
-                            self.get_stream(),
-                            self.get_submission(),
-                            # self.envoyer_audio_prompt(
-                            #     content_discussion, necessite_ai=True, grorOrNot=True
-                            # ),
-                        ):
-                            # effacement de la dernière conversation
-                            self.delete_last_discussion()
+                        # if "annulé" == askToRead(
+                        #     self.get_engine(),
+                        #     self.get_stream(),
+                        #     self.get_submission(),
+                        #     # self.envoyer_audio_prompt(
+                        #     #     content_discussion, necessite_ai=True, grorOrNot=True
+                        #     # ),
+                        # ):
+                        #     # effacement de la dernière conversation
+                        #     self.delete_last_discussion()
                         (
                             welcoming,
                             is_human_is_talking,
@@ -845,7 +856,7 @@ class FenetrePrincipale(tk.Frame):
                         ):
                             # effacement de la dernière conversation
                             self.delete_last_discussion()
-                            
+
                             # efface le fil de discussion
                         (
                             welcoming,
@@ -859,6 +870,35 @@ class FenetrePrincipale(tk.Frame):
     def delete_last_discussion(self):
         kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
         kiki.destroy()
+        lire_haute_voix("voilou")
+
+    def delete_history(self):
+        """
+        supprime l'historique des conversations,
+        """
+
+        for element in self.fenetre_scrollable.responses:
+            kiki: tk.Widget = element
+            kiki.destroy()
+
+        # # ici on supprime tout ce qu'il y a dans la fenetreScrollable
+        # for resp in self.fenetre_scrollable.responses:
+        #     resp.destroy()
+        # # packing = self.fenetre_scrollable.pack_info()
+        # self.fenetre_scrollable.responses.clear()
+        # self.fenetre_scrollable.get_prompts_history().clear()
+
+        # for elem in self.fenetre_scrollable.frame.children:
+        #     if "!conversation" in elem:
+        #         ele: tk.Widget = self.nametowidget(elem)
+        #         print("ele: "+ele.widgetName)
+        #         ele.destroy()  # type: ignore
+
+        # # self.fenetre_scrollable.destroy()
+        # # self.fenetre_scrollable = FenetreScrollable(self)
+        # # self.fenetre_scrollable.pack(packing)
+
+        lire_haute_voix("historique effacé !")
 
     def affiche_aide(self) -> str:
         frame = tk.Toplevel()
@@ -963,7 +1003,7 @@ class FenetrePrincipale(tk.Frame):
         self.fenetre_scrollable.addthing(
             _timing=timing if necessite_ai else 0,
             agent_appel=self.get_client(),
-            simple_text=self.entree_prompt_principal.get_text(),
+            simple_text=content_discussion,
             ai_response=response if necessite_ai else content_discussion,
             model=self.get_model(),
             submit_func=self.soumettre,
@@ -1360,13 +1400,21 @@ class FenetrePrincipale(tk.Frame):
         resultat_txt: str = load_pdf(self)
         self.entree_prompt_principal.insert_markdown(mkd_text=resultat_txt)
 
+    def paste_clipboard(self):
+        self.entree_prompt_principal.clear_text()
+        self.entree_prompt_principal.insert_markdown(self.clipboard_get())
+
     def clear_entree_prompt_principal(self):
-        self.entree_prompt_principal.replace("1.0", tk.END, "")
+        self.entree_prompt_principal.clear_text()
 
     def traite_listbox(self, list_to_check: list) -> tk.Listbox:
         frame = tk.Toplevel(name="list_ia")
         frame.grid_location(self.winfo_x() + 150, self.winfo_y() + 130)
-        _list_box = tk.Listbox(master=frame, width=len(max(list_to_check, key=len)))
+        _list_box = tk.Listbox(
+            master=frame,
+            font=self.default_font,
+            width=100,
+        )
         scrollbar_listbox = tk.Scrollbar(frame)
         scrollbar_listbox.configure(command=_list_box.yview)
 
@@ -1401,8 +1449,8 @@ class FenetrePrincipale(tk.Frame):
                 prompt_name=" ".join(self.get_motcles()).lower(),
             )
 
-            self.entree_prompt_principal.insert(
-                tk.END, "en mode débridé, \n" + preprompt
+            self.entree_prompt_principal.insert_markdown(
+                "**en mode débridé**, \n" + preprompt
             )
             # self.set_submission(preprompt)
 
@@ -1626,7 +1674,7 @@ class FenetrePrincipale(tk.Frame):
         self.entree_prompt_principal.configure(
             bg=from_rgb_to_tkColors(LIGHT0),
             fg=from_rgb_to_tkColors(DARK3),
-            font=("Arial", 12),
+            font=self.default_font,
             wrap="word",
             padx=10,
             pady=6,
@@ -1635,9 +1683,25 @@ class FenetrePrincipale(tk.Frame):
             self.frame_of_buttons_principal,
             font=self.btn_font,
             relief="flat",
+            text="♻",
+            fg="green",
+            command=self.clear_entree_prompt_principal,
+        )
+        self.boutton_paste_clipboard = tk.Button(
+            self.frame_of_buttons_principal,
+            font=self.btn_font,
+            relief="flat",
+            text="✔",
+            fg="green",
+            command=self.paste_clipboard,
+        )
+        self.boutton_effacer_historique = tk.Button(
+            self.frame_of_buttons_principal,
+            font=self.btn_font,
+            relief="flat",
             text="🚫",
             fg="red",
-            command=self.clear_entree_prompt_principal,
+            command=self.delete_history,
         )
         self.boutton_historique = tk.Button(
             self.frame_of_buttons_principal,
@@ -1653,13 +1717,21 @@ class FenetrePrincipale(tk.Frame):
         )
         self.boutton_effacer_entree_prompt_principal.pack(side="right")
         self.boutton_historique.pack(side="right")
+        self.boutton_paste_clipboard.pack(side="right")
+        self.boutton_effacer_historique.pack(side="right")
         self.scrollbar_prompt_principal = tk.Scrollbar(self.frame_actual_prompt)
         self.scrollbar_prompt_principal.pack(side=tk.RIGHT, fill="both")
-        self.entree_prompt_principal.tag_configure(
-            "italic", font=str(self.entree_prompt_principal.cget("font") + " italic")
-        )
+        # self.entree_prompt_principal.tag_configure(
+        #     "italic",
+        #     font=tkfont.Font(
+        #         family=self.default_font.cget("family"),
+        #         size=self.default_font.cget("size"),
+        #         slant="italic",
+        #         weight=self.default_font.cget("weight"),
+        #     ),
+        # )
         self.entree_prompt_principal.insert_markdown(
-            mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
+            mkd_text="_"+msg_to_write+"_" + " **< CTRL + RETURN > pour valider.**"
         )
         self.entree_prompt_principal.focus_set()
         self.entree_prompt_principal.pack(side=tk.BOTTOM)
@@ -1703,7 +1775,7 @@ class FenetrePrincipale(tk.Frame):
             self.frame_of_buttons_principal,
             font=self.btn_font,
             relief="flat",
-            text="Traduire",
+            text="Translate",
             command=translate_inplace,
         )
         self.bouton_traduire_sur_place.configure(

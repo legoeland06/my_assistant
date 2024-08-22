@@ -234,6 +234,16 @@ def load_pdf(parent) -> str:
     except:
         messagebox("Problème avec ce fichier pdf")  # type: ignore
         return "None"
+    
+def create_pdf(text:str):
+
+    pdf_maker=PyPDF2.PdfWriter()
+    my_page:PyPDF2._page.PageObject=PyPDF2._page.PageObject()
+    kiki=my_page.get_contents()
+    kiki.setData(text) # type: ignore
+    pdf_maker.add_page(page=my_page)
+    pdf_maker.write_stream(stream=my_page) # type: ignore
+    pdf_maker.write(text)
 
 
 def read_pdf(book):

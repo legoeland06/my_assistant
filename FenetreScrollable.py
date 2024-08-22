@@ -74,8 +74,9 @@ class FenetreScrollable(tk.Frame):
         return self.prompts_history
 
     def supprimer_conversation(self, evt: tk.Event):
-        widgt: tk.Widget = evt.widget
+        widgt: Conversation = evt.widget
         print("Effacement de la conversation ::" + widgt.winfo_name() + "::")
+        widgt.bouton_supprimer_question_response.invoke()
         for mini_dict in self.get_prompts_history():
             if widgt.winfo_name() in mini_dict["fenetre_name"]:
                 self.get_prompts_history().remove(mini_dict)
@@ -91,7 +92,7 @@ class FenetreScrollable(tk.Frame):
         submit_func,
     ):
         self.model = model
-        fenetre_response = Conversation(
+        fenetre_response: Conversation = Conversation(
             ai_response=ai_response,
             text=simple_text,
             master=self.frame,
@@ -99,6 +100,7 @@ class FenetreScrollable(tk.Frame):
             agent_appel=agent_appel,
             model_to_use=model,
         )
+        # zefont = fenetre_response.fontConversation
         self.responses.append(fenetre_response)
 
         self.save_to_history(fenetre_response.winfo_name(), simple_text, ai_response)
@@ -106,110 +108,109 @@ class FenetreScrollable(tk.Frame):
             "<Destroy>",
             func=self.supprimer_conversation,
         )
-        fenetre_response.get_entree_response().configure(font=self.fontdict)
-        fenetre_response.get_entree_response().tag_configure(
-            tagName="boldtext",
-            font=tkfont.Font(
-                family=self.fontdict.cget("family"),
-                size=self.fontdict.cget("size"),
-                slant=self.fontdict.cget("slant"),
-                weight="bold",
-            ),
-        )
-        #
-        fenetre_response.get_entree_response().tag_configure(
-            tagName="response",
-            border=20,
-            wrap="word",
-            spacing1=10,
-            spacing3=10,
-            lmargin1=10,
-            lmargin2=10,
-            lmargincolor="green",
-            rmargin=10,
-            rmargincolor="green",
-            selectbackground="red",
-        )
-        fenetre_response.get_entree_response().tag_configure(
-            "balise",
-            font=self.fontdict,
-            foreground=from_rgb_to_tkColors((100, 100, 100)),
-        )
+        # fenetre_response.get_entree_response().tag_configure(
+        #     tagName="boldtext",
+        #     font=tkfont.Font(
+        #         family=zefont.cget("family"),
+        #         size=zefont.cget("size"),
+        #         slant=zefont.cget("slant"),
+        #         weight="bold",
+        #     ),
+        # )
+        # #
+        # fenetre_response.get_entree_response().tag_configure(
+        #     tagName="response",
+        #     border=20,
+        #     wrap="word",
+        #     spacing1=10,
+        #     spacing3=10,
+        #     lmargin1=10,
+        #     lmargin2=10,
+        #     lmargincolor="green",
+        #     rmargin=10,
+        #     rmargincolor="green",
+        #     selectbackground="red",
+        # )
+        # fenetre_response.get_entree_response().tag_configure(
+        #     "balise",
+        #     font=zefont,
+        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+        # )
 
-        fenetre_response.get_entree_response().tag_configure(
-            "balise_bold",
-            font=tkfont.Font(
-                family=self.fontdict.cget("family"),
-                size=self.fontdict.cget("size"),
-                slant=self.fontdict.cget("slant"),
-                weight="bold",
-            ),
-            foreground=from_rgb_to_tkColors((100, 100, 100)),
+        # fenetre_response.get_entree_response().tag_configure(
+        #     "balise_bold",
+        #     font=tkfont.Font(
+        #         family=zefont.cget("family"),
+        #         size=zefont.cget("size"),
+        #         slant=zefont.cget("slant"),
+        #         weight="bold",
+        #     ),
+        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+        # )
+        fenetre_response.get_entree_response().insert_markdown(
+            # tk.END,
+            "_"+datetime.datetime.now().isoformat() + " <" + self.model + ">_ - ",
+            # "balise",
         )
-        fenetre_response.get_entree_response().insert(
-            tk.END,
-            datetime.datetime.now().isoformat() + " <" + self.model + "> - ",
-            "balise",
-        )
-        fenetre_response.get_entree_response().insert(
-            tk.END,
-            str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
-            "balise_bold",
+        fenetre_response.get_entree_response().insert_markdown(
+            # tk.END,
+            "_"+str(_timing) + "secondes < " + str(type(agent_appel)) + " >_\n",
+            # "balise_bold",
         )
         fenetre_response.get_entree_response().insert_markdown(ai_response + "\n")
 
-        fenetre_response.get_entree_question().configure(font=("Arial", 10))
-        fenetre_response.get_entree_question().tag_configure(
-            tagName="boldtext",
-            font=(
-                fenetre_response.get_entree_response().cget("font") + " italic",
-                8,
-            ),
-        )
-        fenetre_response.get_entree_question().tag_configure(
-            tagName="response",
-            border=20,
-            wrap="word",
-            spacing1=10,
-            spacing3=10,
-            lmargin1=10,
-            lmargin2=10,
-            lmargincolor="green",
-            rmargin=10,
-            rmargincolor="green",
-            selectbackground="red",
-        )
-        fenetre_response.get_entree_question().tag_configure(
-            "balise",
-            font=self.fontdict,
-            foreground=from_rgb_to_tkColors((100, 100, 100)),
-        )
-        fenetre_response.get_entree_question().tag_configure(
-            "balise_bold",
-            font=tkfont.Font(
-                family=self.fontdict.cget("family"),
-                size=self.fontdict.cget("size"),
-                slant=self.fontdict.cget("slant"),
-                weight="bold",
-            ),
-            foreground=from_rgb_to_tkColors((100, 100, 100)),
-        )
-        fenetre_response.get_entree_question().insert(
-            tk.END,
+        # fenetre_response.get_entree_question().configure(font=("Arial", 10))
+        # fenetre_response.get_entree_question().tag_configure(
+        #     tagName="boldtext",
+        #     font=(
+        #         fenetre_response.get_entree_response().cget("font") + " italic",
+        #         8,
+        #     ),
+        # )
+        # fenetre_response.get_entree_question().tag_configure(
+        #     tagName="response",
+        #     border=20,
+        #     wrap="word",
+        #     spacing1=10,
+        #     spacing3=10,
+        #     lmargin1=10,
+        #     lmargin2=10,
+        #     lmargincolor="green",
+        #     rmargin=10,
+        #     rmargincolor="green",
+        #     selectbackground="red",
+        # )
+        # fenetre_response.get_entree_question().tag_configure(
+        #     "balise",
+        #     font=zefont,
+        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+        # )
+        # fenetre_response.get_entree_question().tag_configure(
+        #     "balise_bold",
+        #     font=tkfont.Font(
+        #         family=zefont.cget("family"),
+        #         size=zefont.cget("size"),
+        #         slant=zefont.cget("slant"),
+        #         weight="bold",
+        #     ),
+        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
+        # )
+        fenetre_response.get_entree_question().insert_markdown(
+            # tk.END,
             datetime.datetime.now().isoformat() + " <" + self.model + "> :: ",
-            "balise",
+            # "balise",
         )
-        fenetre_response.get_entree_question().insert(
-            tk.END,
+        fenetre_response.get_entree_question().insert_markdown(
+            # tk.END,
             str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
-            "balise_bold",
+            # "balise_bold",
         )
 
         fenetre_response.get_entree_question().insert_markdown(simple_text + "\n")
         fenetre_response.get_entree_response().update()
         fenetre_response.get_entree_question().update()
 
-        self.print_liste_des_conversations()
+        # self.print_liste_des_conversations()
 
     def print_liste_des_conversations(self):
         print("liste des conversations\n************************************")
@@ -244,6 +245,8 @@ class FenetreScrollable(tk.Frame):
         prompt = question[:499] if len(question) >= 500 else question
         response = ai_response[:499] if len(ai_response) >= 500 else ai_response
         longueur = len(self.get_prompts_history())
+
+        # check if len(list)>MAX_HISTORY
         if longueur >= MAX_HISTORY:
             # on fait un résumé des 10 anciennes conversations (MAX_HISTORY=15)
             conversation_resumee = ask_to_resume(

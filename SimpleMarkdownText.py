@@ -22,7 +22,7 @@ class SimpleMarkdownText(tkinter.Text):
         # Small subset of markdown. Just enough to make text look nice.
         self.tag_configure("**", font=bold_font)
         self.tag_configure("*", font=italic_font)
-        self.tag_configure("_", font=italic_font)
+        self.tag_configure("_", font=italic_font,foreground="grey")
         self.tag_chars = "*_"
         self.tag_char_re = re.compile(r"[*_]")
 
@@ -31,7 +31,7 @@ class SimpleMarkdownText(tkinter.Text):
             header_font = tkfont.Font(**default_font.configure()) # type: ignore
             header_font.configure(size=int(default_size * i + 3), weight="bold")
             self.tag_configure(
-                "#" * (max_heading - i), font=header_font, spacing3=default_size
+                "#" * (max_heading - i), foreground="blue",font=header_font, spacing3=default_size
             )
 
         lmargin2 = em + default_font.measure("\u2022 ")
