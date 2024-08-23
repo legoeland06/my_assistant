@@ -59,7 +59,7 @@ class SimpleMarkdownText(tkinter.Text):
             return None
 
     def insert_bullet(self, position, text):
-        self.insert(position, f"\u2022 {text}", "bullet")
+        self.insert(position, f"- {text}", "bullet")
 
     def insert_numbered(self, position, text):
         self.insert(position, f"{self.numbered_index}. {text}", "numbered")

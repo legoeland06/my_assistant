@@ -55,31 +55,6 @@ def make_resume(text: str) -> str:
         + text
     )
 
-
-def askToRead(
-    engine: vosk.KaldiRecognizer, stream: pyaudio.Stream, text_to_read: str
-) -> str:
-    lire_haute_voix("voulez-vous que je lise ?")
-    result = questionOuiouNon(engine, stream)
-
-    if result == "oui":
-        # ennonce le résultat de l'ia
-        if lire_haute_voix(text_to_read):
-            stream.start_stream()
-        else:
-            stream.stop_stream()
-        return "oui"
-
-    elif result == "non":
-        lire_haute_voix("D'accord")
-        return "non"
-    elif result == "annulé":
-        return "annulé"
-    else :
-        askToRead(engine,stream,text_to_read)
-    return result
-
-
 def lire_haute_voix(text: str):
     the_thread = Thread(None, name="the_thread", target=lambda: thread_lire(text))
     the_thread.start()
@@ -101,7 +76,8 @@ def random_je_vous_ecoute() -> str:
     ]
 
 
-def questionOuiouNon(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> str:
+def questionOuiouNon(question:str,engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> str:
+    lire_haute_voix(question)
     stream.start_stream()
     while True:
         if engine.AcceptWaveform(
@@ -122,10 +98,11 @@ def questionOuiouNon(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> st
                 stream.stop_stream()
                 return "non"
             else :
-                return response
+                return "non"
 
 
-def questionOuverte(engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
+def questionOuverte(question:str,engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
+    lire_haute_voix(question)
     stream.start_stream()
     while True:
         if engine.AcceptWaveform(
@@ -235,17 +212,6 @@ def load_pdf(parent) -> str:
         messagebox("Problème avec ce fichier pdf")  # type: ignore
         return "None"
     
-def create_pdf(text:str):
-
-    pdf_maker=PyPDF2.PdfWriter()
-    my_page:PyPDF2._page.PageObject=PyPDF2._page.PageObject()
-    kiki=my_page.get_contents()
-    kiki.setData(text) # type: ignore
-    pdf_maker.add_page(page=my_page)
-    pdf_maker.write_stream(stream=my_page) # type: ignore
-    pdf_maker.write(text)
-
-
 def read_pdf(book):
     text = ""
     pdf_Reader = PyPDF2.PdfReader(book)
@@ -307,6 +273,39 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
 
     return liste_of_sentences  # type: ignore
 
+def _traitement_du_texte(text: str, n: int) -> list:
+    text_list:list=text.splitlines()
+
+    return [text_list[i : i + n] for i in range(0, len(text_list), n)]
+
+
+def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
+    """
+    Split a text into a list of chunks, each chunk being a string
+    with a maximum length of `maxcharsperchunk` characters.
+
+    Args:
+        text (str): The text to split
+        maxcharsperchunk (int): The maximum number of characters per chunk
+
+    Returns:
+        list[str]: A list of strings, each chunk being a string
+                   with a maximum length of `maxcharsperchunk` characters
+    """
+    chunks = []
+    currentchunk = ""
+
+    for word in text.split():
+        if len(currentchunk) + len(word) + 1 > maxcharsperchunk:
+            chunks.append(currentchunk)
+            currentchunk = word
+        else:
+            currentchunk += " " + word
+
+    if currentchunk:
+        chunks.append(currentchunk)
+
+    return chunks
 
 def translate_it(text_to_translate: str | list) -> str:
     """

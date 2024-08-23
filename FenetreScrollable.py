@@ -29,14 +29,14 @@ class FenetreScrollable(tk.Frame):
         self.canvas = tk.Canvas(
             self,
             borderwidth=0,
-            height=int(parent.winfo_reqheight()) + 400,
-            width=self.master.winfo_reqwidth() - 20,
+            # height=int(parent.winfo_reqheight()) + 400,
+            # width=self.master.winfo_reqwidth() - 20,
             background=from_rgb_to_tkColors(DARK2),
         )
         self.frame = tk.Frame(
             self.canvas,
-            height=int(parent.winfo_reqheight()) + 400,
-            width=self.master.winfo_reqwidth() - 20,
+            # height=int(parent.winfo_reqheight()) + 400,
+            # width=self.master.winfo_reqwidth() - 20,
             background=from_rgb_to_tkColors(DARK2),
         )
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
@@ -44,6 +44,7 @@ class FenetreScrollable(tk.Frame):
 
         self.vsb.pack(side="right", fill="y")
         self.canvas.pack(fill="both", expand=False)
+        self.frame.pack(fill="x",expand=True)
         self.canvas.create_window(
             (4, 4), window=self.frame, anchor="center", tags="self.frame"
         )
@@ -108,6 +109,7 @@ class FenetreScrollable(tk.Frame):
             "<Destroy>",
             func=self.supprimer_conversation,
         )
+        
         # fenetre_response.get_entree_response().tag_configure(
         #     tagName="boldtext",
         #     font=tkfont.Font(

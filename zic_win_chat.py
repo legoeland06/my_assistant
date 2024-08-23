@@ -8,10 +8,9 @@ from tkinter import messagebox
 from groq import Groq
 import openai
 import vosk
-import pyaudio
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
-from outils import engine_lecteur_init, lire_haute_voix, say_txt
+from outils import engine_lecteur_init, lire_haute_voix
 from secret import GROQ_API_KEY
 
 
@@ -151,21 +150,6 @@ def main(prompt=False):
     # après cette invocation l'application est lancée en mode audioChat directement
 
     app.mainloop(0)
-
-
-# def init_main():
-#     # Open the microphone stream
-#     p = pyaudio.PyAudio()
-#     stream = p.open(
-#         format=pyaudio.paInt16,
-#         channels=1,
-#         rate=16000,
-#         input=True,
-#         frames_per_buffer=8192,
-#     )
-
-#     return stream
-
 
 def init_start(engine_lecteur_init):
     lecteur = engine_lecteur_init()

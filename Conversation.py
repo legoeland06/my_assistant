@@ -1,7 +1,13 @@
 import tkinter as tk
+from tkinter import simpledialog
 
-from Lecture import Lecture
-from outils import askToAi, create_pdf, from_rgb_to_tkColors, lire_haute_voix
+from PdfMaker import makePdfFromTtext
+from outils import (
+    askToAi,
+    from_rgb_to_tkColors,
+    lire_haute_voix,
+    splittextintochunks,
+)
 from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
 
@@ -55,7 +61,10 @@ class Conversation(tk.Frame):
         self.master = master
         self.agent_appel = agent_appel
         self.model_to_use = model_to_use
-        self.pack(expand=False)
+
+        #TODO: avoir avec true ou inexistant
+        self.pack(expand=True)
+        
         self.title = "title"
         self.ai_response = ai_response
         self.canvas_edition = tk.Canvas(
@@ -248,12 +257,39 @@ class Conversation(tk.Frame):
         self.fontConversation.configure(size=(self.fontConversation.cget("size") - 2))
 
     def create_pdf(self):
-        create_pdf(text=self.get_ai_response())
+        makePdfFromTtext(
+            filename=(
+                simpledialog.askstring(
+                    parent=self,
+                    prompt="Enregistrement : veuillez choisir un nom au fichier",
+                    title="Enregistrer vers pdf",
+                )
+                or self.master.cget("name")
+            ),
+            # TODO : ATTENTION LA VALEUR 30 est critique ici
+            text_list=self.reformateText(
+                (
+                    self.grande_fenetre.get_text()
+                    if not self.grande_fenetre is None
+                    else "texte vide"
+                ),
+                n=115,
+            ),
+        )
+
+    def reformateText(self, text: str, n: int) -> list[str]:
+        reservoir = []
+        for line in text.splitlines():
+            if len(line) > n:
+                reservoir.extend(splittextintochunks(line, n))
+            else:
+                reservoir.append(line)
+        return reservoir
 
     def affiche_fenetre_agrandie(self):
         self.fenexport = tk.Toplevel()
         # self.fenexport.geometry("600x900")
-        self.fenexport.title(self.entree_response.get_text()[:20] + "...")
+        self.fenexport.title(self.widgetName)
         self.canvas_buttons = tk.Canvas(self.fenexport)
         self.canvas_buttons.pack(fill="x", expand=False)
 
@@ -270,21 +306,21 @@ class Conversation(tk.Frame):
             fg="blue",
             font=self.btn_font,
             text="α",
-            command=lambda: self.diminue(),  # type: ignore
+            command=self.diminue,  # type: ignore
         )
         self.bout_augmente = tk.Button(
             self.canvas_buttons,
             fg="blue",
             font=self.btn_font,
             text="Α",
-            command=lambda: self.augmente(),  # type: ignore
+            command=self.augmente,  # type: ignore
         )
         self.bout_ok = tk.Button(
             self.canvas_buttons,
             fg="green",
             font=self.btn_font,
             text="🆗",
-            command=lambda: self.create_pdf(),  # type: ignore
+            command=self.create_pdf,  # type: ignore
         )
 
         self.bout_ok.pack(side="right")
@@ -359,21 +395,24 @@ class Conversation(tk.Frame):
         self.fenexport.mainloop()
 
     def normalize_me(self):
-        self.entree_response.configure(height=1, )
-        self.entree_question.configure(height=1, )
+        self.entree_response.configure(
+            height=1,
+        )
+        self.entree_question.configure(
+            height=1,
+        )
         self.entree_question.pack_propagate()
         self.entree_response.pack_propagate()
 
     def minimize_me(self):
         self.entree_response.configure(
-            height=int(self.entree_response.cget("height")) - 5, 
+            height=int(self.entree_response.cget("height")) - 5,
         )
-        self.entree_question.configure(height=0, )
+        self.entree_question.configure(
+            height=0,
+        )
         self.entree_response.pack_propagate()
         self.entree_question.pack_propagate()
-
-    def set_ai_response(self, response):
-        self.ai_response = response
 
     def get_ai_response(self) -> str:
         return self.ai_response
