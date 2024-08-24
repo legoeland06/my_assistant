@@ -62,7 +62,7 @@ class Conversation(tk.Frame):
         self.model_to_use = model_to_use
 
         # TODO: avoir avec true ou inexistant
-        self.pack(fill="x",expand=True)
+        # self.pack(fill="both",expand=True)
 
         self.title = "title"
         self.ai_response = ai_response
@@ -70,11 +70,12 @@ class Conversation(tk.Frame):
             master=master,
             relief="flat",
         )
+        self.canvas_edition.pack(fill="both", expand=True)
 
-        self.boutons_cnv_response = tk.Frame(self.canvas_edition)
-        self.cnv_globals_responses = tk.Frame(self.canvas_edition)
-        self.cnv_response = tk.Frame(self.cnv_globals_responses, relief="flat")
-        self.cnv_question = tk.Frame(self.cnv_globals_responses, relief="flat")
+        self.canvas_boutons_conversation = tk.Frame(self.canvas_edition)
+        self.cnv_global_conversation = tk.Frame(self.canvas_edition)
+        self.cnv_response = tk.Frame(self.cnv_global_conversation, relief="flat")
+        self.cnv_question = tk.Frame(self.cnv_global_conversation, relief="flat")
 
         self.entree_question = SimpleMarkdownText(
             self.cnv_question, font=self.default_font
@@ -82,7 +83,7 @@ class Conversation(tk.Frame):
         self.entree_question.insert_markdown(text)
 
         self.bouton_supprimer_question_response = tk.Button(
-            self.boutons_cnv_response,
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="❌",
             command=self.supprimer_conversation,
@@ -94,7 +95,7 @@ class Conversation(tk.Frame):
         self.bouton_supprimer_question_response.pack(side="left")
 
         self.bouton_maximize_me = tk.Button(
-            self.boutons_cnv_response,
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="⬆",
             command=self.maximize_me,
@@ -103,7 +104,7 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
         self.bouton_agrandir_fenetre = tk.Button(
-            self.boutons_cnv_response,
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="➕",
             command=self.agrandir_fenetre,
@@ -114,7 +115,7 @@ class Conversation(tk.Frame):
         self.bouton_maximize_me.pack(side="left")
         self.bouton_agrandir_fenetre.pack(side="left")
         self.bouton_normalize_me = tk.Button(
-            self.boutons_cnv_response,
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="➖",
             command=self.normalize_me,
@@ -125,7 +126,7 @@ class Conversation(tk.Frame):
         self.bouton_normalize_me.pack(side="left")
 
         self.bouton_minimize_me = tk.Button(
-            self.boutons_cnv_response,
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="⬇",
             command=self.minimize_me,
@@ -135,38 +136,37 @@ class Conversation(tk.Frame):
         )
         self.bouton_minimize_me.pack(side="left")
 
-        self.boutton_effacer_entree_response = tk.Button(
-            self.boutons_cnv_response,
+        self.boutton_effacer_contenu = tk.Button(
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="⭕",
             command=self.clear_entree_response,
         )
 
-        self.boutton_effacer_entree_response.configure(
+        self.boutton_effacer_contenu.configure(
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
         )
-        self.boutton_effacer_entree_response.pack(side="right")
+        self.boutton_effacer_contenu.pack(side="right")
 
-        self.bouton_lire_responses = tk.Button(
-            self.boutons_cnv_response,
+        self.bouton_lire_conversation = tk.Button(
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="▶",
             command=lambda: self.lire_text_from_object(self.entree_response),
         )
-        self.bouton_lire_responses.configure(
+        self.bouton_lire_conversation.configure(
             bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors(LIGHT3)
         )
-        self.bouton_lire_responses.pack(side=tk.RIGHT)
+        self.bouton_lire_conversation.pack(side=tk.RIGHT)
 
-        self.canvas_edition.pack(fill="y", expand=True)
-        self.boutons_cnv_response.pack(fill="x", expand=False)
+        self.canvas_boutons_conversation.pack(fill="x", expand=True)
 
-        self.cnv_globals_responses.pack(fill="x", expand=False)
-        self.cnv_response.pack(fill="x", expand=False)
-        self.cnv_question.pack(fill="x", expand=False)
+        self.cnv_global_conversation.pack(fill="both", expand=True)
+        self.cnv_response.pack(fill="x", expand=True)
+        self.cnv_question.pack(fill="x", expand=True)
 
         self.bouton_transfere = tk.Button(
-            self.boutons_cnv_response,
+            self.canvas_boutons_conversation,
             font=self.btn_font,
             text="🔀",
             command=self.transferer,
@@ -202,8 +202,8 @@ class Conversation(tk.Frame):
             yscrollcommand=scrollbar_question.set,
         )
         self.entree_question.bind("<Control-Return>", func=lambda: self.submit())  # type: ignore
-        self.entree_response.pack(fill="both", expand=False)
-        self.entree_question.pack(fill="both", expand=False)
+        self.entree_response.pack(fill="both", expand=True)
+        self.entree_question.pack(fill="both", expand=True)
 
         scrollbar_response.configure(
             command=self.entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
@@ -287,7 +287,7 @@ class Conversation(tk.Frame):
         # self.fenexport.geometry("600x900")
         self.fenexport.title(self.widgetName)
         self.canvas_buttons = tk.Canvas(self.fenexport)
-        self.canvas_buttons.pack(fill="x", expand=False)
+        self.canvas_buttons.pack(fill="x", expand=True)
 
         self.grande_fenetre = SimpleMarkdownText(self.fenexport)
         self.boutlire = tk.Button(

@@ -9,6 +9,7 @@ from groq import Groq
 import openai
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
+from FenetreScrollable import FenetreScrollable
 from outils import lire_haute_voix
 from secret import GROQ_API_KEY
 
@@ -94,6 +95,7 @@ def main(prompt=False):
     )
 
     root = tk.Tk(className="YourAssistant")
+    # fenscroll=FenetreScrollable(root)
 
     app = FenetrePrincipale(
         master=root,

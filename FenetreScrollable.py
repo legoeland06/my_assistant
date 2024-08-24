@@ -19,7 +19,6 @@ class FenetreScrollable(tk.Frame):
     def __init__(self,parent):
         tk.Frame.__init__(self,parent)
         self.parent=parent
-        self.pack(fill="both", expand=False)
         self.prompts_history = []
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -36,18 +35,19 @@ class FenetreScrollable(tk.Frame):
             self.canvas,
             background=from_rgb_to_tkColors(DARK2),
         )
-        self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.canvas.configure(yscrollcommand=self.vsb.set)
+        self.vScrollbar = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
+        self.canvas.configure(yscrollcommand=self.vScrollbar.set)
 
-        self.vsb.pack(side="right", fill="y")
-        self.canvas.pack(fill="both", expand=False)
-        self.frame.pack(fill="x", expand=True)
+        self.vScrollbar.pack(side="left", fill="y")
+        self.frame.pack(fill="both", expand=True)
         self.canvas.create_window(
             (4, 4), window=self.frame, anchor="center", tags="self.frame"
         )
+        self.canvas.pack(fill="both", expand=True)
 
         self.frame.bind("<Configure>", self.onFrameConfigure)
         self.responses = []
+        # self.pack(fill="both", expand=True)
 
     def say_txt(self, text: str):
         """
@@ -98,6 +98,8 @@ class FenetreScrollable(tk.Frame):
             agent_appel=agent_appel,
             model_to_use=model,
         )
+        fenetre_response.pack(fill="both",expand=True)
+
         self.responses.append(fenetre_response)
 
         self.save_to_history(fenetre_response.winfo_name(), simple_text, ai_response)

@@ -103,7 +103,6 @@ class FenetrePrincipale(tk.Frame):
         self.content = ""
         self.motcles = []
         self.configure(padx=5, pady=5, width=96 + 10)
-        self.pack()
 
         # phase de construction de la fenetre principale
         self.creer_fenetre(
@@ -111,8 +110,7 @@ class FenetrePrincipale(tk.Frame):
             msg_to_write="Prompt...",
         )
 
-        self.fenetre_scrollable = FenetreScrollable(self)
-        # self.fenetre_scrollable.pack(fill="both", expand=False)
+        self.fenetre_scrollable = FenetreScrollable(self.master)
         self.my_liste = []
         self.messages = [
             {
@@ -121,6 +119,8 @@ class FenetrePrincipale(tk.Frame):
             },
         ]
         self.actual_chat_completion = []
+        self.pack()
+        self.fenetre_scrollable.pack(fill="both", expand=True)
 
     def getListOfModels(self):
         return [element["name"] for element in (ollama.list())["models"]]
@@ -262,6 +262,7 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_principal_banniere = tk.Frame(
             self, background=from_rgb_to_tkColors(DARK2), name="cnvs1"
         )
+        self.canvas_principal_banniere.configure(height=BANNIERE_HEIGHT)
         self.canvas_principal_banniere.pack(fill="x", expand=True)
         # ################################
         self.canvas_buttons_banniere = tk.Frame(
@@ -331,7 +332,7 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere.create_image(
             0, 0, anchor="nw", image=image_banniere, tags="bg_img"
         )
-        self.canvas_image_banniere.pack(fill="x", expand=True)
+        self.canvas_image_banniere.pack(fill="both", expand=True)
 
     def affiche_ban(self):
         self.affiche_banniere(
