@@ -89,7 +89,9 @@ def questionOuiouNon(
 ) -> str:
     lire_haute_voix(question)
     stream.start_stream()
+
     while True:
+        engine.SetWords(enable_words=["oui","non","annulé"])
         if engine.AcceptWaveform(
             stream.read(
                 num_frames=8192, exception_on_overflow=False
@@ -283,7 +285,7 @@ def getEngine() -> vosk.KaldiRecognizer:
     rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
     lire_haute_voix("micro initialisé")
     # set verbosity of vosk to NO-VERBOSE
-    vosk.SetLogLevel(-1)
+    # vosk.SetLogLevel(-1)
     # Initialize the model and return an instance
     return rec
 

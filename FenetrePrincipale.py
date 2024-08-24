@@ -69,19 +69,22 @@ class FenetrePrincipale(tk.Frame):
     thread: threading.Thread
     messages: list
     actual_chat_completion: ChatCompletion
+    valide: bool
+    okToRead: bool
 
     def __init__(
         self,
         # model ia à utiliser
         model_to_use: str,
         master,
+        fenscroll: FenetreScrollable,
     ):
         super().__init__(master)
         self.master = master
         self.ia = LLAMA3
-        self.nb_mots = 1
-        self.valide:bool=True
-        self.okToRead:bool=False
+        self.nb_mots = 0
+        self.valide = False
+        self.okToRead = False
         self.submission = ""
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -110,7 +113,8 @@ class FenetrePrincipale(tk.Frame):
             msg_to_write="Prompt...",
         )
 
-        self.fenetre_scrollable = FenetreScrollable(self.master)
+        self.fenetre_scrollable = fenscroll
+        # self.fenetre_scrollable = FenetreScrollable(self.master)
         self.my_liste = []
         self.messages = [
             {
@@ -121,6 +125,18 @@ class FenetrePrincipale(tk.Frame):
         self.actual_chat_completion = []
         self.pack()
         self.fenetre_scrollable.pack(fill="both", expand=True)
+
+    def setokToRead(self, okToRead: bool):
+        self.okToRead = okToRead
+
+    def getokToRead(self) -> bool:
+        return self.okToRead
+
+    def setValide(self, valide: bool):
+        self.valide = valide
+
+    def getValide(self) -> bool:
+        return self.valide
 
     def getListOfModels(self):
         return [element["name"] for element in (ollama.list())["models"]]
@@ -316,6 +332,31 @@ class FenetrePrincipale(tk.Frame):
         self.info_web_status.configure(foreground="grey", background="black")
         self.info_web_status.pack(side=tk.LEFT)
 
+        self.bouton_LargePolice = tk.Button(
+            self.canvas_buttons_banniere,
+            font=self.btn_font,
+            text="+",
+            command=self.enlarge,
+            relief="flat",
+            highlightthickness=3,
+            highlightcolor="yellow",
+        )
+        self.bouton_LargePolice.configure(foreground="red", background="black")
+        self.bouton_LargePolice.pack(side=tk.LEFT)
+
+        self.bouton_DiminuePolice = tk.Button(
+            self.canvas_buttons_banniere,
+            font=self.btn_font,
+            text="-",
+            command=self.diminue,
+            relief="flat",
+            highlightthickness=3,
+            highlightcolor="yellow",
+        )
+        self.bouton_DiminuePolice.configure(foreground="red", background="black")
+        self.bouton_DiminuePolice.pack(side=tk.LEFT)
+
+
         self.label_slogan = tk.Label(
             self.canvas_buttons_banniere,
             text=slogan,
@@ -333,6 +374,16 @@ class FenetrePrincipale(tk.Frame):
             0, 0, anchor="nw", image=image_banniere, tags="bg_img"
         )
         self.canvas_image_banniere.pack(fill="both", expand=True)
+
+    def enlarge(self):
+        self.btn_font.configure(size=(self.btn_font.cget("size")+2))
+        self.fontdict.configure(size=(self.btn_font.cget("size")+2))
+        self.default_font.configure(size=(self.btn_font.cget("size")+2))
+
+    def diminue(self):
+        self.btn_font.configure(size=(self.btn_font.cget("size")-2))
+        self.fontdict.configure(size=(self.btn_font.cget("size")-2))
+        self.default_font.configure(size=(self.btn_font.cget("size")-2))
 
     def affiche_ban(self):
         self.affiche_banniere(
@@ -734,9 +785,10 @@ class FenetrePrincipale(tk.Frame):
                         )
 
                         content_discussion += text_vocal_command
-                        _ = self.envoyer_prompt(
+                        _websearching = self.envoyer_prompt(
                             content_discussion, necessite_ai=True, grorOrNot=False
                         )
+                        self.check_before_read(_websearching)
                         (
                             welcoming,
                             is_human_is_talking,
@@ -765,7 +817,7 @@ class FenetrePrincipale(tk.Frame):
                         in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
-                        self.okToRead = True
+                        self.setokToRead(True)
                         lire_haute_voix("c'est noté")
                         (
                             welcoming,
@@ -779,7 +831,7 @@ class FenetrePrincipale(tk.Frame):
                         in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
-                        self.okToRead = False
+                        self.setokToRead(False)
                         lire_haute_voix("c'est noté")
                         (
                             welcoming,
@@ -810,7 +862,7 @@ class FenetrePrincipale(tk.Frame):
                         or "activez la validation orale" in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
-                        self.valide = True
+                        self.setValide(True)
                         lire_haute_voix("c'est noté")
                         (
                             welcoming,
@@ -820,12 +872,11 @@ class FenetrePrincipale(tk.Frame):
                         ) = initialise_conversation_audio()
 
                     elif (
-                        "désactiver la validation orale" in text_vocal_command.lower()
-                        or "désactivez la validation orale"
-                        in text_vocal_command.lower()
+                        "stopper la validation orale" in text_vocal_command.lower()
+                        or "stoppez la validation orale" in text_vocal_command.lower()
                     ):
                         self.get_stream().stop_stream()
-                        self.valide = False
+                        self.setValide(False)
                         lire_haute_voix("c'est noté")
                         (
                             welcoming,
@@ -863,45 +914,53 @@ class FenetrePrincipale(tk.Frame):
                             )
                             + " ::secondes "
                         )
-                        if self.valide:
-                            result = "oui"
-                        else:
+                        if self.getValide():
                             result = questionOuiouNon(
                                 "avez vous terminé ?",
                                 self.get_engine(),
                                 self.get_stream(),
                             )
 
-                        if "oui" == result:
+                            if "oui" == result:
+                                response_to_read = self.envoyer_prompt(
+                                    content_discussion,
+                                    necessite_ai=True,
+                                    grorOrNot=True,
+                                )
+                                self.check_before_read(response_to_read)
+
+                            elif "non" == result:
+                                lire_haute_voix("continuez")
+                                (welcoming, is_human_is_talking, _, _) = (
+                                    initialise_conversation_audio()
+                                )
+                            elif "annulé" == result:
+                                self.get_engine().Reset()
+                                content_discussion = ""
+                                lire_haute_voix("ok")
+
+                            del result
+
+                        else:
                             response_to_read = self.envoyer_prompt(
                                 content_discussion, necessite_ai=True, grorOrNot=True
                             )
-                            if self.okToRead:
-                                lire_haute_voix(response_to_read)
-                            (
-                                welcoming,
-                                is_human_is_talking,
-                                text_vocal_command,
-                                content_discussion,
-                            ) = initialise_conversation_audio()
+                            self.check_before_read(response_to_read)
 
-                        elif "non" == result:
-                            lire_haute_voix("continuez")
-                            (welcoming, is_human_is_talking, text_vocal_command, _) = (
-                                initialise_conversation_audio()
-                            )
-                        elif "annulé" == result:
-                            lire_haute_voix("ok")
-                            (
-                                welcoming,
-                                is_human_is_talking,
-                                text_vocal_command,
-                                content_discussion,
-                            ) = initialise_conversation_audio()
+                        welcoming, is_human_is_talking, _, _ = (
+                            initialise_conversation_audio()
+                        )
 
-                            # efface le fil de discussion
+                else:
+                    print("PartialResult:: " + self.get_engine().PartialResult())
 
         return "Future is done!"
+
+    def check_before_read(self, response_to_read):
+        if self.getokToRead():
+            lire_haute_voix(response_to_read)
+        else:
+            lire_haute_voix("voici !")
 
     def delete_last_discussion(self):
         kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
@@ -1573,9 +1632,11 @@ class FenetrePrincipale(tk.Frame):
             self.frame_of_buttons_principal,
             font=self.btn_font,
             relief="flat",
-            text="♻",
+            text="www",
             fg="green",
-            command=self.clear_entree_prompt_principal,
+            highlightbackground="yellow",
+            highlightcolor="green",
+
         )
         self.boutton_paste_clipboard = tk.Button(
             self.frame_of_buttons_principal,

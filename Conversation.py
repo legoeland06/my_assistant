@@ -186,7 +186,7 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors(DARK1),
             height=1,
-            width=120,
+            width=125,
             wrap="word",
             pady=6,
             yscrollcommand=scrollbar_response.set,
@@ -196,7 +196,7 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors(DARK3),
             height=4,
-            width=120,
+            width=125,
             wrap="word",
             pady=6,
             yscrollcommand=scrollbar_question.set,
@@ -287,7 +287,7 @@ class Conversation(tk.Frame):
         # self.fenexport.geometry("600x900")
         self.fenexport.title(self.widgetName)
         self.canvas_buttons = tk.Canvas(self.fenexport)
-        self.canvas_buttons.pack(fill="x", expand=True)
+        self.canvas_buttons.pack(side="top")
 
         self.grande_fenetre = SimpleMarkdownText(self.fenexport)
         self.boutlire = tk.Button(
@@ -326,7 +326,7 @@ class Conversation(tk.Frame):
         _ai_response_list = self.get_ai_response().split("\n")
         self.grande_fenetre.configure(
             font=self.fontConversation,
-            width=100,
+            # width=100,
             wrap="word",
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors(
@@ -387,7 +387,7 @@ class Conversation(tk.Frame):
 
         self.grande_fenetre.insert_markdown(self.get_ai_response())
 
-        self.grande_fenetre.pack(fill="both", expand=True)
+        self.grande_fenetre.pack(fill="both",expand=True)
         self.fenexport.mainloop()
 
     def normalize_me(self):

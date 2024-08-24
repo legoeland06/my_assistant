@@ -95,14 +95,16 @@ def main(prompt=False):
     )
 
     root = tk.Tk(className="YourAssistant")
-    # fenscroll=FenetreScrollable(root)
+    root.title = "RootTitle - "  # type: ignore
+    # root.geometry("770x900")
+    
+    fenscroll=FenetreScrollable(root)
 
     app = FenetrePrincipale(
         master=root,
         model_to_use=model_used,
+        fenscroll=fenscroll
     )
-    root.title = "RootTitle - "  # type: ignore
-    root.geometry("770x900")
 
     app.title = "MyApp"
 
