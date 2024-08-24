@@ -7,43 +7,10 @@ import tkinter as tk
 from tkinter import messagebox
 from groq import Groq
 import openai
-import vosk
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
-from outils import engine_lecteur_init, lire_haute_voix
+from outils import lire_haute_voix
 from secret import GROQ_API_KEY
-
-
-def engine_ecouteur_init():
-    # set verbosity of vosk to NO-VERBOSE
-    vosk.SetLogLevel(-1)
-    # Initialize the model and return an instance
-    try:
-        model = vosk.Model(cst.MODEL_PATH, lang="fr-fr")
-        return model
-    except:
-        raise Exception("Pas de model de reconaissance vocale chargé")
-
-
-def init_model(model_to_use: str):
-    """
-    initialise le model à utiliser avant d'envoyer un prompt
-    """
-    msg = (
-        "Chargement de l'Ia : ["
-        + (
-            model_to_use[: model_to_use.find(":")]
-            if model_to_use.find(":") != -1
-            else model_to_use
-        )
-        + "]... Un instant"
-    )
-    print(msg)
-
-    lecteur.say(msg)
-    lecteur.runAndWait()
-    lecteur.stop()
-    return model_to_use
 
 
 def ask_to_ai(agent_appel, prompt, model_to_use):
@@ -54,22 +21,13 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
     if isinstance(agent_appel, Groq):
 
         this_message = [
-            {
-                "role": "system",
-                "content": "",
-            },
-            {
-                "role": "assistant",
-                "content": "",
-            },
-            {
-                "role": "user",
-                "content": prompt,
-            },
+            {"role": "system", "content": ""},
+            {"role": "assistant", "content": ""},
+            {"role": "user", "content": prompt},
         ]
 
         try:
-            llm: openai.ChatCompletion = agent_appel.chat.completions.create( # type: ignore
+            llm: openai.ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
                 messages=this_message,
                 model=model_to_use,
                 temperature=1,
@@ -93,7 +51,6 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
 
     return ai_response, timing
 
-
 def traitement_rapide(texte: str, model_to_use, talking) -> str:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
@@ -104,6 +61,16 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
     lire_haute_voix(readable_ai_response) if talking else None
     return readable_ai_response
 
+def bypass_it(app: FenetrePrincipale):
+    """
+    ## Mode de développement ##
+     BYPASS les sélection IHM chronophages en mode dev
+     après cette invocation l'application est lancée en mode audioChat directement
+    """
+    groq_client = Groq(api_key=GROQ_API_KEY)
+    app.set_client(groq_client)
+    app.set_model(cst.LLAMA370B)
+    app.bouton_commencer_diction.invoke()
 
 def main(prompt=False):
     """
@@ -112,8 +79,8 @@ def main(prompt=False):
     and responses will be returned and printed in the terminal
     and exit programme
     """
+    model_used = cst.LLAMA370B
     if prompt:
-        model_used = cst.LLAMA370B
         traitement_rapide(str(prompt), model_to_use=model_used, talking=False)
         exit(0)
 
@@ -126,54 +93,31 @@ def main(prompt=False):
         + cst.STARS * cst.WIDTH_TERM
     )
 
-    lire_haute_voix("chargement du moteur de reconnaissance vocale ")
-    model_ecouteur_micro = engine_ecouteur_init()
-    lire_haute_voix("reconnaissance vocale initialisée")
+    root = tk.Tk(className="YourAssistant")
 
-    # initialise a voice recognizer
-    lire_haute_voix("initialisation du micro")
-    rec = vosk.KaldiRecognizer(model_ecouteur_micro, 16000)
-    lire_haute_voix("micro initialisé")
-
-    root.title = "RootTitle - " # type: ignore
+    app = FenetrePrincipale(
+        master=root,
+        model_to_use=model_used,
+    )
+    root.title = "RootTitle - "  # type: ignore
+    root.geometry("770x900")
 
     app.title = "MyApp"
 
-    app.set_engine(rec)
-
     # Mode de développement
     # BYPASS les sélection IHM chronophages en mode dev
-    groq_client = Groq(api_key=GROQ_API_KEY)
-    app.set_client(groq_client)
-    app.set_model(cst.LLAMA370B)
-    app.bouton_commencer_diction.invoke()
+    bypass_it(app)
     # après cette invocation l'application est lancée en mode audioChat directement
 
-    app.mainloop(0)
-
-def init_start(engine_lecteur_init):
-    lecteur = engine_lecteur_init()
-    return lecteur
-
-
-# Début du programme
-lecteur = init_start(engine_lecteur_init)
-
-root = tk.Tk(className="YourAssistant")
-
-app = FenetrePrincipale(
-    master=root,
-    model_to_use=cst.LLAMA3,
-)
+    app.mainloop()
 
 if __name__ == "__main__":
     import argparse
-
     parser = argparse.ArgumentParser(description="Create a ArcHydro schema")
     parser.add_argument(
         "--prompt", metavar="prompt", required=False, help="the prompt to ask"
     )
-
     args: Namespace = parser.parse_args()
 
+    # Début du programme
     main(prompt=args.prompt)

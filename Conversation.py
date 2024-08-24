@@ -36,6 +36,7 @@ class Conversation(tk.Frame):
         agent_appel,
         model_to_use,
     ):
+        super().__init__(master)
         self.fontdict = font.Font(
             family=ZEFONT[0],
             size=ZEFONT[1],
@@ -57,14 +58,12 @@ class Conversation(tk.Frame):
         self.fenexport = None
         self.grande_fenetre = None
         self.submit = submit
-        super().__init__(master)
-        self.master = master
         self.agent_appel = agent_appel
         self.model_to_use = model_to_use
 
-        #TODO: avoir avec true ou inexistant
-        self.pack(expand=True)
-        
+        # TODO: avoir avec true ou inexistant
+        self.pack(fill="x",expand=True)
+
         self.title = "title"
         self.ai_response = ai_response
         self.canvas_edition = tk.Canvas(
@@ -244,9 +243,6 @@ class Conversation(tk.Frame):
             height=10,
         )
 
-        self.entree_question.pack_propagate()
-        self.entree_response.pack_propagate()
-
     def agrandir_fenetre(self):
         self.affiche_fenetre_agrandie()
 
@@ -264,7 +260,7 @@ class Conversation(tk.Frame):
                     prompt="Enregistrement : veuillez choisir un nom au fichier",
                     title="Enregistrer vers pdf",
                 )
-                or self.master.cget("name")
+                or "myPdf"
             ),
             # TODO : ATTENTION LA VALEUR 30 est critique ici
             text_list=self.reformateText(
@@ -401,8 +397,6 @@ class Conversation(tk.Frame):
         self.entree_question.configure(
             height=1,
         )
-        self.entree_question.pack_propagate()
-        self.entree_response.pack_propagate()
 
     def minimize_me(self):
         self.entree_response.configure(
@@ -411,8 +405,6 @@ class Conversation(tk.Frame):
         self.entree_question.configure(
             height=0,
         )
-        self.entree_response.pack_propagate()
-        self.entree_question.pack_propagate()
 
     def get_ai_response(self) -> str:
         return self.ai_response

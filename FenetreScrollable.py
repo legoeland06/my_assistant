@@ -8,7 +8,7 @@ from Constants import DARK2, MAX_HISTORY, ZEFONT, LLAMA370B
 from Conversation import Conversation
 from outils import (
     ask_to_resume,
-    engine_lecteur_init,
+    lecteur_init,
     from_rgb_to_tkColors,
     lire_haute_voix,
 )
@@ -16,10 +16,11 @@ from secret import GROQ_API_KEY
 
 
 class FenetreScrollable(tk.Frame):
-    def __init__(self, parent):
-        self.parent = parent
+    def __init__(self,parent):
+        tk.Frame.__init__(self,parent)
+        self.parent=parent
+        self.pack(fill="both", expand=False)
         self.prompts_history = []
-        tk.Frame.__init__(self, parent)
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
             size=ZEFONT[1],
@@ -29,14 +30,10 @@ class FenetreScrollable(tk.Frame):
         self.canvas = tk.Canvas(
             self,
             borderwidth=0,
-            # height=int(parent.winfo_reqheight()) + 400,
-            # width=self.master.winfo_reqwidth() - 20,
             background=from_rgb_to_tkColors(DARK2),
         )
         self.frame = tk.Frame(
             self.canvas,
-            # height=int(parent.winfo_reqheight()) + 400,
-            # width=self.master.winfo_reqwidth() - 20,
             background=from_rgb_to_tkColors(DARK2),
         )
         self.vsb = tk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
@@ -44,7 +41,7 @@ class FenetreScrollable(tk.Frame):
 
         self.vsb.pack(side="right", fill="y")
         self.canvas.pack(fill="both", expand=False)
-        self.frame.pack(fill="x",expand=True)
+        self.frame.pack(fill="x", expand=True)
         self.canvas.create_window(
             (4, 4), window=self.frame, anchor="center", tags="self.frame"
         )
@@ -67,9 +64,9 @@ class FenetreScrollable(tk.Frame):
             .replace(":", " ")
             .replace("https", " ")
         )
-        engine_lecteur_init().say(texte_reformate)
-        engine_lecteur_init().runAndWait()
-        engine_lecteur_init().stop()
+        lecteur_init().say(texte_reformate)
+        lecteur_init().runAndWait()
+        lecteur_init().stop()
 
     def get_prompts_history(self) -> list:
         return self.prompts_history
@@ -101,7 +98,6 @@ class FenetreScrollable(tk.Frame):
             agent_appel=agent_appel,
             model_to_use=model,
         )
-        # zefont = fenetre_response.fontConversation
         self.responses.append(fenetre_response)
 
         self.save_to_history(fenetre_response.winfo_name(), simple_text, ai_response)
@@ -109,110 +105,23 @@ class FenetreScrollable(tk.Frame):
             "<Destroy>",
             func=self.supprimer_conversation,
         )
-        
-        # fenetre_response.get_entree_response().tag_configure(
-        #     tagName="boldtext",
-        #     font=tkfont.Font(
-        #         family=zefont.cget("family"),
-        #         size=zefont.cget("size"),
-        #         slant=zefont.cget("slant"),
-        #         weight="bold",
-        #     ),
-        # )
-        # #
-        # fenetre_response.get_entree_response().tag_configure(
-        #     tagName="response",
-        #     border=20,
-        #     wrap="word",
-        #     spacing1=10,
-        #     spacing3=10,
-        #     lmargin1=10,
-        #     lmargin2=10,
-        #     lmargincolor="green",
-        #     rmargin=10,
-        #     rmargincolor="green",
-        #     selectbackground="red",
-        # )
-        # fenetre_response.get_entree_response().tag_configure(
-        #     "balise",
-        #     font=zefont,
-        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
-        # )
 
-        # fenetre_response.get_entree_response().tag_configure(
-        #     "balise_bold",
-        #     font=tkfont.Font(
-        #         family=zefont.cget("family"),
-        #         size=zefont.cget("size"),
-        #         slant=zefont.cget("slant"),
-        #         weight="bold",
-        #     ),
-        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
-        # )
         fenetre_response.get_entree_response().insert_markdown(
-            # tk.END,
-            "_"+datetime.datetime.now().isoformat() + " <" + self.model + ">_ - ",
-            # "balise",
+            "_" + datetime.datetime.now().isoformat() + " <" + self.model + ">_ - ",
         )
         fenetre_response.get_entree_response().insert_markdown(
-            # tk.END,
-            "_"+str(_timing) + "secondes < " + str(type(agent_appel)) + " >_\n",
-            # "balise_bold",
+            "_" + str(_timing) + "secondes < " + str(type(agent_appel)) + " >_\n",
         )
         fenetre_response.get_entree_response().insert_markdown(ai_response + "\n")
 
-        # fenetre_response.get_entree_question().configure(font=("Arial", 10))
-        # fenetre_response.get_entree_question().tag_configure(
-        #     tagName="boldtext",
-        #     font=(
-        #         fenetre_response.get_entree_response().cget("font") + " italic",
-        #         8,
-        #     ),
-        # )
-        # fenetre_response.get_entree_question().tag_configure(
-        #     tagName="response",
-        #     border=20,
-        #     wrap="word",
-        #     spacing1=10,
-        #     spacing3=10,
-        #     lmargin1=10,
-        #     lmargin2=10,
-        #     lmargincolor="green",
-        #     rmargin=10,
-        #     rmargincolor="green",
-        #     selectbackground="red",
-        # )
-        # fenetre_response.get_entree_question().tag_configure(
-        #     "balise",
-        #     font=zefont,
-        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
-        # )
-        # fenetre_response.get_entree_question().tag_configure(
-        #     "balise_bold",
-        #     font=tkfont.Font(
-        #         family=zefont.cget("family"),
-        #         size=zefont.cget("size"),
-        #         slant=zefont.cget("slant"),
-        #         weight="bold",
-        #     ),
-        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
-        # )
         fenetre_response.get_entree_question().insert_markdown(
-            # tk.END,
             datetime.datetime.now().isoformat() + " <" + self.model + "> :: ",
-            # "balise",
         )
         fenetre_response.get_entree_question().insert_markdown(
-            # tk.END,
             str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
-            # "balise_bold",
         )
 
         fenetre_response.get_entree_question().insert_markdown(simple_text + "\n")
-        fenetre_response.get_entree_response().update()
-        fenetre_response.get_entree_question().update()
-
-        # self.print_liste_des_conversations()
 
     def print_liste_des_conversations(self):
         print("liste des conversations\n************************************")

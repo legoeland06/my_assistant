@@ -1,4 +1,6 @@
 import asyncio
+from binascii import Incomplete
+from pathlib import Path
 import random
 import subprocess
 from threading import Thread
@@ -12,9 +14,9 @@ import datetime
 import json
 import tkinter as tk
 from tkinter import filedialog
-from tkinter import messagebox
+from tkinter import messagebox as msgBox
 import tkinter.font as tkfont
-from typing import Any, List, Mapping, Tuple
+from typing import IO, Any, List, Mapping, Tuple
 import imageio.v3 as iio
 import vosk
 import ollama
@@ -25,10 +27,12 @@ import requests
 from Constants import (
     BYEBYE,
     DARK3,
+    DICT_NUMBERS,
     GOOGLECHROME_APP,
     INFOS_PROMPTS,
     LIENS_CHROME,
     LIGHT3,
+    MODEL_PATH,
     PREPROMPTS,
     PROMPTS_SYSTEMIQUES,
     RAPIDITE_VOIX,
@@ -55,6 +59,7 @@ def make_resume(text: str) -> str:
         + text
     )
 
+
 def lire_haute_voix(text: str):
     the_thread = Thread(None, name="the_thread", target=lambda: thread_lire(text))
     the_thread.start()
@@ -64,10 +69,15 @@ def lire_haute_voix(text: str):
 
 def random_je_vous_ecoute() -> str:
     random_expression = [
+        "...",
         "à vous",
         "je vous écoute",
         "je suis tout ouïe",
+        "ok, ensuite",
         "dites moi maintenant",
+        "... et?",
+        "dacodac",
+        "voila voila voila",
         "...",
     ]
     return random_expression[
@@ -76,7 +86,9 @@ def random_je_vous_ecoute() -> str:
     ]
 
 
-def questionOuiouNon(question:str,engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> str:
+def questionOuiouNon(
+    question: str, engine: vosk.KaldiRecognizer, stream: pyaudio.Stream
+) -> str:
     lire_haute_voix(question)
     stream.start_stream()
     while True:
@@ -97,11 +109,13 @@ def questionOuiouNon(question:str,engine: vosk.KaldiRecognizer, stream: pyaudio.
             elif "non" in response:
                 stream.stop_stream()
                 return "non"
-            else :
+            else:
                 return "non"
 
 
-def questionOuverte(question:str,engine: vosk.KaldiRecognizer, stream: pyaudio.Stream) -> bool:
+def questionOuverte(
+    question: str, engine: vosk.KaldiRecognizer, stream: pyaudio.Stream
+) -> str:
     lire_haute_voix(question)
     stream.start_stream()
     while True:
@@ -138,7 +152,7 @@ async def say_txt(alire: str):
         .replace(":", " ")
         .replace("https", " ")
     )
-    lecteur = engine_lecteur_init()
+    lecteur = lecteur_init()
     if not lecteur._inLoop:
         lecteur.say(texte_reformate)
         lecteur.proxy.runAndWait()
@@ -180,18 +194,21 @@ def load_txt(parent):
             mode="r",
             initialdir=".",
         )
-        print(file_to_read.name)  # type: ignore
-        resultat_txt = read_text_file(file_to_read.name)  # type: ignore
-        lire_haute_voix("Fin de l'extraction")  # type: ignore
+        if file_to_read != None:
+            print(file_to_read.name)
 
-        # on prepare le text pour le présenter à la méthode insert_markdown
-        # qui demande un texte fait de lignes séparées par des \n
-        # transforme list[str] -> str
-        resultat_reformater = "".join(resultat_txt)
-        return resultat_reformater
+            resultat_txt = read_text_file(file_to_read.name)
+            lire_haute_voix("Fin de l'extraction")
+
+            # on prepare le text pour le présenter à la méthode insert_markdown
+            # qui demande un texte fait de lignes séparées par des \n
+            # transforme list[str] -> str
+            resultat_reformater = "".join(resultat_txt)
+
+            return str(resultat_reformater)
 
     except:
-        messagebox("Problème avec ce fichier txt")  # type: ignore
+        msgBox.Message("Problème avec ce fichier txt")
         return ""
 
 
@@ -205,14 +222,20 @@ def load_pdf(parent) -> str:
             initialdir=".",
         )
         lire_haute_voix("Extraction du PDF")
-        resultat_txt = read_pdf(file_to_read.name)  # type: ignore
-        lire_haute_voix("Fin de l'extraction")
+        if not file_to_read is None:
+            resultat_txt = read_pdf(file_to_read.name)
+            lire_haute_voix("Fin de l'extraction")
+        else:
+            resultat_txt = "rien à lire, fichier vide"
+            lire_haute_voix(resultat_txt)
+
         return resultat_txt
     except:
-        messagebox("Problème avec ce fichier pdf")  # type: ignore
+        msgBox.Message("Problème avec ce fichier pdf")
         return "None"
-    
-def read_pdf(book):
+
+
+def read_pdf(book: str):
     text = ""
     pdf_Reader = PyPDF2.PdfReader(book)
     pages = pdf_Reader.pages
@@ -252,7 +275,22 @@ def append_saved_texte(file_to_append, readable_ai_response):
         )
 
 
-def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
+def getEngine() -> vosk.KaldiRecognizer:
+    """
+    initialise le reconnaisseur vocal
+    et retourne son instance
+    """
+    # initialise a voice recognizer
+    lire_haute_voix("initialisation du micro")
+    rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+    lire_haute_voix("micro initialisé")
+    # set verbosity of vosk to NO-VERBOSE
+    vosk.SetLogLevel(-1)
+    # Initialize the model and return an instance
+    return rec
+
+
+def traitement_du_texte(texte: str, number: int) -> list[Any | str]:
     """
     ### traitement_du_texte
     #### si le texte possède plus de <number> caractères :
@@ -271,10 +309,11 @@ def traitement_du_texte(texte: str, number: int) -> list[list[str]]:
         sentence for sentence in liste_of_sent if len(sentence.split(" ")) <= number
     ]
 
-    return liste_of_sentences  # type: ignore
+    return liste_of_sentences
+
 
 def _traitement_du_texte(text: str, n: int) -> list:
-    text_list:list=text.splitlines()
+    text_list: list = text.splitlines()
 
     return [text_list[i : i + n] for i in range(0, len(text_list), n)]
 
@@ -306,6 +345,7 @@ def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
         chunks.append(currentchunk)
 
     return chunks
+
 
 def translate_it(text_to_translate: str | list) -> str:
     """
@@ -421,7 +461,14 @@ def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
     infos_model.insert_markdown(mkd_text=jsonified)
 
 
-def engine_lecteur_init():
+def textToNumber(text: str) -> int:
+    for item in DICT_NUMBERS:
+        if item["letter"] in text.lower():
+            return item["number"]
+    return 10
+
+
+def lecteur_init():
     """
     ## initialise le Lecteur de l'application
     * initialise pyttsx3 avec la langue française
@@ -537,9 +584,9 @@ def ask_to_resume(agent_appel, prompt, model_to_use):
 
             ai_response = llm.choices[0].message.content
         except:
-            messagebox.Message("OOps, ")
+            msgBox.Message("OOps, ")
     else:
-        messagebox.Message("Ne fonctionne qu'avec groq")
+        msgBox.Message("Ne fonctionne qu'avec groq")
 
     return ai_response
 
@@ -582,7 +629,7 @@ def askToAi(agent_appel, prompt, model_to_use) -> tuple:
             )
             ai_response = llm.chat(prompt).message.content
         except:
-            messagebox.Message("OOps, ")
+            msgBox.Message("OOps, ")
 
     # calcul le temps écoulé par la thread
     timing: float = (time.perf_counter_ns() - time0) / 1_000_000_000.0

@@ -198,6 +198,49 @@ URL_ACTU_GLOBAL_RSS = [
         "content": "toutes-les-actualites",
     },
 ]
+DICT_NUMBERS = [
+    {
+        "letter": "zéro",
+        "number": 0,
+    },
+    {
+        "letter": "un",
+        "number": 1,
+    },
+    {
+        "letter": "deux",
+        "number": 2,
+    },
+    {
+        "letter": "trois",
+        "number": 3,
+    },
+    {
+        "letter": "quatre",
+        "number": 4,
+    },
+    {
+        "letter": "cinq",
+        "number": 5,
+    },
+    {
+        "letter": "six",
+        "number": 6,
+    },
+    {
+        "letter": "sept",
+        "number": 7,
+    },
+    {
+        "letter": "huit",
+        "number": 8,
+    },
+    {
+        "letter": "neuf",
+        "number": 9,
+    },
+]
+
 
 RULS_RSS = [
     {
@@ -266,7 +309,7 @@ RULS_RSS = [
     },
 ]
 
-DATE_OF_TODAY="Nous sommes le : " + time.strftime("%Y-%m-%d") + "\n"
+DATE_OF_TODAY = "Nous sommes le : " + time.strftime("%Y-%m-%d") + "\n"
 
 BANNIERE_WIDTH = 758
 BANNIERE_HEIGHT = 160

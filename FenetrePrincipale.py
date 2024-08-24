@@ -29,17 +29,21 @@ from outils import (
     actualise_index_html,
     append_response_to_file,
     append_saved_texte,
-    engine_lecteur_init,
+    lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
     get_pre_prompt,
+    getEngine,
     initialise_conversation_audio,
     lire_haute_voix,
     load_pdf,
     load_txt,
     make_resume,
     questionOuiouNon,
+    questionOuverte,
+    random_je_vous_ecoute,
     read_text_file,
+    textToNumber,
     traitement_du_texte,
     translate_it,
 )
@@ -52,10 +56,11 @@ class FenetrePrincipale(tk.Frame):
     ia: str
     submission: str
     model_to_use: str
+    nb_mots: int
     streaming: pyaudio.Stream
 
     # moteur de reconnaissance vocale et d'écoute
-    engine_model: vosk.KaldiRecognizer
+    engine_model: vosk.KaldiRecognizer = getEngine()
 
     image: ImageTk  # type: ignore
     image_link: str
@@ -75,7 +80,9 @@ class FenetrePrincipale(tk.Frame):
         super().__init__(master)
         self.master = master
         self.ia = LLAMA3
-        # self.thread = None
+        self.nb_mots = 1
+        self.valide:bool=True
+        self.okToRead:bool=False
         self.submission = ""
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -99,7 +106,6 @@ class FenetrePrincipale(tk.Frame):
         self.configure(padx=5, pady=5, width=96 + 10)
         self.pack()
 
-        ##
         # phase de construction de la fenetre principale
         self.creer_fenetre(
             image=self.get_image(),
@@ -107,9 +113,7 @@ class FenetrePrincipale(tk.Frame):
         )
 
         self.fenetre_scrollable = FenetreScrollable(self)
-        # self.fenetre_scrollable.configure(width=self.master.winfo_reqwidth() - 20)
-        self.fenetre_scrollable.configure(height=self.winfo_reqwidth() - 20)
-        self.fenetre_scrollable.pack(side="bottom", fill="x", expand=True)
+        # self.fenetre_scrollable.pack(fill="both", expand=False)
         self.my_liste = []
         self.messages = [
             {
@@ -194,14 +198,6 @@ class FenetrePrincipale(tk.Frame):
     def get_stream(self) -> pyaudio.Stream:
         return self.streaming
 
-    def set_engine(self, engine: vosk.KaldiRecognizer):
-        """
-        ### set le moteur de reconnaissance vocale
-        Attention : chargement est long
-        #### TODO vérifier qu'il s'agissse d'un singleton
-        """
-        self.engine_model = engine
-
     def get_engine(self) -> vosk.KaldiRecognizer:
         return self.engine_model
 
@@ -264,18 +260,20 @@ class FenetrePrincipale(tk.Frame):
         * sélection du clien Ola ou ollama...
         * sélection du modèle d'ia ...."""
         # ## PRESENTATION DU GOELAND  ####
-        canvas_principal_banniere = tk.Frame(
+        self.canvas_principal_banniere = tk.Frame(
             self, background=from_rgb_to_tkColors(DARK2), name="cnvs1"
         )
-        canvas_principal_banniere.pack(fill="x", expand=True)
+        self.canvas_principal_banniere.pack(fill="x", expand=True)
         # ################################
-        canvas_buttons_banniere = tk.Frame(canvas_principal_banniere, name="cnvs2")
-        canvas_buttons_banniere.configure(bg=from_rgb_to_tkColors(DARK3))
-        canvas_buttons_banniere.pack(fill="x", expand=False)
+        self.canvas_buttons_banniere = tk.Frame(
+            self.canvas_principal_banniere, name="cnvs2"
+        )
+        self.canvas_buttons_banniere.configure(bg=from_rgb_to_tkColors(DARK3))
+        self.canvas_buttons_banniere.pack(fill="x", expand=False)
 
         # Create a canvas
-        canvas_image_banniere = tk.Canvas(
-            canvas_principal_banniere,
+        self.canvas_image_banniere = tk.Canvas(
+            self.canvas_principal_banniere,
             height=BANNIERE_HEIGHT,
             width=BANNIERE_WIDTH,
             background=from_rgb_to_tkColors(DARK2),
@@ -283,20 +281,19 @@ class FenetrePrincipale(tk.Frame):
         )
 
         # Création d'un bouton pour quitter
-        bouton_quitter = tk.Button(
-            canvas_buttons_banniere,
+        self.bouton_quitter = tk.Button(
+            self.canvas_buttons_banniere,
             font=self.btn_font,
             relief="flat",
             text="📴",
             border=0,
             command=self.master.destroy,
         )
-        bouton_quitter.configure(background="black", foreground="red")
-        bouton_quitter.pack(side=tk.LEFT)
+        self.bouton_quitter.configure(background="black", foreground="red")
+        self.bouton_quitter.pack(side=tk.LEFT)
 
-        bouton_Groq = tk.Button(
-            canvas_buttons_banniere,
-            # text="CLient_groq",
+        self.bouton_Groq = tk.Button(
+            self.canvas_buttons_banniere,
             font=self.btn_font,
             text="🚹",
             command=self.groq_choix_ia,
@@ -304,12 +301,11 @@ class FenetrePrincipale(tk.Frame):
             highlightthickness=3,
             highlightcolor="yellow",
         )
-        bouton_Groq.configure(foreground="red", background="black")
-        bouton_Groq.pack(side=tk.LEFT)
+        self.bouton_Groq.configure(foreground="red", background="black")
+        self.bouton_Groq.pack(side=tk.LEFT)
 
         self.info_web_status = tk.Button(
-            canvas_buttons_banniere,
-            # text="CLient_groq",
+            self.canvas_buttons_banniere,
             font=self.btn_font,
             text="🔘",
             command=self.groq_choix_ia,
@@ -320,8 +316,8 @@ class FenetrePrincipale(tk.Frame):
         self.info_web_status.configure(foreground="grey", background="black")
         self.info_web_status.pack(side=tk.LEFT)
 
-        label_slogan = tk.Label(
-            canvas_buttons_banniere,
+        self.label_slogan = tk.Label(
+            self.canvas_buttons_banniere,
             text=slogan,
             font=("Trebuchet Bold Italic", 8),
             bg="black",
@@ -330,13 +326,13 @@ class FenetrePrincipale(tk.Frame):
             fg=from_rgb_to_tkColors(LIGHT3),
         )
 
-        label_slogan.pack(side=tk.RIGHT, expand=False)
+        self.label_slogan.pack(side=tk.RIGHT, expand=False)
 
         # Add the image to the canvas, anchored at the top-left (northwest) corner
-        canvas_image_banniere.create_image(
+        self.canvas_image_banniere.create_image(
             0, 0, anchor="nw", image=image_banniere, tags="bg_img"
         )
-        canvas_image_banniere.pack(fill="x", expand=True)
+        self.canvas_image_banniere.pack(fill="x", expand=True)
 
     def affiche_ban(self):
         self.affiche_banniere(
@@ -392,7 +388,6 @@ class FenetrePrincipale(tk.Frame):
 
     def ecouter(self):
         loop = asyncio.new_event_loop()
-        # asyncio.set_event_loop(loop)
         task = loop.create_task(self.dialog_ia())  # type: ignore
         loop.run_until_complete(task)
 
@@ -422,7 +417,6 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 ai_response = llm.choices[0].message.content
-                # print(str(ai_response))
             except:
                 messagebox.Message("OOps, ")
                 return expression
@@ -540,12 +534,12 @@ class FenetrePrincipale(tk.Frame):
                             text_pre_vocal_command.lower() + "\n"
                         )
 
+            content_discussion: str = ""
             while not is_pre_vocal_command:
                 if welcoming:
                     self.get_stream().start_stream()
                     # on peut maintenant réouvrir la boucle d'audition
-                    lire_haute_voix(self.get_synonymsOf("je vous écoute maintenant"))
-                    # lire_haute_voix(random_je_vous_ecoute())
+                    lire_haute_voix(random_je_vous_ecoute())
                     _, _, content_discussion, text_vocal_command = (
                         initialise_conversation_audio()
                     )
@@ -739,9 +733,7 @@ class FenetrePrincipale(tk.Frame):
                             " faire une recherche web sur", "\nrechercher sur le web : "
                         )
 
-                        content_discussion = (
-                            str(content_discussion) + text_vocal_command
-                        )
+                        content_discussion += text_vocal_command
                         _ = self.envoyer_prompt(
                             content_discussion, necessite_ai=True, grorOrNot=False
                         )
@@ -768,12 +760,86 @@ class FenetrePrincipale(tk.Frame):
                         )
                         self.bouton_commencer_diction.configure(bg="red")
 
+                    elif (
+                        "lis-moi systématiquement tes réponses"
+                        in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        self.okToRead = True
+                        lire_haute_voix("c'est noté")
+                        (
+                            welcoming,
+                            is_human_is_talking,
+                            text_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+
+                    elif (
+                        "arrêtez la lecture systématique des réponses"
+                        in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        self.okToRead = False
+                        lire_haute_voix("c'est noté")
+                        (
+                            welcoming,
+                            is_human_is_talking,
+                            text_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+
+                    elif "gérer les préférences" in text_vocal_command.lower():
+                        self.get_stream().stop_stream()
+                        self.nb_mots = textToNumber(
+                            questionOuverte(
+                                "à partir de combien de mots dois je déclencher ma réponse ?",
+                                self.get_engine(),
+                                self.get_stream(),
+                            )
+                        )
+                        lire_haute_voix("c'est noté")
+                        (
+                            welcoming,
+                            is_human_is_talking,
+                            text_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+
+                    elif (
+                        "activer la validation orale" in text_vocal_command.lower()
+                        or "activez la validation orale" in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        self.valide = True
+                        lire_haute_voix("c'est noté")
+                        (
+                            welcoming,
+                            is_human_is_talking,
+                            text_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+
+                    elif (
+                        "désactiver la validation orale" in text_vocal_command.lower()
+                        or "désactivez la validation orale"
+                        in text_vocal_command.lower()
+                    ):
+                        self.get_stream().stop_stream()
+                        self.valide = False
+                        lire_haute_voix("c'est noté")
+                        (
+                            welcoming,
+                            is_human_is_talking,
+                            text_vocal_command,
+                            content_discussion,
+                        ) = initialise_conversation_audio()
+
                     elif text_vocal_command.lower() != "":
+                        # self.get_stream().stop_stream()
                         mode_ecoute = True
                         is_human_is_talking = True
-                        content_discussion = (
-                            str(content_discussion) + "\n" + text_vocal_command
-                        )
+                        content_discussion += "\n" + text_vocal_command
+
                         print("texte reconnu : " + text_vocal_command.lower())
 
                         self.set_timer(time.perf_counter_ns())
@@ -781,7 +847,7 @@ class FenetrePrincipale(tk.Frame):
                     if (
                         is_human_is_talking
                         and mode_ecoute
-                        and content_discussion.split().__len__() > 0
+                        and text_vocal_command.split().__len__() >= self.nb_mots
                     ):
                         mode_ecoute = False
                         self.get_stream().stop_stream()
@@ -797,13 +863,21 @@ class FenetrePrincipale(tk.Frame):
                             )
                             + " ::secondes "
                         )
-                        result = questionOuiouNon(
-                            "avez vous terminé ?", self.get_engine(), self.get_stream()
-                        )
+                        if self.valide:
+                            result = "oui"
+                        else:
+                            result = questionOuiouNon(
+                                "avez vous terminé ?",
+                                self.get_engine(),
+                                self.get_stream(),
+                            )
+
                         if "oui" == result:
-                            self.envoyer_prompt(
+                            response_to_read = self.envoyer_prompt(
                                 content_discussion, necessite_ai=True, grorOrNot=True
                             )
+                            if self.okToRead:
+                                lire_haute_voix(response_to_read)
                             (
                                 welcoming,
                                 is_human_is_talking,
@@ -1336,7 +1410,7 @@ class FenetrePrincipale(tk.Frame):
             messagebox("Problème avec ce fichier txt")  # type: ignore
 
     def load_and_affiche_txt(self):
-        resultat_txt: str = load_txt(self)
+        resultat_txt: str | None = load_txt(self)
         self.entree_prompt_principal.insert_markdown(mkd_text=resultat_txt)
 
     def load_and_affiche_pdf(self):
@@ -1406,7 +1480,7 @@ class FenetrePrincipale(tk.Frame):
                 w.focus_get().destroy()  # type: ignore
 
     def stoppeur(self):
-        lecteur = engine_lecteur_init()
+        lecteur = lecteur_init()
         if lecteur._inLoop:
             lecteur.endLoop()
             lecteur.stop()
@@ -1453,137 +1527,6 @@ class FenetrePrincipale(tk.Frame):
         """
         Méthode de création de la fenetre principale"""
 
-        def textwidget_to_mp3(obj: SimpleMarkdownText):
-            """
-            #### txt vers mp3
-            Transforme le text sélectionné dans l'object de type
-            SimpleMarkdownText donné en parametre en dictée mp3.
-                Si rien n'est sélectionné, tout le text est traité.
-            """
-
-            if None == obj.get_selection():
-                # on reécupère tout le contenu de l'objet
-                texte_to_save_to_mp3 = obj.get("1.0", tk.END)
-            else:
-                texte_to_save_to_mp3 = obj.get_selection()
-
-            if None != texte_to_save_to_mp3:
-                if len(str(texte_to_save_to_mp3)) > 0:
-
-                    lire_haute_voix("transcription du texte vers un fichier mp3")
-                    file_name_mp3 = (
-                        simpledialog.askstring(
-                            parent=self,
-                            prompt="Enregistrement : veuillez choisir un nom au fichier",
-                            title="Enregistrer vers audio",
-                        )
-                        or "my_texte"
-                    )
-                    engine_lecteur_init().save_to_file(
-                        texte_to_save_to_mp3, file_name_mp3.lower() + ".mp3"
-                    )
-                    lire_haute_voix("terminé")
-            else:
-                print("rien à transformer")
-
-        def replace_in_place(
-            texte: str, index1: str, index2: str, ponctuel: bool = True
-        ):
-            """traduit sur place (remplacement) le texte sélectionné"""
-            self.entree_prompt_principal.replace(
-                chars=texte, index1=index1, index2=index2
-            )
-
-        def lance_thread_lecture(obj: SimpleMarkdownText):
-            try:
-                texte_to_talk = obj.get(tk.SEL_FIRST, tk.SEL_LAST)
-            except:
-                texte_to_talk = obj.get("1.0", tk.END)
-            finally:
-                lire_haute_voix(texte_to_talk)
-
-        def translate_inplace():
-            traduit_maintenant()
-
-        def traduit_maintenant():
-            self.set_timer(float(time.perf_counter_ns()))
-            was_a_list = False
-            try:
-                # TRANSLATE IN PLACE
-                texte_initial = self.entree_prompt_principal.get_selection()
-                indx1 = self.entree_prompt_principal.index(tk.SEL_FIRST)
-                indx2 = self.entree_prompt_principal.index(tk.SEL_LAST)
-
-                texte_traite = traitement_du_texte(str(texte_initial), 500)
-                if isinstance(texte_traite, list):
-                    for element in texte_traite:
-                        translated_text = str(translate_it(text_to_translate=element))
-                        replace_in_place(
-                            texte=translated_text,
-                            index1=indx1,
-                            index2=indx2,
-                            ponctuel=False,
-                        )
-
-                else:
-                    translated_text = str(translate_it(text_to_translate=texte_traite))
-                    replace_in_place(
-                        texte=translated_text, index1=indx1, index2=indx2, ponctuel=True
-                    )
-
-            except:
-                # TRANSLATE COMPLETE
-                texte_initial = self.entree_prompt_principal.get("1.0", tk.END)
-                texte_brut_initial = texte_initial.replace("\n", " ")
-                texte_traite = traitement_du_texte(texte_initial, 500)
-
-                if isinstance(texte_traite, list):
-                    sortie = ""
-                    for element in texte_traite:
-                        translated_text = str(translate_it(text_to_translate=element))
-                        sortie += "\n" + translated_text
-                    was_a_list = True
-
-                    timing: float = (
-                        time.perf_counter_ns() - self.get_timer()
-                    ) / TIMING_COEF
-                    self.fenetre_scrollable.addthing(
-                        _timing=timing,
-                        agent_appel=self.get_client(),
-                        simple_text=self.entree_prompt_principal.get_text(),
-                        ai_response=sortie,
-                        model=self.get_model(),
-                        submit_func=self.soumettre,
-                    )
-                elif was_a_list == True:
-                    translated_text = str(translate_it(text_to_translate=texte_traite))
-                    timing: float = (
-                        time.perf_counter_ns() - self.get_timer()
-                    ) / TIMING_COEF
-                    self.fenetre_scrollable.addthing(
-                        _timing=timing,
-                        agent_appel=self.get_client(),
-                        simple_text=self.entree_prompt_principal.get_text(),
-                        ai_response=translated_text,
-                        model=self.get_model(),
-                        submit_func=self.soumettre,
-                    )
-                else:
-                    translated_text = str(translate_it(text_to_translate=texte_traite))
-                    timing: float = (
-                        time.perf_counter_ns() - self.get_timer()
-                    ) / TIMING_COEF
-                    self.fenetre_scrollable.addthing(
-                        _timing=timing,
-                        agent_appel=self.get_client(),
-                        simple_text=self.entree_prompt_principal.get_text(),
-                        ai_response=translated_text,
-                        model=self.get_model(),
-                        submit_func=self.soumettre,
-                    )
-
-                lire_haute_voix("fin de la traduction")
-
         # préparation de l'espace de saisie des prompts
 
         self.affiche_ban()
@@ -1602,13 +1545,16 @@ class FenetrePrincipale(tk.Frame):
         self.frame_of_buttons_principal.pack(fill="x", expand=True)
 
         self.frame_actual_prompt = tk.Frame(
-            self.master_frame_actual_prompt, relief="sunken",
+            self.master_frame_actual_prompt,
+            relief="sunken",
             name="frame_actual_prompt",
         )
         self.frame_actual_prompt.pack(fill="x", expand=True)
 
         self.entree_prompt_principal = SimpleMarkdownText(
-            self.frame_actual_prompt, height=15, font=self.default_font,
+            self.frame_actual_prompt,
+            height=15,
+            font=self.default_font,
             name="entree_prompt_principal",
         )
         self.entree_prompt_principal.widgetName = "entree_prompt_principal"
@@ -1670,7 +1616,7 @@ class FenetrePrincipale(tk.Frame):
             mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
         )
         self.entree_prompt_principal.focus_set()
-        self.entree_prompt_principal.pack(fill="x",expand=True)
+        self.entree_prompt_principal.pack(fill="x", expand=True)
         self.entree_prompt_principal.configure(
             yscrollcommand=self.scrollbar_prompt_principal.set
         )
@@ -1690,7 +1636,7 @@ class FenetrePrincipale(tk.Frame):
             relief="flat",
             font=self.btn_font,
             text=chr(9654),
-            command=lambda: lance_thread_lecture(self.entree_prompt_principal),
+            command=self.lance_lecture,
         )
         self.bouton_lire1.configure(
             bg=from_rgb_to_tkColors(DARK3),
@@ -1707,7 +1653,7 @@ class FenetrePrincipale(tk.Frame):
             font=self.btn_font,
             relief="flat",
             text="Translate",
-            command=translate_inplace,
+            command=self.traduit_maintenant,  # type: ignore
         )
         self.bouton_traduire_sur_place.configure(
             bg=from_rgb_to_tkColors(DARK2),
@@ -1753,7 +1699,7 @@ class FenetrePrincipale(tk.Frame):
             font=self.btn_font,
             relief="flat",
             text="txt \u261B mp3",
-            command=lambda: textwidget_to_mp3(self.entree_prompt_principal),
+            command=self.textwidget_to_mp3,
         )
         self.bouton_save_to_mp3.configure(
             bg=from_rgb_to_tkColors(DARK1), fg=from_rgb_to_tkColors(LIGHT3)
@@ -1804,6 +1750,134 @@ class FenetrePrincipale(tk.Frame):
         )
         self.button_keywords.pack(side=tk.RIGHT, expand=False)
         self.motcles_widget.pack(side="left", padx=2, pady=2)
+
+    def textwidget_to_mp3(self):
+        """
+        #### txt vers mp3
+        Transforme le text sélectionné dans l'object de type
+        SimpleMarkdownText donné en parametre en dictée mp3.
+            Si rien n'est sélectionné, tout le text est traité.
+        """
+        obj: SimpleMarkdownText = self.entree_prompt_principal
+
+        if None == obj.get_selection():
+            # on reécupère tout le contenu de l'objet
+            texte_to_save_to_mp3 = obj.get("1.0", tk.END)
+        else:
+            texte_to_save_to_mp3 = obj.get_selection()
+
+        if None != texte_to_save_to_mp3:
+            if len(str(texte_to_save_to_mp3)) > 0:
+
+                lire_haute_voix("transcription du texte vers un fichier mp3")
+                file_name_mp3 = (
+                    simpledialog.askstring(
+                        parent=self,
+                        prompt="Enregistrement : veuillez choisir un nom au fichier",
+                        title="Enregistrer vers audio",
+                    )
+                    or "my_texte"
+                )
+                lecteur_init().save_to_file(
+                    texte_to_save_to_mp3, file_name_mp3.lower() + ".mp3"
+                )
+                lire_haute_voix("terminé")
+        else:
+            print("rien à transformer")
+
+    def replace_in_place(
+        self, texte: str, index1: str, index2: str, ponctuel: bool = True
+    ):
+        """traduit sur place (remplacement) le texte sélectionné"""
+        self.entree_prompt_principal.replace(chars=texte, index1=index1, index2=index2)
+
+    def traduit_maintenant(self):
+        self.set_timer(float(time.perf_counter_ns()))
+        was_a_list = False
+        try:
+            # TRANSLATE IN PLACE
+            texte_initial = self.entree_prompt_principal.get_selection()
+            indx1 = self.entree_prompt_principal.index(tk.SEL_FIRST)
+            indx2 = self.entree_prompt_principal.index(tk.SEL_LAST)
+
+            texte_traite = traitement_du_texte(str(texte_initial), 500)
+            if isinstance(texte_traite, list):
+                for element in texte_traite:
+                    translated_text = str(translate_it(text_to_translate=element))
+                    self.replace_in_place(
+                        texte=translated_text,
+                        index1=indx1,
+                        index2=indx2,
+                        ponctuel=False,
+                    )
+
+            else:
+                translated_text = str(translate_it(text_to_translate=texte_traite))
+                self.replace_in_place(
+                    texte=translated_text, index1=indx1, index2=indx2, ponctuel=True
+                )
+
+        except:
+            # TRANSLATE COMPLETE
+            texte_initial = self.entree_prompt_principal.get("1.0", tk.END)
+            texte_brut_initial = texte_initial.replace("\n", " ")
+            texte_traite = traitement_du_texte(texte_initial, 500)
+
+            if isinstance(texte_traite, list):
+                sortie = ""
+                for element in texte_traite:
+                    translated_text = str(translate_it(text_to_translate=element))
+                    sortie += "\n" + translated_text
+                was_a_list = True
+
+                timing: float = (
+                    time.perf_counter_ns() - self.get_timer()
+                ) / TIMING_COEF
+                self.fenetre_scrollable.addthing(
+                    _timing=timing,
+                    agent_appel=self.get_client(),
+                    simple_text=self.entree_prompt_principal.get_text(),
+                    ai_response=sortie,
+                    model=self.get_model(),
+                    submit_func=self.soumettre,
+                )
+            elif was_a_list == True:
+                translated_text = str(translate_it(text_to_translate=texte_traite))
+                timing: float = (
+                    time.perf_counter_ns() - self.get_timer()
+                ) / TIMING_COEF
+                self.fenetre_scrollable.addthing(
+                    _timing=timing,
+                    agent_appel=self.get_client(),
+                    simple_text=self.entree_prompt_principal.get_text(),
+                    ai_response=translated_text,
+                    model=self.get_model(),
+                    submit_func=self.soumettre,
+                )
+            else:
+                translated_text = str(translate_it(text_to_translate=texte_traite))
+                timing: float = (
+                    time.perf_counter_ns() - self.get_timer()
+                ) / TIMING_COEF
+                self.fenetre_scrollable.addthing(
+                    _timing=timing,
+                    agent_appel=self.get_client(),
+                    simple_text=self.entree_prompt_principal.get_text(),
+                    ai_response=translated_text,
+                    model=self.get_model(),
+                    submit_func=self.soumettre,
+                )
+
+            lire_haute_voix("fin de la traduction")
+
+    def lance_lecture(self):
+        obj: SimpleMarkdownText = self.entree_prompt_principal
+        try:
+            texte_to_talk = obj.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except:
+            texte_to_talk = obj.get("1.0", tk.END)
+        finally:
+            lire_haute_voix(texte_to_talk)
 
     def load_selected_model(self, evt: tk.Event):
         # Note here that Tkinter passes an event object to onselect()
