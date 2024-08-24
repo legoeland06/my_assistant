@@ -6,7 +6,6 @@ import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any, Tuple
 from groq import Groq
-from numpy import unicode_
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
 from openai import ChatCompletion  # type: ignore

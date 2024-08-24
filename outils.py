@@ -1,6 +1,4 @@
 import asyncio
-from binascii import Incomplete
-from pathlib import Path
 import random
 import subprocess
 from threading import Thread
@@ -16,7 +14,7 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox as msgBox
 import tkinter.font as tkfont
-from typing import IO, Any, List, Mapping, Tuple
+from typing import Any, List, Mapping, Tuple
 import imageio.v3 as iio
 import vosk
 import ollama

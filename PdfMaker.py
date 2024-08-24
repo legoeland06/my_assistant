@@ -16,8 +16,6 @@ class PDF(fpdf.FPDF):
         self.image("banniere.jpeg", 10, 8, 33)
         # Arial bold 15
         self.set_font("Arial", "B", 8)
-        # Move to the right
-        # self.cell(80)
         # Title
         self.cell(0, 10, self.iamodel, 0, 1, "R")
         # Line break

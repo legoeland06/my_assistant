@@ -63,7 +63,7 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
 
 def bypass_it(app: FenetrePrincipale):
     """
-    ## Mode de développement ##
+    ### Mode de développement ###
      BYPASS les sélection IHM chronophages en mode dev
      après cette invocation l'application est lancée en mode audioChat directement
     """
@@ -74,8 +74,8 @@ def bypass_it(app: FenetrePrincipale):
 
 def main(prompt=False):
     """
-    ## Entry point of the app ##
-    * If --prompt option is True, the application work in terminal
+    ### Entry point of the app ###
+    * **If --prompt is True**, the application work in terminal
     and responses will be returned and printed in the terminal
     and exit programme
     """

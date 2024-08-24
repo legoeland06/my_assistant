@@ -90,6 +90,7 @@ STARS = "*"
 LINE = "-"
 DOUBLE_LINE = "="
 TIMING_COEF = 100_000_000.0
+
 INFOS_CHAT = "\
  ******************************************************\n\
  * COMMANDES ACCESSIBLES du mode chat\n\
@@ -113,47 +114,40 @@ LIST_COMMANDS = (
 MODE VEILLE
 *********************************************************
 *********************************************************
-ferme l'application : pour sortir du mode global d'écoute
-
 afficher de l'aide : pour afficher cette aide
 
+ferme l'application : pour sortir du mode global d'écoute
+
 activer les commandes vocales
-active les commandes vocales
 
 MODE INTERACTIF
 *********************************************************
 *********************************************************
 quel jour sommes-nous : donne la date du jour
-
 quelle heure est-il : donne l'heure d'aujourd'hui
-
 est-ce que tu m'écoutes : répond s'il est en mode intéractif
+
+gérez les préférences : préférence de déclenchement des réponses
+activer/désactiver les validations orales
+lis-moi systématiquement tes réponses
+arrêtez la lecture systématique des réponses
 
 
 Historique des conversations:
 *********************************************************
-afficher la liste des conversations
 afficher l'historique des conversations
 montre-moi les conversations
 
-effacer la dernière conversation
-effacer la dernière discussion
+effacer la dernière conversation/discussion
 
-effacer l'historique des conversations
-effacer l'historique des discussions
-supprimer l'historique des discussions
-supprimer l'historique des conversations
+supprimer/effacer l'historique des conversations/discussions
 
 
 Actualités:
 *********************************************************
-affiche toutes les actualités
-afficher toutes les actualités
+affiche/afficher les actualités/informations
 
-affiche les actualités
-affiche les informations
-afficher ...
-
+affiche/afficher toutes les actualités
 
 Accéder au web:
 *********************************************************
