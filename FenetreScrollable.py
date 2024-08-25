@@ -74,7 +74,7 @@ class FenetreScrollable(tk.Frame):
     def supprimer_conversation(self, evt: tk.Event):
         widgt: Conversation = evt.widget
         print("Effacement de la conversation ::" + widgt.winfo_name() + "::")
-        widgt.bouton_supprimer_question_response.invoke()
+        widgt.supprimer_conversation()
         for mini_dict in self.get_prompts_history():
             if widgt.winfo_name() in mini_dict["fenetre_name"]:
                 self.get_prompts_history().remove(mini_dict)

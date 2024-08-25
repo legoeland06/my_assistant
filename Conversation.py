@@ -388,7 +388,7 @@ class Conversation(tk.Frame):
         self.grande_fenetre.insert_markdown(self.get_ai_response())
 
         self.grande_fenetre.pack(fill="both",expand=True)
-        self.fenexport.mainloop()
+        # self.fenexport.mainloop()
 
     def normalize_me(self):
         self.entree_response.configure(

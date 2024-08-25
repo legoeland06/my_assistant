@@ -587,14 +587,15 @@ class FenetrePrincipale(tk.Frame):
                             if "la liste des" in check_ecout:
                                 self.get_stream().stop_stream()
                                 lire_haute_voix("Voici")
-                                self.boutton_historique.invoke()
+                                self.display_history()
                             elif "la dernière" in check_ecout:
                                 self.get_stream().stop_stream()
                                 _conversation = self.fenetre_scrollable.responses[
                                     len(self.fenetre_scrollable.responses) - 1
                                 ]
                                 suzie: Conversation = self.nametowidget(_conversation)
-                                suzie.bouton_agrandir_fenetre.invoke()
+                                suzie.agrandir_fenetre()
+
                             elif "une" in check_ecout:
                                 zenumber: int = textToNumber(
                                     questionOuverte(
@@ -603,18 +604,20 @@ class FenetrePrincipale(tk.Frame):
                                         self.get_stream(),
                                     )
                                 )
-                                nb_conversations=len(self.fenetre_scrollable.responses)
-                                if zenumber < nb_conversations:
+                                nb_conversations = len(
+                                    self.fenetre_scrollable.responses
+                                )
+                                if zenumber <= nb_conversations:
                                     _conversation = self.fenetre_scrollable.responses[
-                                        zenumber
+                                        zenumber-1
                                     ]
                                     suzie: Conversation = self.nametowidget(
                                         _conversation
                                     )
-                                    suzie.bouton_agrandir_fenetre.invoke()
+                                    suzie.agrandir_fenetre()
                                 else:
                                     lire_haute_voix(
-                                        "je suis désolé mais il n'y a pas que "
+                                        "je suis désolé mais il n'y a pas plus de "
                                         + str(nb_conversations)
                                         + " conversations en mémoire"
                                     )
@@ -755,10 +758,8 @@ class FenetrePrincipale(tk.Frame):
                             )
 
                             self.check_before_read(_response)
-                            
-                    
-                    if self.get_stream().is_stopped():
-                        self.get_stream().start_stream()
+
+                    self.get_stream().start_stream()
 
         return "Future is done!"
 
@@ -1481,12 +1482,7 @@ class FenetrePrincipale(tk.Frame):
             font=self.btn_font,
             relief="flat",
             text="📆",
-            command=lambda: self.display_history(
-                [
-                    element["response"]
-                    for element in self.fenetre_scrollable.get_prompts_history()
-                ]
-            ),
+            command=self.display_history,
         )
         self.boutton_effacer_entree_prompt_principal.pack(side="right")
         self.boutton_historique.pack(side="right")
@@ -1837,11 +1833,15 @@ class FenetrePrincipale(tk.Frame):
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
         _listbox.bind("<<ListboxSelect>>", func=self.load_selected_model)
 
-    def display_history(self, list_to_check: list):
+    def display_history(self):
         """
         Display a list of AI you can use
         * affiche la listebox avec la liste donnée en paramètre list_to_check
         * click on it cause model AI to change
         """
+        list_to_check = [
+            element["response"]
+            for element in self.fenetre_scrollable.get_prompts_history()
+        ]
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
         _listbox.configure(width=200)
