@@ -79,6 +79,8 @@ class FenetreScrollable(tk.Frame):
             if widgt.winfo_name() in mini_dict["fenetre_name"]:
                 self.get_prompts_history().remove(mini_dict)
                 break
+        self.responses.remove(widgt)
+
 
     def addthing(
         self,

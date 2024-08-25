@@ -17,6 +17,7 @@ import vosk
 from PIL import Image, ImageTk
 import threading
 
+from Conversation import Conversation
 from FenetreScrollable import FenetreScrollable
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
@@ -82,7 +83,7 @@ class FenetrePrincipale(tk.Frame):
         super().__init__(master)
         self.master = master
         self.ia = LLAMA3
-        self.nb_mots = 0
+        self.nb_mots = 4
         self.valide = False
         self.okToRead = False
         self.submission = ""
@@ -356,7 +357,6 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_DiminuePolice.configure(foreground="red", background="black")
         self.bouton_DiminuePolice.pack(side=tk.LEFT)
 
-
         self.label_slogan = tk.Label(
             self.canvas_buttons_banniere,
             text=slogan,
@@ -376,14 +376,14 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere.pack(fill="both", expand=True)
 
     def enlarge(self):
-        self.btn_font.configure(size=(self.btn_font.cget("size")+2))
-        self.fontdict.configure(size=(self.btn_font.cget("size")+2))
-        self.default_font.configure(size=(self.btn_font.cget("size")+2))
+        self.btn_font.configure(size=(self.btn_font.cget("size") + 2))
+        self.fontdict.configure(size=(self.btn_font.cget("size") + 2))
+        self.default_font.configure(size=(self.btn_font.cget("size") + 2))
 
     def diminue(self):
-        self.btn_font.configure(size=(self.btn_font.cget("size")-2))
-        self.fontdict.configure(size=(self.btn_font.cget("size")-2))
-        self.default_font.configure(size=(self.btn_font.cget("size")-2))
+        self.btn_font.configure(size=(self.btn_font.cget("size") - 2))
+        self.fontdict.configure(size=(self.btn_font.cget("size") - 2))
+        self.default_font.configure(size=(self.btn_font.cget("size") - 2))
 
     def affiche_ban(self):
         self.affiche_banniere(
@@ -495,149 +495,62 @@ class FenetrePrincipale(tk.Frame):
 
         lire_haute_voix(self.get_synonymsOf("Bienvenue !"))
 
-        is_pre_vocal_command = True
         lire_haute_voix(
-            self.get_synonymsOf(
-                "pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
-            )
+            "pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
         )
-        if self.get_stream().is_stopped():
-            self.get_stream().start_stream()
 
-        content_saved_discussion = ""
+        # entrez dans le mode veille
         while True:
             self.bouton_commencer_diction.configure(bg="blue")
-            mode_ecoute = False
-            is_human_is_talking = False
 
             if self.get_stream().is_stopped():
                 self.get_stream().start_stream()
 
-            data_real_pre_vocal_command = self.get_stream().read(
-                num_frames=8192, exception_on_overflow=False
-            )
+            check_ecout = self.attentif()
 
-            if self.get_engine().AcceptWaveform(data_real_pre_vocal_command):
-                from_data_pre_command_vocal_to_object_text = json.loads(
-                    self.get_engine().Result()
-                )
-                self.bouton_commencer_diction.flash()
+            if "afficher de l'aide" in check_ecout:
+                _ = self.affiche_aide()
 
-                text_pre_vocal_command: str = (
-                    from_data_pre_command_vocal_to_object_text["text"]
-                )
-
-                welcoming = True
-                if len(text_pre_vocal_command):
-
-                    if "afficher de l'aide" in text_pre_vocal_command.lower():
-                        text_pre_vocal_command = self.affiche_aide()
-
-                    elif (
-                        "ferme l'application" == text_pre_vocal_command.lower()
-                        or "fermer l'application" == text_pre_vocal_command.lower()
-                    ):
-                        _, _, text_pre_vocal_command, _ = (
-                            initialise_conversation_audio()
-                        )
-                        is_pre_vocal_command = True
-                        self.get_stream().stop_stream()
-                        self.get_stream().close()
-                        lire_haute_voix(
-                            "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton rouge"
-                        )
-                        self.bouton_commencer_diction.configure(bg="red")
-                        append_saved_texte(
-                            file_to_append="saved_text",
-                            readable_ai_response=content_saved_discussion,
-                        )
-                        content_saved_discussion = ""
-                        break
-
-                    elif (
-                        "active le mode audio" in text_pre_vocal_command.lower()
-                        or "activer le mode audio" in text_pre_vocal_command.lower()
-                        or "active les commandes vocales"
-                        in text_pre_vocal_command.lower()
-                        or "activer les commandes vocales"
-                        in text_pre_vocal_command.lower()
-                    ):
-                        lire_haute_voix(
-                            self.get_synonymsOf(
-                                "très bien, pour sortir de ce mode, dites : fin de la session"
-                            )
-                        )
-                        (
-                            welcoming,
-                            is_pre_vocal_command,
-                            text_pre_vocal_command,
-                            _,
-                        ) = initialise_conversation_audio()
-                        append_saved_texte(
-                            file_to_append="saved_text",
-                            readable_ai_response=content_saved_discussion,
-                        )
-                        content_saved_discussion = ""
-                        self.bouton_commencer_diction.configure(bg="green")
-
-                    else:
-                        content_saved_discussion += (
-                            text_pre_vocal_command.lower() + "\n"
-                        )
-
-            content_discussion: str = ""
-            while not is_pre_vocal_command:
-                if welcoming:
-                    self.get_stream().start_stream()
-                    # on peut maintenant réouvrir la boucle d'audition
-                    lire_haute_voix(random_je_vous_ecoute())
-                    _, _, content_discussion, text_vocal_command = (
-                        initialise_conversation_audio()
+            elif any(keyword in check_ecout for keyword in ["fermer", "ferme"]):
+                if "l'application" in check_ecout:
+                    self.get_stream().stop_stream()
+                    lire_haute_voix(
+                        "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton rouge"
                     )
-                    welcoming = not welcoming
+                    self.bouton_commencer_diction.configure(bg="red")
+                    self.bouton_commencer_diction.flash()
+                    self.get_stream().close()
 
-                (
-                    self.set_timer(time.perf_counter_ns())
-                    if is_human_is_talking and mode_ecoute
-                    else None
+                    break
+
+            elif "active" in check_ecout and any(
+                keyword in check_ecout
+                for keyword in ["le mode audio", "les commandes vocales"]
+            ):
+
+                lire_haute_voix(
+                    "très bien, pour sortir de ce mode, dites : fin de la session"
                 )
 
-                if self.get_engine().AcceptWaveform(
-                    self.get_stream().read(
-                        num_frames=8192, exception_on_overflow=False
-                    )  # read in chunks of 4096 bytes
-                ):  # accept waveform of input voice
-                    # Parse the JSON result and get the recognized text
+                self.bouton_commencer_diction.configure(bg="green")
 
-                    text_vocal_command: str = json.loads(self.get_engine().Result())[
-                        "text"
-                    ]
+                # entrez dans le mode commandes vocale
+                while True:
+                    check_ecout = self.attentif()
+                    print("==> " + check_ecout)
 
-                    if "afficher de l'aide" in text_vocal_command.lower():
-                        self.get_stream().stop_stream()
+                    if "afficher de l'aide" in check_ecout:
                         _ = self.affiche_aide()
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif "quel jour sommes-nous" in text_vocal_command.lower():
+                    elif "quel jour sommes-nous" in check_ecout.lower():
                         self.get_stream().stop_stream()
                         lire_haute_voix(
                             self.get_synonymsOf(
                                 "Nous sommes le " + time.strftime("%Y-%m-%d")
                             )
                         )
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif "quelle heure est-il" in text_vocal_command.lower():
+                    elif "quelle heure est-il" in check_ecout.lower():
                         self.get_stream().stop_stream()
                         lire_haute_voix(
                             self.get_synonymsOf(
@@ -645,202 +558,141 @@ class FenetrePrincipale(tk.Frame):
                                 + time.strftime("%H:%M:%S", time.localtime())
                             )
                         )
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif "est-ce que tu m'écoutes" in text_vocal_command.lower():
+                    elif "est-ce que tu m'écoutes" in check_ecout.lower():
                         self.get_stream().stop_stream()
                         lire_haute_voix(
                             self.get_synonymsOf("oui je suis toujours à l'écoute kiki")
                         )
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif (
-                        "effacer l'historique des conversations"
-                        in text_vocal_command.lower()
-                        or "supprimer l'historique des conversations"
-                        in text_vocal_command.lower()
-                        or "effacer l'historique des discussions"
-                        in text_vocal_command.lower()
-                        or "supprimer l'historique des discussions"
-                        in text_vocal_command.lower()
+                    elif any(
+                        keyword in check_ecout for keyword in ["effacer", "supprimer"]
+                    ) and any(
+                        keyword in check_ecout
+                        for keyword in ["conversation", "discussion"]
                     ):
-                        self.get_stream().stop_stream()
-                        self.delete_history()
+                        if "l'historique" in check_ecout:
+                            self.get_stream().stop_stream()
+                            self.delete_history()
 
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
+                        elif "la dernière" in check_ecout:
+                            self.get_stream().stop_stream()
+                            self.delete_last_discussion()
 
-                    elif (
-                        "effacer la dernière conversation" in text_vocal_command.lower()
-                        or "effacer la dernière discussion"
-                        in text_vocal_command.lower()
-                        or "supprimer la dernière discussion"
-                        in text_vocal_command.lower()
-                        or "supprimer la dernière conversation"
-                        in text_vocal_command.lower()
-                    ):
-                        self.get_stream().stop_stream()
-                        self.delete_last_discussion()
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif (
-                        "afficher la liste des conversations"
-                        in text_vocal_command.lower()
-                        or "afficher l'historique des conversations"
-                        in text_vocal_command.lower()
-                        or "montre-moi les conversations" in text_vocal_command.lower()
-                    ):
-                        self.get_stream().stop_stream()
-                        lire_haute_voix("Voici")
-                        self.boutton_historique.invoke()
-
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif (
-                        "afficher toutes les actualités" in text_vocal_command.lower()
-                        or "affiche toutes les actualités" in text_vocal_command.lower()
-                    ):
-                        self.get_stream().stop_stream()
-                        for liste_rss in URL_ACTU_GLOBAL_RSS:
-
-                            if "le monde informatique" in liste_rss["title"].lower():
-                                feed_rss = my_feedparser_rss.le_monde_informatique(
-                                    liste_rss["content"].split(" | ")
+                    elif "affiche" in check_ecout:
+                        if any(
+                            keyword in check_ecout
+                            for keyword in ["conversation", "discussion"]
+                        ):
+                            if "la liste des" in check_ecout:
+                                self.get_stream().stop_stream()
+                                lire_haute_voix("Voici")
+                                self.boutton_historique.invoke()
+                            elif "la dernière" in check_ecout:
+                                self.get_stream().stop_stream()
+                                _conversation = self.fenetre_scrollable.responses[
+                                    len(self.fenetre_scrollable.responses) - 1
+                                ]
+                                suzie: Conversation = self.nametowidget(_conversation)
+                                suzie.bouton_agrandir_fenetre.invoke()
+                            elif "une" in check_ecout:
+                                zenumber: int = textToNumber(
+                                    questionOuverte(
+                                        "laquelle ?",
+                                        self.get_engine(),
+                                        self.get_stream(),
+                                    )
                                 )
-                            elif "global_search" in liste_rss["title"].lower():
+                                nb_conversations=len(self.fenetre_scrollable.responses)
+                                if zenumber < nb_conversations:
+                                    _conversation = self.fenetre_scrollable.responses[
+                                        zenumber
+                                    ]
+                                    suzie: Conversation = self.nametowidget(
+                                        _conversation
+                                    )
+                                    suzie.bouton_agrandir_fenetre.invoke()
+                                else:
+                                    lire_haute_voix(
+                                        "je suis désolé mais il n'y a pas que "
+                                        + str(nb_conversations)
+                                        + " conversations en mémoire"
+                                    )
 
-                                feed_rss = my_feedparser_rss.generic_search_rss(
-                                    rss_url=liste_rss["content"].split(" | "),
-                                    nombre_items=10,
-                                )
+                        if any(
+                            keyword in check_ecout
+                            for keyword in ["les actualités", "les informations"]
+                        ):
+                            if "toutes" in check_ecout:
+                                self.get_stream().stop_stream()
+                                for liste_rss in URL_ACTU_GLOBAL_RSS:
+
+                                    if (
+                                        "le monde informatique"
+                                        in liste_rss["title"].lower()
+                                    ):
+                                        feed_rss = (
+                                            my_feedparser_rss.le_monde_informatique(
+                                                liste_rss["content"].split(" | ")
+                                            )
+                                        )
+                                    elif "global_search" in liste_rss["title"].lower():
+
+                                        feed_rss = my_feedparser_rss.generic_search_rss(
+                                            rss_url=liste_rss["content"].split(" | "),
+                                            nombre_items=10,
+                                        )
+                                    else:
+                                        feed_rss = my_feedparser_rss.lemonde(
+                                            liste_rss["content"].split(" | ")
+                                        )
+
+                                    _response = self.envoyer_prompt(
+                                        content_discussion=make_resume(feed_rss),
+                                        necessite_ai=True,
+                                        grorOrNot=False,
+                                    )
                             else:
-                                feed_rss = my_feedparser_rss.lemonde(
-                                    liste_rss["content"].split(" | ")
+                                self.get_stream().stop_stream()
+                                final_list = [item["title"] for item in RULS_RSS]
+                                _content_discussion, _text_vocal_command = (
+                                    self.affiche_list_informations(final_list)
                                 )
 
-                            response = self.envoyer_prompt(
-                                content_discussion=make_resume(feed_rss),
-                                necessite_ai=True,
-                                grorOrNot=False,
-                            )
-
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif (
-                        "afficher les actualités" in text_vocal_command.lower()
-                        or "afficher des actualités" in text_vocal_command.lower()
-                        or "afficher des informations" in text_vocal_command.lower()
-                        or "afficher les informations" in text_vocal_command.lower()
-                        or "affiche les actualités" in text_vocal_command.lower()
-                        or "affiche des actualités" in text_vocal_command.lower()
-                        or "affiche les informations" in text_vocal_command.lower()
-                        or "affiche des informations" in text_vocal_command.lower()
-                    ):
+                    elif "faire une recherche web sur " in check_ecout:
                         self.get_stream().stop_stream()
-                        final_list = [item["title"] for item in RULS_RSS]
-                        content_discussion, text_vocal_command = (
-                            self.affiche_list_informations(final_list)
-                        )
-
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif "faire une recherche web sur " in text_vocal_command.lower():
-                        self.get_stream().stop_stream()
-                        text_vocal_command = text_vocal_command.replace(
+                        check_ecout = check_ecout.replace(
                             " faire une recherche web sur", "\nrechercher sur le web : "
                         )
 
-                        content_discussion += text_vocal_command
                         _websearching = self.envoyer_prompt(
-                            content_discussion, necessite_ai=True, grorOrNot=False
+                            check_ecout, necessite_ai=True, grorOrNot=False
                         )
                         self.check_before_read(_websearching)
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif (
-                        "fin de la session" in text_vocal_command.lower()
-                        or "fermer la session" in text_vocal_command.lower()
+                    elif any(
+                        keyword in check_ecout
+                        for keyword in ["fin de", "ferm", "termin"]
                     ):
-                        # sortie de la boucle d'audition
-                        self.get_stream().stop_stream()
+                        if "la session" in check_ecout:
+                            # sortie de la boucle des commandes vocales
+                            self.get_stream().stop_stream()
+                            lire_haute_voix(
+                                "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
+                            )
+                            break
 
-                        welcoming, _, text_vocal_command, content_discussion = (
-                            initialise_conversation_audio()
-                        )
-                        is_pre_vocal_command = True
-                        lire_haute_voix(
-                            "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
-                        )
-                        self.bouton_commencer_diction.configure(bg="red")
-
-                    elif (
-                        "lis-moi systématiquement tes réponses"
-                        in text_vocal_command.lower()
-                    ):
+                    elif "lis-moi systématiquement tes réponses" in check_ecout:
                         self.get_stream().stop_stream()
                         self.setokToRead(True)
                         lire_haute_voix("c'est noté")
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif (
-                        "arrêtez la lecture systématique des réponses"
-                        in text_vocal_command.lower()
-                    ):
+                    elif "arrêtez la lecture systématique des réponses" in check_ecout:
                         self.get_stream().stop_stream()
                         self.setokToRead(False)
                         lire_haute_voix("c'est noté")
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
 
-                    elif "gérer les préférences" in text_vocal_command.lower():
+                    elif "gérer les préférences" in check_ecout:
                         self.get_stream().stop_stream()
                         self.nb_mots = textToNumber(
                             questionOuverte(
@@ -849,71 +701,30 @@ class FenetrePrincipale(tk.Frame):
                                 self.get_stream(),
                             )
                         )
-                        lire_haute_voix("c'est noté")
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif (
-                        "activer la validation orale" in text_vocal_command.lower()
-                        or "activez la validation orale" in text_vocal_command.lower()
-                    ):
-                        self.get_stream().stop_stream()
-                        self.setValide(True)
-                        lire_haute_voix("c'est noté")
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif (
-                        "stopper la validation orale" in text_vocal_command.lower()
-                        or "stoppez la validation orale" in text_vocal_command.lower()
-                    ):
-                        self.get_stream().stop_stream()
-                        self.setValide(False)
-                        lire_haute_voix("c'est noté")
-                        (
-                            welcoming,
-                            is_human_is_talking,
-                            text_vocal_command,
-                            content_discussion,
-                        ) = initialise_conversation_audio()
-
-                    elif text_vocal_command.lower() != "":
-                        # self.get_stream().stop_stream()
-                        mode_ecoute = True
-                        is_human_is_talking = True
-                        content_discussion += "\n" + text_vocal_command
-
-                        print("texte reconnu : " + text_vocal_command.lower())
-
-                        self.set_timer(time.perf_counter_ns())
-
-                    if (
-                        is_human_is_talking
-                        and mode_ecoute
-                        and text_vocal_command.split().__len__() >= self.nb_mots
-                    ):
-                        mode_ecoute = False
-                        self.get_stream().stop_stream()
-
-                        # ici on affiche le temps de blanc avant de commencer à lui parler
-                        # à partir du moment où il dit "à vous"
-
-                        print(
-                            " :: "
-                            + str(
-                                (time.perf_counter_ns() - self.get_timer())
-                                / TIMING_COEF
-                            )
-                            + " ::secondes "
+                        lire_haute_voix(
+                            "c'est noté pour " + str(self.nb_mots) + " mots"
                         )
+
+                    elif "la validation orale" in check_ecout:
+                        if any(
+                            keyword in check_ecout
+                            for keyword in ["active", "activer", "activez"]
+                        ):
+                            self.get_stream().stop_stream()
+                            self.setValide(True)
+                            lire_haute_voix("c'est noté")
+
+                        elif any(
+                            keyword in check_ecout
+                            for keyword in ["stopper", "arrêter", "arrêtez"]
+                        ):
+                            self.get_stream().stop_stream()
+                            self.setValide(False)
+                            lire_haute_voix("c'est noté")
+
+                    elif check_ecout.split().__len__() >= self.nb_mots:
+                        self.get_stream().stop_stream()
+
                         if self.getValide():
                             result = questionOuiouNon(
                                 "avez vous terminé ?",
@@ -922,39 +733,51 @@ class FenetrePrincipale(tk.Frame):
                             )
 
                             if "oui" == result:
-                                response_to_read = self.envoyer_prompt(
-                                    content_discussion,
+                                _response = self.envoyer_prompt(
+                                    check_ecout,
                                     necessite_ai=True,
                                     grorOrNot=True,
                                 )
-                                self.check_before_read(response_to_read)
+                                self.check_before_read(_response)
 
                             elif "non" == result:
                                 lire_haute_voix("continuez")
-                                (welcoming, is_human_is_talking, _, _) = (
-                                    initialise_conversation_audio()
-                                )
+
                             elif "annulé" == result:
                                 self.get_engine().Reset()
-                                content_discussion = ""
                                 lire_haute_voix("ok")
 
                             del result
 
                         else:
-                            response_to_read = self.envoyer_prompt(
-                                content_discussion, necessite_ai=True, grorOrNot=True
+                            _response = self.envoyer_prompt(
+                                check_ecout, necessite_ai=True, grorOrNot=True
                             )
-                            self.check_before_read(response_to_read)
 
-                        welcoming, is_human_is_talking, _, _ = (
-                            initialise_conversation_audio()
-                        )
-
-                else:
-                    print("PartialResult:: " + self.get_engine().PartialResult())
+                            self.check_before_read(_response)
+                            
+                    
+                    if self.get_stream().is_stopped():
+                        self.get_stream().start_stream()
 
         return "Future is done!"
+
+    def attentif(self):
+        data_real_pre_vocal_command = self.get_stream().read(
+            num_frames=8192, exception_on_overflow=False
+        )
+        if self.get_engine().AcceptWaveform(data_real_pre_vocal_command):
+            from_data_pre_command_vocal_to_object_text = json.loads(
+                self.get_engine().Result()
+            )
+            self.bouton_commencer_diction.flash()
+
+            text_pre_vocal_command: str = from_data_pre_command_vocal_to_object_text[
+                "text"
+            ]
+            return text_pre_vocal_command.lower()
+        else:
+            return ""
 
     def check_before_read(self, response_to_read):
         if self.getokToRead():
@@ -1636,7 +1459,6 @@ class FenetrePrincipale(tk.Frame):
             fg="green",
             highlightbackground="yellow",
             highlightcolor="green",
-
         )
         self.boutton_paste_clipboard = tk.Button(
             self.frame_of_buttons_principal,

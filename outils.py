@@ -126,7 +126,6 @@ def questionOuverte(
         ):  # accept waveform of input voice
             response = json.loads(engine.Result())["text"].lower()
             if len(response.split()) >= 1:
-                stream.stop_stream()
                 return response
 
 
