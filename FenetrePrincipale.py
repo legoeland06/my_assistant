@@ -28,7 +28,7 @@ from secret import GROQ_API_KEY
 from outils import (
     actualise_index_html,
     append_response_to_file,
-    append_saved_texte,
+    ask_to_resume,
     lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
@@ -41,7 +41,6 @@ from outils import (
     make_resume,
     questionOuiouNon,
     questionOuverte,
-    random_je_vous_ecoute,
     read_text_file,
     textToNumber,
     traitement_du_texte,
@@ -72,6 +71,8 @@ class FenetrePrincipale(tk.Frame):
     actual_chat_completion: ChatCompletion
     valide: bool
     okToRead: bool
+    responses:list
+    prompts_history:list
 
     def __init__(
         self,
@@ -86,6 +87,8 @@ class FenetrePrincipale(tk.Frame):
         self.nb_mots = 4
         self.valide = False
         self.okToRead = False
+        self.prompts_history = []
+        self.responses=[]
         self.submission = ""
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -400,7 +403,7 @@ class FenetrePrincipale(tk.Frame):
     def soumettre(self) -> str:
         if self.save_to_submission():
             this_thread = threading.Thread(target=self.submit_thread)
-            lire_haute_voix(self.get_synonymsOf("un instant s'il vous plait"))
+            lire_haute_voix("un instant s'il vous plait")
             list_of_words = self.get_submission().split()
             print("longeur du prompt:: " + str(len(list_of_words)))
             # TODO
@@ -478,6 +481,35 @@ class FenetrePrincipale(tk.Frame):
             ]
         return expression
 
+    def reformule(self, expression):
+        prompt = "Trouve moi une autre formulation de cette expression: " + expression
+        _agentAppel = self.get_client()
+        if isinstance(_agentAppel, Groq):
+            try:
+                llm: ChatCompletion = _agentAppel.chat.completions.create(
+                    messages=[
+                        {
+                            "role": "user",
+                            "content": prompt,
+                        }
+                    ],
+                    model=self.get_model(),
+                    temperature=1,
+                    max_tokens=1024,
+                    n=1,
+                    stream=False,
+                    stop=None,
+                    timeout=10,
+                )
+
+                ai_response = llm.choices[0].message.content
+            except:
+                messagebox.Message("OOps, ")
+                return expression
+            ai_response_ = str(ai_response)
+            return ai_response_
+        return expression
+
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
 
@@ -493,10 +525,8 @@ class FenetrePrincipale(tk.Frame):
             )
         )
 
-        lire_haute_voix(self.get_synonymsOf("Bienvenue !"))
-
         lire_haute_voix(
-            "pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
+            "Bienvenue ! pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
         )
 
         # entrez dans le mode veille
@@ -536,14 +566,38 @@ class FenetrePrincipale(tk.Frame):
 
                 # entrez dans le mode commandes vocale
                 while True:
+                    mode_prompt = True
                     check_ecout = self.attentif()
                     print("==> " + check_ecout)
 
-                    if "afficher de l'aide" in check_ecout:
+                    if "afficher" in check_ecout and any(
+                        keyword in check_ecout
+                        for keyword in ["de l'aide", "les commandes"]
+                    ):
+                        mode_prompt = False
                         _ = self.affiche_aide()
+                        lire_haute_voix(
+                            ("état des lieux de la configuration du tchat intéractif")
+                        )
+                        lire_haute_voix(
+                            (
+                                f"ne demande pas avant de lire la réponse : {translate_it(str(self.getokToRead()))}"
+                            )
+                        )
+                        lire_haute_voix(
+                            (
+                                f"demande de validation du prompt : {translate_it(str(self.getValide()))}"
+                            )
+                        )
+                        lire_haute_voix(
+                            (
+                                f"nombre minimum de mots que doit contenir un prompt valide : {str(self.nb_mots)}"
+                            )
+                        )
 
                     elif "quel jour sommes-nous" in check_ecout.lower():
                         self.get_stream().stop_stream()
+                        mode_prompt = False
                         lire_haute_voix(
                             self.get_synonymsOf(
                                 "Nous sommes le " + time.strftime("%Y-%m-%d")
@@ -552,6 +606,7 @@ class FenetrePrincipale(tk.Frame):
 
                     elif "quelle heure est-il" in check_ecout.lower():
                         self.get_stream().stop_stream()
+                        mode_prompt = False
                         lire_haute_voix(
                             self.get_synonymsOf(
                                 "il est exactement "
@@ -561,8 +616,11 @@ class FenetrePrincipale(tk.Frame):
 
                     elif "est-ce que tu m'écoutes" in check_ecout.lower():
                         self.get_stream().stop_stream()
+                        mode_prompt = False
                         lire_haute_voix(
-                            self.get_synonymsOf("oui je suis toujours à l'écoute kiki")
+                            self.get_synonymsOf(
+                                "oui je suis toujours à l'écoute <kiki>"
+                            )
                         )
 
                     elif any(
@@ -571,30 +629,46 @@ class FenetrePrincipale(tk.Frame):
                         keyword in check_ecout
                         for keyword in ["conversation", "discussion"]
                     ):
-                        if "l'historique" in check_ecout:
+                        if "historique" in check_ecout:
                             self.get_stream().stop_stream()
+                            mode_prompt = False
                             self.delete_history()
 
                         elif "la dernière" in check_ecout:
                             self.get_stream().stop_stream()
+                            mode_prompt = False
                             self.delete_last_discussion()
 
-                    elif "affiche" in check_ecout:
+                    elif any(keyword in check_ecout for keyword in ["affiche", "archive","lis moi"]):
                         if any(
                             keyword in check_ecout
                             for keyword in ["conversation", "discussion"]
                         ):
-                            if "la liste des" in check_ecout:
+                            if any(keyword  in check_ecout for keyword in ["la liste des" ,"historique"] ):
                                 self.get_stream().stop_stream()
+                                mode_prompt = False
                                 lire_haute_voix("Voici")
                                 self.display_history()
+
                             elif "la dernière" in check_ecout:
                                 self.get_stream().stop_stream()
-                                _conversation = self.fenetre_scrollable.responses[
-                                    len(self.fenetre_scrollable.responses) - 1
+                                mode_prompt = False
+                                _conversation = self.responses[
+                                    len(self.responses) - 1
                                 ]
-                                suzie: Conversation = self.nametowidget(_conversation)
-                                suzie.agrandir_fenetre()
+                                _last_discussion: Conversation = self.nametowidget(
+                                    _conversation
+                                )
+                                _last_discussion.agrandir_fenetre()
+                                if "archive" in check_ecout:
+                                    _last_discussion.bout_ok.invoke()
+                                elif "lis moi" in check_ecout:
+                                    fenetre_alire:SimpleMarkdownText|None=_last_discussion.grande_fenetre
+                                    if not fenetre_alire is None:
+                                        _last_discussion.lire_text_from_object(fenetre_alire)
+                                    else :
+                                        lire_haute_voix("oops problème")
+
 
                             elif "une" in check_ecout:
                                 zenumber: int = textToNumber(
@@ -605,24 +679,29 @@ class FenetrePrincipale(tk.Frame):
                                     )
                                 )
                                 nb_conversations = len(
-                                    self.fenetre_scrollable.responses
+                                    self.responses
                                 )
                                 if zenumber <= nb_conversations:
-                                    _conversation = self.fenetre_scrollable.responses[
-                                        zenumber-1
+                                    _conversation = self.responses[
+                                        zenumber - 1
                                     ]
-                                    suzie: Conversation = self.nametowidget(
+                                    _discussion: Conversation = self.nametowidget(
                                         _conversation
                                     )
-                                    suzie.agrandir_fenetre()
+                                    _discussion.agrandir_fenetre()
+                                    if "archive" in check_ecout:
+                                        _discussion.bout_ok.invoke()
+                                    mode_prompt = False
+
                                 else:
+                                    mode_prompt = False
                                     lire_haute_voix(
                                         "je suis désolé mais il n'y a pas plus de "
                                         + str(nb_conversations)
                                         + " conversations en mémoire"
                                     )
 
-                        if any(
+                        elif any(
                             keyword in check_ecout
                             for keyword in ["les actualités", "les informations"]
                         ):
@@ -650,6 +729,7 @@ class FenetrePrincipale(tk.Frame):
                                             liste_rss["content"].split(" | ")
                                         )
 
+                                    mode_prompt = False
                                     _response = self.envoyer_prompt(
                                         content_discussion=make_resume(feed_rss),
                                         necessite_ai=True,
@@ -657,13 +737,13 @@ class FenetrePrincipale(tk.Frame):
                                     )
                             else:
                                 self.get_stream().stop_stream()
+                                mode_prompt = False
                                 final_list = [item["title"] for item in RULS_RSS]
-                                _content_discussion, _text_vocal_command = (
-                                    self.affiche_list_informations(final_list)
-                                )
+                                _c, _t = self.affiche_list_informations(final_list)
 
                     elif "faire une recherche web sur " in check_ecout:
                         self.get_stream().stop_stream()
+                        mode_prompt = False
                         check_ecout = check_ecout.replace(
                             " faire une recherche web sur", "\nrechercher sur le web : "
                         )
@@ -680,6 +760,7 @@ class FenetrePrincipale(tk.Frame):
                         if "la session" in check_ecout:
                             # sortie de la boucle des commandes vocales
                             self.get_stream().stop_stream()
+                            mode_prompt = False
                             lire_haute_voix(
                                 "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
                             )
@@ -687,11 +768,13 @@ class FenetrePrincipale(tk.Frame):
 
                     elif "lis-moi systématiquement tes réponses" in check_ecout:
                         self.get_stream().stop_stream()
+                        mode_prompt = False
                         self.setokToRead(True)
                         lire_haute_voix("c'est noté")
 
                     elif "arrêtez la lecture systématique des réponses" in check_ecout:
                         self.get_stream().stop_stream()
+                        mode_prompt = False
                         self.setokToRead(False)
                         lire_haute_voix("c'est noté")
 
@@ -704,6 +787,7 @@ class FenetrePrincipale(tk.Frame):
                                 self.get_stream(),
                             )
                         )
+                        mode_prompt = False
                         lire_haute_voix(
                             "c'est noté pour " + str(self.nb_mots) + " mots"
                         )
@@ -714,6 +798,7 @@ class FenetrePrincipale(tk.Frame):
                             for keyword in ["active", "activer", "activez"]
                         ):
                             self.get_stream().stop_stream()
+                            mode_prompt = False
                             self.setValide(True)
                             lire_haute_voix("c'est noté")
 
@@ -722,10 +807,10 @@ class FenetrePrincipale(tk.Frame):
                             for keyword in ["stopper", "arrêter", "arrêtez"]
                         ):
                             self.get_stream().stop_stream()
+                            mode_prompt = False
                             self.setValide(False)
                             lire_haute_voix("c'est noté")
-
-                    elif check_ecout.split().__len__() >= self.nb_mots:
+                    if mode_prompt and check_ecout.split().__len__() >= self.nb_mots:
                         self.get_stream().stop_stream()
 
                         if self.getValide():
@@ -786,28 +871,28 @@ class FenetrePrincipale(tk.Frame):
         else:
             lire_haute_voix("voici !")
 
+# =======================================
     def delete_last_discussion(self):
-        kiki: tk.Widget = self.fenetre_scrollable.responses.pop()
+        kiki: tk.Widget = self.nametowidget(self.responses.pop())
         kiki.destroy()
-        lire_haute_voix("voilou")
+        # lire_haute_voix("voilou")
 
     def delete_history(self):
         """
         supprime l'historique des conversations,
         """
-
-        for element in self.fenetre_scrollable.responses:
-            kiki: tk.Widget = element
-            kiki.destroy()
+        while self.responses.__len__() > 0:
+            self.delete_last_discussion()
 
         lire_haute_voix("historique effacé !")
+# =======================================
 
     def affiche_aide(self) -> str:
         frame = tk.Toplevel()
 
         _list_box = tk.Listbox(
             master=frame,
-            height=len(LIST_COMMANDS),
+            # height=len(LIST_COMMANDS),
             width=len(max(LIST_COMMANDS, key=len)),
         )
         scrollbar_listbox = tk.Scrollbar(frame)
@@ -902,7 +987,7 @@ class FenetrePrincipale(tk.Frame):
             self.fenetre_scrollable = FenetreScrollable(self)
 
         # ajoute la réponse à la fenetre scrollable
-        self.fenetre_scrollable.addthing(
+        self.addthing(
             _timing=timing if necessite_ai else 0,
             agent_appel=self.get_client(),
             simple_text=content_discussion,
@@ -1097,8 +1182,8 @@ class FenetrePrincipale(tk.Frame):
                     "role": "assistant",
                     "content": (
                         # prend tout l'historique des prompts
-                        str(self.fenetre_scrollable.get_prompts_history())
-                        if len(self.fenetre_scrollable.get_prompts_history())
+                        str(self.get_prompts_history())
+                        if len(self.get_prompts_history())
                         else ""
                     ),
                 },
@@ -1198,8 +1283,8 @@ class FenetrePrincipale(tk.Frame):
                     "role": "assistant",
                     "content": (
                         # prend tout l'historique des prompts
-                        str(self.fenetre_scrollable.get_prompts_history())
-                        if len(self.fenetre_scrollable.get_prompts_history())
+                        str(self.get_prompts_history())
+                        if len(self.get_prompts_history())
                         else ""
                     ),
                 },
@@ -1261,7 +1346,7 @@ class FenetrePrincipale(tk.Frame):
         readable_ai_response = str(response_ai)
         self.set_ai_response(readable_ai_response)
 
-        self.fenetre_scrollable.addthing(
+        self.addthing(
             _timing=_timing,
             agent_appel=self.get_client(),
             simple_text=self.entree_prompt_principal.get_text(),
@@ -1452,15 +1537,7 @@ class FenetrePrincipale(tk.Frame):
             padx=10,
             pady=6,
         )
-        self.boutton_effacer_entree_prompt_principal = tk.Button(
-            self.frame_of_buttons_principal,
-            font=self.btn_font,
-            relief="flat",
-            text="www",
-            fg="green",
-            highlightbackground="yellow",
-            highlightcolor="green",
-        )
+
         self.boutton_paste_clipboard = tk.Button(
             self.frame_of_buttons_principal,
             font=self.btn_font,
@@ -1484,7 +1561,6 @@ class FenetrePrincipale(tk.Frame):
             text="📆",
             command=self.display_history,
         )
-        self.boutton_effacer_entree_prompt_principal.pack(side="right")
         self.boutton_historique.pack(side="right")
         self.boutton_paste_clipboard.pack(side="right")
         self.boutton_effacer_historique.pack(side="right")
@@ -1712,7 +1788,7 @@ class FenetrePrincipale(tk.Frame):
                 timing: float = (
                     time.perf_counter_ns() - self.get_timer()
                 ) / TIMING_COEF
-                self.fenetre_scrollable.addthing(
+                self.addthing(
                     _timing=timing,
                     agent_appel=self.get_client(),
                     simple_text=self.entree_prompt_principal.get_text(),
@@ -1725,7 +1801,7 @@ class FenetrePrincipale(tk.Frame):
                 timing: float = (
                     time.perf_counter_ns() - self.get_timer()
                 ) / TIMING_COEF
-                self.fenetre_scrollable.addthing(
+                self.addthing(
                     _timing=timing,
                     agent_appel=self.get_client(),
                     simple_text=self.entree_prompt_principal.get_text(),
@@ -1738,7 +1814,7 @@ class FenetrePrincipale(tk.Frame):
                 timing: float = (
                     time.perf_counter_ns() - self.get_timer()
                 ) / TIMING_COEF
-                self.fenetre_scrollable.addthing(
+                self.addthing(
                     _timing=timing,
                     agent_appel=self.get_client(),
                     simple_text=self.entree_prompt_principal.get_text(),
@@ -1840,8 +1916,158 @@ class FenetrePrincipale(tk.Frame):
         * click on it cause model AI to change
         """
         list_to_check = [
-            element["response"]
-            for element in self.fenetre_scrollable.get_prompts_history()
+            element.split(".")[4:]
+            for element in self.responses
         ]
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
-        _listbox.configure(width=200)
+
+
+
+
+############################################################################
+# récupérations de fenetreScrollable
+############################################################################
+    def get_prompts_history(self) -> list:
+        return self.prompts_history
+
+    def supprimer_conversation(self, evt: tk.Event):
+        conversation: Conversation = evt.widget
+        print("Effacement de la conversation ::" + conversation.id + "::")
+        try :
+            self.responses.remove(conversation.id)
+        except :
+            print(f"la fentre {conversation.id} est déjà effacée")
+        conversation.destroy()
+        conversation.canvas_edition.destroy()
+
+
+    def addthing(
+        self,
+        _timing,
+        agent_appel,
+        simple_text: str,
+        ai_response: str,
+        model,
+        submit_func,
+    ):
+        """ajouter une conversation"""
+        self.model = model
+        fenetre_response: Conversation = Conversation(
+            ai_response=ai_response,
+            text=simple_text,
+            # master=self,
+            master=self.fenetre_scrollable.frame,
+            submit=submit_func,
+            agent_appel=agent_appel,
+            model_to_use=model
+        )
+        fenetre_response.pack(fill="both",expand=True)
+
+        self.responses.append(fenetre_response.id)
+
+        self.save_to_history(fenetre_response.id, simple_text, ai_response)
+        fenetre_response.bind(
+            "<Destroy>",
+            func=self.supprimer_conversation,
+        )
+
+        fenetre_response.get_entree_response().insert_markdown(
+            "_" + datetime.now().isoformat() + " <" + self.model + ">_ - ",
+        )
+        fenetre_response.get_entree_response().insert_markdown(
+            "_" + str(_timing) + "secondes < " + str(type(agent_appel)) + " >_\n",
+        )
+        fenetre_response.get_entree_response().insert_markdown(ai_response + "\n")
+
+        fenetre_response.get_entree_question().insert_markdown(
+            datetime.now().isoformat() + " <" + self.model + "> :: ",
+        )
+        fenetre_response.get_entree_question().insert_markdown(
+            str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
+        )
+
+        fenetre_response.get_entree_question().insert_markdown(simple_text + "\n")
+
+    def print_liste_des_conversations(self):
+        print("liste des conversations\n************************************")
+        for item in self.get_prompts_history():
+            print(
+                item["fenetre_name"]
+                + ":: \n-----------------------"
+                + "\nPrompt:: "
+                + str(
+                    item["prompt"][:60] + "... "
+                    if len(item["prompt"]) >= 59
+                    else item["prompt"]
+                )
+                + "Response:: "
+                + str(
+                    item["response"][:59] + "...\n"
+                    if len(item["response"]) >= 60
+                    else item["response"] + "\n"
+                )
+            )
+        print("************************************")
+        for item in self.responses:
+            suzi:Conversation=self.nametowidget(item)
+            audrey=suzi.get_entree_question().get_text()
+            julia=suzi.get_entree_response().get_text()
+            print(suzi.widgetName
+                + ":: \n-----------------------"
+                + "\nPrompt:: "
+                + str(
+                    audrey[:60] + "... "
+                    if len(audrey) >= 59
+                    else audrey
+                )
+                + "Response:: "
+                + str(
+                    julia[:59] + "...\n"
+                    if len(julia) >= 60
+                    else julia + "\n"
+                )
+            )
+        print("************************************")
+
+    def save_to_history(self, fenetre_name, question, ai_response):
+        """
+        #### crée une sauvegarde des anciens échanges:
+        Lorsque les conversations sont effacées de la fenêtre scrollable,
+        la conversation correspondande est effacée aussi de la liste.
+        cela permet de gerer la continuite de la conversation avec
+        une certaie profondeur (à la discrétions de l'utilisateur) tout
+        en évitant d'engorger la mémoire et les tokens utilisé
+        """
+        prompt = question[:499] if len(question) >= 500 else question
+        response = ai_response[:499] if len(ai_response) >= 500 else ai_response
+        longueur = len(self.get_prompts_history())
+
+        # check if len(list)>MAX_HISTORY
+        if longueur >= MAX_HISTORY:
+            # on fait un résumé des 10 anciennes conversations (MAX_HISTORY=15)
+            conversation_resumee = ask_to_resume(
+                agent_appel=Groq(api_key=GROQ_API_KEY),
+                prompt="".join(map(str, self.get_prompts_history())),
+                model_to_use=LLAMA370B,
+            )
+
+            # on les efface
+            self.get_prompts_history().clear()
+
+            # on insère le résumé des conversations
+            self.get_prompts_history().append(
+                {
+                    "fenetre_name": fenetre_name,
+                    "prompt": "Résumé des conversations précédente",
+                    "response": conversation_resumee,
+                },
+            )
+            lire_haute_voix("un résumé des anciennes conversations à été effectué")
+
+        self.get_prompts_history().append(
+            {
+                "fenetre_name": fenetre_name,
+                "prompt": prompt,
+                "response": response,
+            },
+        )

@@ -26,6 +26,7 @@ class Conversation(tk.Frame):
     le prompt et le résultat attendu
     """
 
+    id:str
     def __init__(
         self,
         master: tk.Frame,
@@ -87,6 +88,7 @@ class Conversation(tk.Frame):
             font=self.btn_font,
             text="❌",
             command=self.supprimer_conversation,
+            
         )
 
         self.bouton_supprimer_question_response.configure(
@@ -212,12 +214,15 @@ class Conversation(tk.Frame):
             command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
+        self.id=str(self.__str__())
+
     def supprimer_conversation(self):
         # TODO : supprimer la covnersation visuellement mais aussi dans la liste des conversations
         # self.tk.quit()
         # self.nametowidget(self.widgetName).destroy()
         self.destroy()
         self.canvas_edition.destroy()
+        
 
     def transferer(self):
         self.get_entree_response().tag_add("sel", "1.0", "end")
@@ -256,13 +261,12 @@ class Conversation(tk.Frame):
         makePdfFromTtext(
             filename=(
                 simpledialog.askstring(
-                    parent=self,
+                    parent=self.master,
                     prompt="Enregistrement : veuillez choisir un nom au fichier",
                     title="Enregistrer vers pdf",
                 )
                 or "myPdf"
             ),
-            # TODO : ATTENTION LA VALEUR 30 est critique ici
             text_list=self.reformateText(
                 (
                     self.grande_fenetre.get_text()
