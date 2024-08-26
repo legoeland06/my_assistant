@@ -96,7 +96,6 @@ def main(prompt=False):
 
     root = tk.Tk(className="YourAssistant")
     root.title = "RootTitle - "  # type: ignore
-    root.geometry("770x1000")
     
     fenscroll=FenetreScrollable(root)
 

@@ -186,7 +186,7 @@ class Conversation(tk.Frame):
         )
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
-            fg=from_rgb_to_tkColors(DARK1),
+            fg=from_rgb_to_tkColors((0,0,153)),
             height=1,
             width=125,
             wrap="word",
@@ -196,7 +196,7 @@ class Conversation(tk.Frame):
 
         self.entree_question.configure(
             bg=from_rgb_to_tkColors(LIGHT2),
-            fg=from_rgb_to_tkColors(DARK3),
+            fg=from_rgb_to_tkColors((128,0,0)),
             height=4,
             width=125,
             wrap="word",
@@ -332,9 +332,9 @@ class Conversation(tk.Frame):
             font=self.fontConversation,
             # width=100,
             wrap="word",
-            bg=from_rgb_to_tkColors(LIGHT3),
+            bg=from_rgb_to_tkColors((28,0,0)),
             fg=from_rgb_to_tkColors(
-                DARK3,
+                LIGHT2,
             ),
         )
 
@@ -428,6 +428,9 @@ class Conversation(tk.Frame):
     def clear_entree_response(self):
         self.entree_response.clear_text()
         self.entree_question.clear_text()
+
+    def lire(self):
+        lire_haute_voix(self.entree_response.get_text())
 
     def lire_text_from_object(self, object: SimpleMarkdownText):
         try:

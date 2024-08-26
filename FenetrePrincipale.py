@@ -71,8 +71,8 @@ class FenetrePrincipale(tk.Frame):
     actual_chat_completion: ChatCompletion
     valide: bool
     okToRead: bool
-    responses:list
-    prompts_history:list
+    responses: list
+    prompts_history: list
 
     def __init__(
         self,
@@ -88,7 +88,7 @@ class FenetrePrincipale(tk.Frame):
         self.valide = False
         self.okToRead = False
         self.prompts_history = []
-        self.responses=[]
+        self.responses = []
         self.submission = ""
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
@@ -530,6 +530,9 @@ class FenetrePrincipale(tk.Frame):
         )
 
         # entrez dans le mode veille
+        self.mode_veille()
+
+    def mode_veille(self):
         while True:
             self.bouton_commencer_diction.configure(bg="blue")
 
@@ -565,288 +568,271 @@ class FenetrePrincipale(tk.Frame):
                 self.bouton_commencer_diction.configure(bg="green")
 
                 # entrez dans le mode commandes vocale
-                while True:
-                    mode_prompt = True
-                    check_ecout = self.attentif()
-                    print("==> " + check_ecout)
+                self.mode_commandes_vocales()
 
-                    if "afficher" in check_ecout and any(
-                        keyword in check_ecout
-                        for keyword in ["de l'aide", "les commandes"]
-                    ):
-                        mode_prompt = False
-                        _ = self.affiche_aide()
-                        lire_haute_voix(
-                            ("état des lieux de la configuration du tchat intéractif")
-                        )
-                        lire_haute_voix(
-                            (
-                                f"ne demande pas avant de lire la réponse : {translate_it(str(self.getokToRead()))}"
-                            )
-                        )
-                        lire_haute_voix(
-                            (
-                                f"demande de validation du prompt : {translate_it(str(self.getValide()))}"
-                            )
-                        )
-                        lire_haute_voix(
-                            (
-                                f"nombre minimum de mots que doit contenir un prompt valide : {str(self.nb_mots)}"
-                            )
-                        )
+    def mode_commandes_vocales(self):
+        while True:
+            mode_prompt = True
+            check_ecout = self.attentif()
+            print("==> " + check_ecout)
 
-                    elif "quel jour sommes-nous" in check_ecout.lower():
-                        self.get_stream().stop_stream()
-                        mode_prompt = False
-                        lire_haute_voix(
-                            self.get_synonymsOf(
-                                "Nous sommes le " + time.strftime("%Y-%m-%d")
-                            )
-                        )
+            if "afficher" in check_ecout and any(
+                keyword in check_ecout for keyword in ["de l'aide", "les commandes"]
+            ):
+                mode_prompt = False
+                _ = self.affiche_aide()
+                lire_haute_voix(
+                    ("état des lieux de la configuration du tchat intéractif")
+                )
+                lire_haute_voix(
+                    (
+                        f"ne demande pas avant de lire la réponse : {translate_it(str(self.getokToRead()))}"
+                    )
+                )
+                lire_haute_voix(
+                    (
+                        f"demande de validation du prompt : {translate_it(str(self.getValide()))}"
+                    )
+                )
+                lire_haute_voix(
+                    (
+                        f"nombre minimum de mots que doit contenir un prompt valide : {str(self.nb_mots)}"
+                    )
+                )
 
-                    elif "quelle heure est-il" in check_ecout.lower():
-                        self.get_stream().stop_stream()
-                        mode_prompt = False
-                        lire_haute_voix(
-                            self.get_synonymsOf(
-                                "il est exactement "
-                                + time.strftime("%H:%M:%S", time.localtime())
-                            )
-                        )
+            elif "quel jour sommes-nous" in check_ecout.lower():
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                lire_haute_voix(
+                    self.get_synonymsOf("Nous sommes le " + time.strftime("%Y-%m-%d"))
+                )
 
-                    elif "est-ce que tu m'écoutes" in check_ecout.lower():
-                        self.get_stream().stop_stream()
-                        mode_prompt = False
-                        lire_haute_voix(
-                            self.get_synonymsOf(
-                                "oui je suis toujours à l'écoute <kiki>"
-                            )
-                        )
+            elif "quelle heure est-il" in check_ecout.lower():
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                lire_haute_voix(
+                    self.get_synonymsOf(
+                        "il est exactement "
+                        + time.strftime("%H:%M:%S", time.localtime())
+                    )
+                )
 
+            elif "est-ce que tu m'écoutes" in check_ecout.lower():
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                lire_haute_voix(
+                    self.get_synonymsOf("oui je suis toujours à l'écoute <kiki>")
+                )
+
+            elif any(
+                keyword in check_ecout for keyword in ["effacer", "supprimer"]
+            ) and any(
+                keyword in check_ecout for keyword in ["conversation", "discussion"]
+            ):
+                if "historique" in check_ecout:
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    self.delete_history()
+
+                elif "la dernière" in check_ecout:
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    self.delete_last_discussion()
+
+            elif any(
+                keyword in check_ecout for keyword in ["conversation", "discussion"]
+            ):
+                if any(
+                    keyword in check_ecout for keyword in ["la liste des", "historique"]
+                ):
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    lire_haute_voix("Voici")
+                    self.display_history()
+
+                elif "la dernière" in check_ecout:
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    _conversation = self.responses[len(self.responses) - 1]
+                    _last_discussion: Conversation = self.nametowidget(_conversation)
+                    if "affiche" in check_ecout:
+                        _last_discussion.agrandir_fenetre()
+                    if "archive" in check_ecout:
+                        _last_discussion.bout_ok.invoke()
                     elif any(
-                        keyword in check_ecout for keyword in ["effacer", "supprimer"]
-                    ) and any(
-                        keyword in check_ecout
-                        for keyword in ["conversation", "discussion"]
+                        keyword in check_ecout for keyword in ["lis-moi", "lis moi"]
                     ):
-                        if "historique" in check_ecout:
-                            self.get_stream().stop_stream()
-                            mode_prompt = False
-                            self.delete_history()
+                        _last_discussion.lire()
 
-                        elif "la dernière" in check_ecout:
-                            self.get_stream().stop_stream()
-                            mode_prompt = False
-                            self.delete_last_discussion()
-
-                    elif any(keyword in check_ecout for keyword in ["affiche", "archive","lis moi"]):
-                        if any(
-                            keyword in check_ecout
-                            for keyword in ["conversation", "discussion"]
-                        ):
-                            if any(keyword  in check_ecout for keyword in ["la liste des" ,"historique"] ):
-                                self.get_stream().stop_stream()
-                                mode_prompt = False
-                                lire_haute_voix("Voici")
-                                self.display_history()
-
-                            elif "la dernière" in check_ecout:
-                                self.get_stream().stop_stream()
-                                mode_prompt = False
-                                _conversation = self.responses[
-                                    len(self.responses) - 1
-                                ]
-                                _last_discussion: Conversation = self.nametowidget(
-                                    _conversation
-                                )
-                                _last_discussion.agrandir_fenetre()
-                                if "archive" in check_ecout:
-                                    _last_discussion.bout_ok.invoke()
-                                elif "lis moi" in check_ecout:
-                                    fenetre_alire:SimpleMarkdownText|None=_last_discussion.grande_fenetre
-                                    if not fenetre_alire is None:
-                                        _last_discussion.lire_text_from_object(fenetre_alire)
-                                    else :
-                                        lire_haute_voix("oops problème")
-
-
-                            elif "une" in check_ecout:
-                                zenumber: int = textToNumber(
-                                    questionOuverte(
-                                        "laquelle ?",
-                                        self.get_engine(),
-                                        self.get_stream(),
-                                    )
-                                )
-                                nb_conversations = len(
-                                    self.responses
-                                )
-                                if zenumber <= nb_conversations:
-                                    _conversation = self.responses[
-                                        zenumber - 1
-                                    ]
-                                    _discussion: Conversation = self.nametowidget(
-                                        _conversation
-                                    )
-                                    _discussion.agrandir_fenetre()
-                                    if "archive" in check_ecout:
-                                        _discussion.bout_ok.invoke()
-                                    mode_prompt = False
-
-                                else:
-                                    mode_prompt = False
-                                    lire_haute_voix(
-                                        "je suis désolé mais il n'y a pas plus de "
-                                        + str(nb_conversations)
-                                        + " conversations en mémoire"
-                                    )
-
+                elif "une" in check_ecout:
+                    zenumber: int = textToNumber(
+                        questionOuverte(
+                            "laquelle ?",
+                            self.get_engine(),
+                            self.get_stream(),
+                        )
+                    )
+                    nb_conversations = len(self.responses)
+                    if zenumber <= nb_conversations:
+                        if "affiche" in check_ecout:
+                            _conversation = self.responses[zenumber - 1]
+                            _discussion: Conversation = self.nametowidget(_conversation)
+                            _discussion.agrandir_fenetre()
+                        elif "archive" in check_ecout:
+                            _discussion.bout_ok.invoke()
                         elif any(
-                            keyword in check_ecout
-                            for keyword in ["les actualités", "les informations"]
+                            keyword in check_ecout for keyword in ["lis-moi", "lis moi"]
                         ):
-                            if "toutes" in check_ecout:
-                                self.get_stream().stop_stream()
-                                for liste_rss in URL_ACTU_GLOBAL_RSS:
-
-                                    if (
-                                        "le monde informatique"
-                                        in liste_rss["title"].lower()
-                                    ):
-                                        feed_rss = (
-                                            my_feedparser_rss.le_monde_informatique(
-                                                liste_rss["content"].split(" | ")
-                                            )
-                                        )
-                                    elif "global_search" in liste_rss["title"].lower():
-
-                                        feed_rss = my_feedparser_rss.generic_search_rss(
-                                            rss_url=liste_rss["content"].split(" | "),
-                                            nombre_items=10,
-                                        )
-                                    else:
-                                        feed_rss = my_feedparser_rss.lemonde(
-                                            liste_rss["content"].split(" | ")
-                                        )
-
-                                    mode_prompt = False
-                                    _response = self.envoyer_prompt(
-                                        content_discussion=make_resume(feed_rss),
-                                        necessite_ai=True,
-                                        grorOrNot=False,
-                                    )
-                            else:
-                                self.get_stream().stop_stream()
-                                mode_prompt = False
-                                final_list = [item["title"] for item in RULS_RSS]
-                                _c, _t = self.affiche_list_informations(final_list)
-
-                    elif "faire une recherche web sur " in check_ecout:
-                        self.get_stream().stop_stream()
+                            _last_discussion.lire()
                         mode_prompt = False
-                        check_ecout = check_ecout.replace(
-                            " faire une recherche web sur", "\nrechercher sur le web : "
-                        )
 
-                        _websearching = self.envoyer_prompt(
-                            check_ecout, necessite_ai=True, grorOrNot=False
-                        )
-                        self.check_before_read(_websearching)
-
-                    elif any(
-                        keyword in check_ecout
-                        for keyword in ["fin de", "ferm", "termin"]
-                    ):
-                        if "la session" in check_ecout:
-                            # sortie de la boucle des commandes vocales
-                            self.get_stream().stop_stream()
-                            mode_prompt = False
-                            lire_haute_voix(
-                                "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
-                            )
-                            break
-
-                    elif "lis-moi systématiquement tes réponses" in check_ecout:
-                        self.get_stream().stop_stream()
-                        mode_prompt = False
-                        self.setokToRead(True)
-                        lire_haute_voix("c'est noté")
-
-                    elif "arrêtez la lecture systématique des réponses" in check_ecout:
-                        self.get_stream().stop_stream()
-                        mode_prompt = False
-                        self.setokToRead(False)
-                        lire_haute_voix("c'est noté")
-
-                    elif "gérer les préférences" in check_ecout:
-                        self.get_stream().stop_stream()
-                        self.nb_mots = textToNumber(
-                            questionOuverte(
-                                "à partir de combien de mots dois je déclencher ma réponse ?",
-                                self.get_engine(),
-                                self.get_stream(),
-                            )
-                        )
+                    else:
                         mode_prompt = False
                         lire_haute_voix(
-                            "c'est noté pour " + str(self.nb_mots) + " mots"
+                            "je suis désolé mais il n'y a pas plus de "
+                            + str(nb_conversations)
+                            + " conversations en mémoire"
                         )
 
-                    elif "la validation orale" in check_ecout:
-                        if any(
-                            keyword in check_ecout
-                            for keyword in ["active", "activer", "activez"]
-                        ):
-                            self.get_stream().stop_stream()
-                            mode_prompt = False
-                            self.setValide(True)
-                            lire_haute_voix("c'est noté")
+            elif (
+                any(
+                    keyword in check_ecout
+                    for keyword in ["les actualités", "les informations"]
+                )
+                and "affiche" in check_ecout
+            ):
+                if "toutes" in check_ecout:
+                    self.get_stream().stop_stream()
+                    for liste_rss in URL_ACTU_GLOBAL_RSS:
 
-                        elif any(
-                            keyword in check_ecout
-                            for keyword in ["stopper", "arrêter", "arrêtez"]
-                        ):
-                            self.get_stream().stop_stream()
-                            mode_prompt = False
-                            self.setValide(False)
-                            lire_haute_voix("c'est noté")
-                    if mode_prompt and check_ecout.split().__len__() >= self.nb_mots:
-                        self.get_stream().stop_stream()
-
-                        if self.getValide():
-                            result = questionOuiouNon(
-                                "avez vous terminé ?",
-                                self.get_engine(),
-                                self.get_stream(),
+                        if "le monde informatique" in liste_rss["title"].lower():
+                            feed_rss = my_feedparser_rss.le_monde_informatique(
+                                liste_rss["content"].split(" | ")
                             )
+                        elif "global_search" in liste_rss["title"].lower():
 
-                            if "oui" == result:
-                                _response = self.envoyer_prompt(
-                                    check_ecout,
-                                    necessite_ai=True,
-                                    grorOrNot=True,
-                                )
-                                self.check_before_read(_response)
-
-                            elif "non" == result:
-                                lire_haute_voix("continuez")
-
-                            elif "annulé" == result:
-                                self.get_engine().Reset()
-                                lire_haute_voix("ok")
-
-                            del result
-
+                            feed_rss = my_feedparser_rss.generic_search_rss(
+                                rss_url=liste_rss["content"].split(" | "),
+                                nombre_items=10,
+                            )
                         else:
-                            _response = self.envoyer_prompt(
-                                check_ecout, necessite_ai=True, grorOrNot=True
+                            feed_rss = my_feedparser_rss.lemonde(
+                                liste_rss["content"].split(" | ")
                             )
 
-                            self.check_before_read(_response)
+                        mode_prompt = False
+                        _response = self.envoyer_prompt(
+                            content_discussion=make_resume(feed_rss),
+                            necessite_ai=True,
+                            grorOrNot=False,
+                        )
+                else:
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    final_list = [item["title"] for item in RULS_RSS]
+                    _c, _t = self.affiche_list_informations(final_list)
 
-                    self.get_stream().start_stream()
+            elif "faire une recherche web sur " in check_ecout:
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                check_ecout = check_ecout.replace(
+                    " faire une recherche web sur", "\nrechercher sur le web : "
+                )
 
-        return "Future is done!"
+                _websearching = self.envoyer_prompt(
+                    check_ecout, necessite_ai=True, grorOrNot=False
+                )
+                self.check_before_read(_websearching)
+
+            elif any(
+                keyword in check_ecout for keyword in ["fin de", "ferm", "termin"]
+            ):
+                if "la session" in check_ecout:
+                    # sortie de la boucle des commandes vocales
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    lire_haute_voix(
+                        "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
+                    )
+                    break
+
+            elif "lis-moi systématiquement tes réponses" in check_ecout:
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                self.setokToRead(True)
+                lire_haute_voix("c'est noté")
+
+            elif "arrêtez la lecture systématique des réponses" in check_ecout:
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                self.setokToRead(False)
+                lire_haute_voix("c'est noté")
+
+            elif "gérer les préférences" in check_ecout:
+                self.get_stream().stop_stream()
+                self.nb_mots = textToNumber(
+                    questionOuverte(
+                        "à partir de combien de mots dois je déclencher ma réponse ?",
+                        self.get_engine(),
+                        self.get_stream(),
+                    )
+                )
+                mode_prompt = False
+                lire_haute_voix("c'est noté pour " + str(self.nb_mots) + " mots")
+
+            elif "la validation orale" in check_ecout:
+                if any(
+                    keyword in check_ecout
+                    for keyword in ["active", "activer", "activez"]
+                ):
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    self.setValide(True)
+                    lire_haute_voix("c'est noté")
+
+                elif any(
+                    keyword in check_ecout
+                    for keyword in ["stopper", "arrêter", "arrêtez"]
+                ):
+                    self.get_stream().stop_stream()
+                    mode_prompt = False
+                    self.setValide(False)
+                    lire_haute_voix("c'est noté")
+            if mode_prompt and check_ecout.split().__len__() >= self.nb_mots:
+                self.get_stream().stop_stream()
+
+                if self.getValide():
+                    result = questionOuiouNon(
+                        "avez vous terminé ?",
+                        self.get_engine(),
+                        self.get_stream(),
+                    )
+
+                    if "oui" == result:
+                        _response = self.envoyer_prompt(
+                            check_ecout,
+                            necessite_ai=True,
+                            grorOrNot=True,
+                        )
+                        self.check_before_read(_response)
+
+                    elif "non" == result:
+                        lire_haute_voix("continuez")
+
+                    elif "annulé" == result:
+                        self.get_engine().Reset()
+                        lire_haute_voix("ok")
+
+                    del result
+
+                else:
+                    _response = self.envoyer_prompt(
+                        check_ecout, necessite_ai=True, grorOrNot=True
+                    )
+
+                    self.check_before_read(_response)
+
+            self.get_stream().start_stream()
 
     def attentif(self):
         data_real_pre_vocal_command = self.get_stream().read(
@@ -871,7 +857,7 @@ class FenetrePrincipale(tk.Frame):
         else:
             lire_haute_voix("voici !")
 
-# =======================================
+    # =======================================
     def delete_last_discussion(self):
         kiki: tk.Widget = self.nametowidget(self.responses.pop())
         kiki.destroy()
@@ -885,7 +871,8 @@ class FenetrePrincipale(tk.Frame):
             self.delete_last_discussion()
 
         lire_haute_voix("historique effacé !")
-# =======================================
+
+    # =======================================
 
     def affiche_aide(self) -> str:
         frame = tk.Toplevel()
@@ -1915,31 +1902,24 @@ class FenetrePrincipale(tk.Frame):
         * affiche la listebox avec la liste donnée en paramètre list_to_check
         * click on it cause model AI to change
         """
-        list_to_check = [
-            element.split(".")[4:]
-            for element in self.responses
-        ]
+        list_to_check = [element.split(".")[4:] for element in self.responses]
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
 
-
-
-
-############################################################################
-# récupérations de fenetreScrollable
-############################################################################
+    ############################################################################
+    # récupérations de fenetreScrollable
+    ############################################################################
     def get_prompts_history(self) -> list:
         return self.prompts_history
 
     def supprimer_conversation(self, evt: tk.Event):
         conversation: Conversation = evt.widget
         print("Effacement de la conversation ::" + conversation.id + "::")
-        try :
+        try:
             self.responses.remove(conversation.id)
-        except :
+        except:
             print(f"la fentre {conversation.id} est déjà effacée")
         conversation.destroy()
         conversation.canvas_edition.destroy()
-
 
     def addthing(
         self,
@@ -1959,9 +1939,9 @@ class FenetrePrincipale(tk.Frame):
             master=self.fenetre_scrollable.frame,
             submit=submit_func,
             agent_appel=agent_appel,
-            model_to_use=model
+            model_to_use=model,
         )
-        fenetre_response.pack(fill="both",expand=True)
+        fenetre_response.pack(fill="both", expand=True)
 
         self.responses.append(fenetre_response.id)
 
@@ -2009,23 +1989,16 @@ class FenetrePrincipale(tk.Frame):
             )
         print("************************************")
         for item in self.responses:
-            suzi:Conversation=self.nametowidget(item)
-            audrey=suzi.get_entree_question().get_text()
-            julia=suzi.get_entree_response().get_text()
-            print(suzi.widgetName
+            suzi: Conversation = self.nametowidget(item)
+            audrey = suzi.get_entree_question().get_text()
+            julia = suzi.get_entree_response().get_text()
+            print(
+                suzi.widgetName
                 + ":: \n-----------------------"
                 + "\nPrompt:: "
-                + str(
-                    audrey[:60] + "... "
-                    if len(audrey) >= 59
-                    else audrey
-                )
+                + str(audrey[:60] + "... " if len(audrey) >= 59 else audrey)
                 + "Response:: "
-                + str(
-                    julia[:59] + "...\n"
-                    if len(julia) >= 60
-                    else julia + "\n"
-                )
+                + str(julia[:59] + "...\n" if len(julia) >= 60 else julia + "\n")
             )
         print("************************************")
 
