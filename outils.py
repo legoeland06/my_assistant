@@ -15,7 +15,6 @@ from tkinter import filedialog
 from tkinter import messagebox as msgBox
 import tkinter.font as tkfont
 from typing import Any, List, Mapping, Tuple
-import imageio.v3 as iio
 import vosk
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
@@ -236,10 +235,10 @@ def load_pdf(parent) -> str:
 
 def read_pdf(book: str):
     text = ""
-    pdf_Reader = PyPDF2.PdfReader(book)
-    pages = pdf_Reader.pages
-    for page in pages:
-        text += page.extract_text() + "\n"
+    # pdf_Reader = PyPDF2.PdfReader(book)
+    # pages = pdf_Reader.pages
+    # for page in pages:
+    #     text += page.extract_text() + "\n"
     return text
 
 
@@ -517,13 +516,6 @@ def lire_fichier(file_name: str) -> str:
 
 def lire_url(url: str) -> str:
     return url
-
-
-def lire_image(name: str) -> any:  # type: ignore
-    # Load a single image
-    im = iio.imread(name)
-    print(im.shape)  # Shape of the image (height, width, channels)
-    return im
 
 
 def veullez_patienter(moteur_de_diction):

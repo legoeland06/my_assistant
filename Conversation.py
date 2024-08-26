@@ -8,7 +8,7 @@ from outils import (
     lire_haute_voix,
     splittextintochunks,
 )
-from Constants import DARK1, DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
+from Constants import DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
 
 # import tkinter.font as tkfont
@@ -57,7 +57,7 @@ class Conversation(tk.Frame):
         self.btn_font.configure(size=8)
 
         self.fenexport = None
-        self.grande_fenetre = None
+        self.grande_fenetre = SimpleMarkdownText()
         self.submit = submit
         self.agent_appel = agent_appel
         self.model_to_use = model_to_use
@@ -217,9 +217,6 @@ class Conversation(tk.Frame):
         self.id=str(self.__str__())
 
     def supprimer_conversation(self):
-        # TODO : supprimer la covnersation visuellement mais aussi dans la liste des conversations
-        # self.tk.quit()
-        # self.nametowidget(self.widgetName).destroy()
         self.destroy()
         self.canvas_edition.destroy()
         
@@ -293,44 +290,42 @@ class Conversation(tk.Frame):
         self.canvas_buttons = tk.Canvas(self.fenexport)
         self.canvas_buttons.pack(side="top")
 
-        self.grande_fenetre = SimpleMarkdownText(self.fenexport)
+        self.grande_fenetre.master=self.fenexport
         self.boutlire = tk.Button(
             self.canvas_buttons,
             font=self.btn_font,
             fg="green",
             text="▶",
-            command=lambda: self.lire_text_from_object(self.grande_fenetre),  # type: ignore
+            command=lambda: self.lire_text_from_object(self.grande_fenetre),
         )
         self.bout_diminue = tk.Button(
             self.canvas_buttons,
             fg="blue",
             font=self.btn_font,
             text="α",
-            command=self.diminue,  # type: ignore
+            command=self.diminue,  
         )
         self.bout_augmente = tk.Button(
             self.canvas_buttons,
             fg="blue",
             font=self.btn_font,
             text="Α",
-            command=self.augmente,  # type: ignore
+            command=self.augmente,  
         )
         self.bout_ok = tk.Button(
             self.canvas_buttons,
             fg="green",
             font=self.btn_font,
             text="🆗",
-            command=self.create_pdf,  # type: ignore
+            command=self.create_pdf,  
         )
 
         self.bout_ok.pack(side="right")
         self.bout_diminue.pack(side="left")
         self.bout_augmente.pack(side="left")
         self.boutlire.pack(side="left", expand=False)
-        _ai_response_list = self.get_ai_response().split("\n")
         self.grande_fenetre.configure(
             font=self.fontConversation,
-            # width=100,
             wrap="word",
             bg=from_rgb_to_tkColors((28,0,0)),
             fg=from_rgb_to_tkColors(
@@ -338,61 +333,9 @@ class Conversation(tk.Frame):
             ),
         )
 
-        # self.grande_fenetre.tag_configure(
-        #     tagName="italic",
-        #     font=font.Font(
-        #         family=self.fontConversation.cget("family"),
-        #         size=self.fontConversation.cget("size"),
-        #         slant="italic",
-        #         weight=self.fontConversation.cget("weight"),
-        #     ),
-        # )
-
-        # self.grande_fenetre.tag_configure(
-        #     tagName="boldtext",
-        #     font=font.Font(
-        #         family=self.fontConversation.cget("family"),
-        #         size=self.fontConversation.cget("size"),
-        #         slant=self.fontConversation.cget("slant"),
-        #         weight="bold",
-        #     ),
-        # )
-        # #
-        # self.grande_fenetre.tag_configure(
-        #     tagName="response",
-        #     border=20,
-        #     wrap="word",
-        #     spacing1=10,
-        #     spacing3=10,
-        #     lmargin1=10,
-        #     lmargin2=10,
-        #     lmargincolor="green",
-        #     rmargin=10,
-        #     rmargincolor="green",
-        #     selectbackground="red",
-        # )
-        # self.grande_fenetre.tag_configure(
-        #     tagName="balise",
-        #     font=self.fontConversation,
-        #     foreground=from_rgb_to_tkColors((0, 0, 250)),
-        #     # foreground=from_rgb_to_tkColors((100, 100, 100)),
-        # )
-
-        # self.grande_fenetre.tag_configure(
-        #     tagName="balise_bold",
-        #     font=font.Font(
-        #         family=self.fontConversation.cget("family"),
-        #         size=self.fontConversation.cget("size"),
-        #         slant=self.fontConversation.cget("slant"),
-        #         weight="bold",
-        #     ),
-        #     foreground=from_rgb_to_tkColors((100, 100, 100)),
-        # )
-
         self.grande_fenetre.insert_markdown(self.get_ai_response())
 
         self.grande_fenetre.pack(fill="both",expand=True)
-        # self.fenexport.mainloop()
 
     def normalize_me(self):
         self.entree_response.configure(
