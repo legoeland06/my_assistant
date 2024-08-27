@@ -27,6 +27,7 @@ class Conversation(tk.Frame):
     """
 
     id:str
+    grande_fenetre:SimpleMarkdownText
     def __init__(
         self,
         master: tk.Frame,
@@ -57,7 +58,6 @@ class Conversation(tk.Frame):
         self.btn_font.configure(size=8)
 
         self.fenexport = None
-        self.grande_fenetre = SimpleMarkdownText()
         self.submit = submit
         self.agent_appel = agent_appel
         self.model_to_use = model_to_use
@@ -285,12 +285,11 @@ class Conversation(tk.Frame):
 
     def affiche_fenetre_agrandie(self):
         self.fenexport = tk.Toplevel()
-        # self.fenexport.geometry("600x900")
         self.fenexport.title(self.widgetName)
         self.canvas_buttons = tk.Canvas(self.fenexport)
         self.canvas_buttons.pack(side="top")
 
-        self.grande_fenetre.master=self.fenexport
+        self.grande_fenetre=SimpleMarkdownText(self.fenexport)
         self.boutlire = tk.Button(
             self.canvas_buttons,
             font=self.btn_font,
