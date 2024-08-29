@@ -286,43 +286,44 @@ class Conversation(tk.Frame):
     def affiche_fenetre_agrandie(self):
         self.fenexport = tk.Toplevel()
         self.fenexport.title(self.widgetName)
-        self.canvas_buttons = tk.Canvas(self.fenexport)
-        self.canvas_buttons.pack(side="top")
+        self.frame_of_cnv = tk.Frame(self.fenexport)
+        self.frame_of_cnv.pack(side="top",fill="x")
 
         self.grande_fenetre=SimpleMarkdownText(self.fenexport)
         self.boutlire = tk.Button(
-            self.canvas_buttons,
-            font=self.btn_font,
+            self.frame_of_cnv,
+            font=font.Font(size=self.btn_font.cget("size")+4),
             fg="green",
             text="▶",
             command=lambda: self.lire_text_from_object(self.grande_fenetre),
         )
         self.bout_diminue = tk.Button(
-            self.canvas_buttons,
+            self.frame_of_cnv,
             fg="blue",
-            font=self.btn_font,
+            font=font.Font(size=self.btn_font.cget("size")+4),
             text="α",
             command=self.diminue,  
         )
         self.bout_augmente = tk.Button(
-            self.canvas_buttons,
+            self.frame_of_cnv,
             fg="blue",
-            font=self.btn_font,
+            font=font.Font(size=self.btn_font.cget("size")+4),
             text="Α",
             command=self.augmente,  
         )
         self.bout_ok = tk.Button(
-            self.canvas_buttons,
+            self.frame_of_cnv,
             fg="green",
-            font=self.btn_font,
+            font=font.Font(size=self.btn_font.cget("size")+4),
             text="🆗",
             command=self.create_pdf,  
         )
 
-        self.bout_ok.pack(side="right")
-        self.bout_diminue.pack(side="left")
         self.bout_augmente.pack(side="left")
+        self.bout_diminue.pack(side="left")
         self.boutlire.pack(side="left", expand=False)
+        self.bout_ok.pack(side="left")
+
         self.grande_fenetre.configure(
             font=self.fontConversation,
             wrap="word",

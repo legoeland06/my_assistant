@@ -71,7 +71,7 @@ def bypass_it(app: FenetrePrincipale):
     groq_client = Groq(api_key=GROQ_API_KEY)
     app.set_client(groq_client)
     app.set_model(cst.LLAMA370B)
-    app.bouton_commencer_diction.invoke()
+    app.lance_thread_ecoute()
 
 def main(prompt=False):
     """

@@ -1,5 +1,5 @@
 import tkinter as tk
-from Constants import DARK2
+from Constants import DARK2, LIGHT0
 from outils import (
     from_rgb_to_tkColors,
 )
@@ -13,21 +13,22 @@ class FenetreScrollable(tk.Frame):
         self.canvas = tk.Canvas(
             self,
             borderwidth=0,
-            background=from_rgb_to_tkColors(DARK2),
+            background=from_rgb_to_tkColors(LIGHT0),
+            relief="flat"
         )
         self.canvas.pack(fill="both", expand=True)
 
         self.frame = tk.Frame(
             self.canvas,
-            background=from_rgb_to_tkColors(DARK2),
+            background=from_rgb_to_tkColors(LIGHT0),
         )
         self.frame.bind("<Configure>", self.onFrameConfigure)
-        self.frame.pack(fill="both", expand=True)
 
         self.vScrollbar = tk.Scrollbar(
-            self, orient="vertical", command=self.canvas.yview
+            self.master, orient="vertical", command=self.canvas.yview
         )
         self.vScrollbar.pack(side="left", fill="y")
+        self.frame.pack(fill="y", expand=False)
 
         self.canvas.configure(yscrollcommand=self.vScrollbar.set)
 
