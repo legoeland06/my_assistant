@@ -52,6 +52,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
 
     return ai_response, timing
 
+
 def traitement_rapide(texte: str, model_to_use, talking) -> str:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
@@ -62,16 +63,6 @@ def traitement_rapide(texte: str, model_to_use, talking) -> str:
     lire_haute_voix(readable_ai_response) if talking else None
     return readable_ai_response
 
-def bypass_it(app: FenetrePrincipale):
-    """
-    ### Mode de développement ###
-     BYPASS les sélection IHM chronophages en mode dev
-     après cette invocation l'application est lancée en mode audioChat directement
-    """
-    groq_client = Groq(api_key=GROQ_API_KEY)
-    app.set_client(groq_client)
-    app.set_model(cst.LLAMA370B)
-    app.lance_thread_ecoute()
 
 def main(prompt=False):
     """
@@ -96,26 +87,19 @@ def main(prompt=False):
 
     root = tk.Tk(className="YourAssistant")
     root.title = "RootTitle - "  # type: ignore
-    
-    fenscroll=FenetreScrollable(root)
+
+    fenscroll = FenetreScrollable(root)
 
     app = FenetrePrincipale(
-        master=root,
-        model_to_use=model_used,
-        fenscroll=fenscroll
+        master=root, title="AssIstant", model_to_use=model_used, fenscroll=fenscroll
     )
 
     app.title = "MyApp"
 
-    # Mode de développement
-    # BYPASS les sélection IHM chronophages en mode dev
-    bypass_it(app)
-    # après cette invocation l'application est lancée en mode audioChat directement
-
-    app.mainloop()
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser(description="Create a ArcHydro schema")
     parser.add_argument(
         "--prompt", metavar="prompt", required=False, help="the prompt to ask"

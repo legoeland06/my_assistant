@@ -11,7 +11,6 @@ from outils import (
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
 
-# import tkinter.font as tkfont
 from tkinter import font
 
 
@@ -62,16 +61,13 @@ class Conversation(tk.Frame):
         self.agent_appel = agent_appel
         self.model_to_use = model_to_use
 
-        # TODO: avoir avec true ou inexistant
-        # self.pack(fill="both",expand=True)
-
         self.title = "title"
         self.ai_response = ai_response
         self.canvas_edition = tk.Canvas(
             master=master,
             relief="flat",
         )
-        self.canvas_edition.pack(fill="both", expand=True)
+        self.canvas_edition.pack()
 
         self.canvas_boutons_conversation = tk.Frame(self.canvas_edition)
         self.cnv_global_conversation = tk.Frame(self.canvas_edition)
@@ -163,9 +159,9 @@ class Conversation(tk.Frame):
 
         self.canvas_boutons_conversation.pack(fill="x", expand=True)
 
-        self.cnv_global_conversation.pack(fill="both", expand=True)
-        self.cnv_response.pack(fill="x", expand=True)
-        self.cnv_question.pack(fill="x", expand=True)
+        self.cnv_global_conversation.pack()
+        self.cnv_response.pack()
+        self.cnv_question.pack()
 
         self.bouton_transfere = tk.Button(
             self.canvas_boutons_conversation,
@@ -187,7 +183,7 @@ class Conversation(tk.Frame):
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors((0,0,153)),
-            height=1,
+            height=3,
             width=125,
             wrap="word",
             pady=6,
@@ -204,8 +200,8 @@ class Conversation(tk.Frame):
             yscrollcommand=scrollbar_question.set,
         )
         self.entree_question.bind("<Control-Return>", func=lambda: self.submit())  # type: ignore
-        self.entree_response.pack(fill="both", expand=True)
-        self.entree_question.pack(fill="both", expand=True)
+        self.entree_response.pack()
+        self.entree_question.pack()
 
         scrollbar_response.configure(
             command=self.entree_response.yview, bg=from_rgb_to_tkColors(DARK2)

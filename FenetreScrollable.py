@@ -14,13 +14,14 @@ class FenetreScrollable(tk.Frame):
             self,
             borderwidth=0,
             background=from_rgb_to_tkColors(LIGHT0),
-            relief="flat"
+            relief="flat",
         )
-        self.canvas.pack(fill="both", expand=True)
+        self.canvas.pack(fill="both",expand=True)
 
         self.frame = tk.Frame(
             self.canvas,
             background=from_rgb_to_tkColors(LIGHT0),
+            width=770
         )
         self.frame.bind("<Configure>", self.onFrameConfigure)
 
@@ -28,7 +29,7 @@ class FenetreScrollable(tk.Frame):
             self.master, orient="vertical", command=self.canvas.yview
         )
         self.vScrollbar.pack(side="left", fill="y")
-        self.frame.pack(fill="y", expand=False)
+        self.frame.pack(fill="both",expand=True)
 
         self.canvas.configure(yscrollcommand=self.vScrollbar.set)
 

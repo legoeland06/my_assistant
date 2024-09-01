@@ -2,6 +2,7 @@ from datetime import datetime
 import asyncio
 import json
 import random
+import sys
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any, Tuple
@@ -28,6 +29,7 @@ from secret import GROQ_API_KEY
 from outils import (
     actualise_index_html,
     append_response_to_file,
+    append_saved_texte,
     ask_to_resume,
     lecteur_init,
     from_rgb_to_tkColors,
@@ -47,7 +49,7 @@ from outils import (
     translate_it,
 )
 
-type History=list[Conversation]
+type History = list[Conversation]
 
 
 class FenetrePrincipale(tk.Frame):
@@ -59,7 +61,7 @@ class FenetrePrincipale(tk.Frame):
     model_to_use: str
     nb_mots: int
     streaming: pyaudio.Stream
-    history:History
+    history: History
 
     # moteur de reconnaissance vocale et d'écoute
     engine_model: vosk.KaldiRecognizer = getEngine()
@@ -77,12 +79,13 @@ class FenetrePrincipale(tk.Frame):
     responses: list
     prompts_history: list
 
-#####################################################################################
-# DEBUT DES GETTERS SETTERS
-#####################################################################################
+    #####################################################################################
+    # DEBUT DES GETTERS SETTERS
+    #####################################################################################
 
     def __init__(
         self,
+        title: str,
         # model ia à utiliser
         model_to_use: str,
         master,
@@ -92,8 +95,8 @@ class FenetrePrincipale(tk.Frame):
         self.master = master
         self.ia = LLAMA3
         self.history = []
+        self.title = title
         self.ai_response = ""
-        # self.thread = None
         self.nb_mots = 4
         self.valide = False
         self.okToRead = False
@@ -106,7 +109,6 @@ class FenetrePrincipale(tk.Frame):
             slant=ZEFONT[2],
             weight=ZEFONT[3],
         )
-        print(tkfont.names())
         self.default_font = tkfont.nametofont("TkDefaultFont")
         self.default_font.configure(size=14)
         self.btn_font = tkfont.nametofont("TkIconFont")
@@ -116,13 +118,16 @@ class FenetrePrincipale(tk.Frame):
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
         )  # type: ignore
-        self.image_diction = ImageTk.PhotoImage(
-            Image.open("goeland.jpg").resize((20, 20))
-        )  # type: ignore
+        self.img = Image.open("casque1.png")
+        self.img0 = Image.open("myrobot0.png")
+        self.image_dict = self.img
+        w, h = self.image_dict.width, self.image_dict.height
+        self.image_button= ImageTk.PhotoImage(image=self.image_dict.reduce(6))
+
         self.image_link = ""
         self.content = ""
         self.motcles = []
-        # self.configure(padx=5, pady=5, width=96 + 10)
+        self.pack(fill="both", expand=False)
 
         # phase de construction de la fenetre principale
         self.creer_fenetre(
@@ -131,7 +136,6 @@ class FenetrePrincipale(tk.Frame):
         )
 
         self.fenetre_scrollable = fenscroll
-        # self.fenetre_scrollable = FenetreScrollable(self.master)
         self.my_liste = []
         self.messages = [
             {
@@ -140,8 +144,21 @@ class FenetrePrincipale(tk.Frame):
             },
         ]
         self.actual_chat_completion = []
-        self.pack(fill="x", expand=False)
         self.fenetre_scrollable.pack(fill="both", expand=True)
+
+        # Mode de développement
+        # BYPASS les sélection IHM chronophages en mode dev
+        self.bypass()
+        # après cette invocation l'application est lancée en mode audioChat directement
+
+        self.mainloop()
+
+    def bypass(self):
+        groq_client = Groq(api_key=GROQ_API_KEY)
+        self.set_client(groq_client)
+        self.set_model(LLAMA370B)
+        self.soumettre()
+        self.lance_thread_ecoute()
 
     def setokToRead(self, okToRead: bool):
         self.okToRead = okToRead
@@ -240,53 +257,9 @@ class FenetrePrincipale(tk.Frame):
         self.image = image
         return True
 
-#####################################################################################
-# FIN DES GETTERS SETTERS
-#####################################################################################
-
-    def save_to_submission(self) -> bool:
-        if not self.motcles_widget.get() is None:
-            print(self.motcles_widget.get())
-        # récupère le texte contenu dans le widget_mot_clé
-        speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
-        self.get_motcles().append(speciality)
-        # self.get_motcles().append(speciality)
-
-        # si une sélection est faite dans le prompt principale,
-        # elle est enregistrée dans la variable <selection>
-        # sinon c'est tout le contenu du prompt qui est enregistré
-        try:
-            selection = self.entree_prompt_principal.get(tk.SEL_FIRST, tk.SEL_LAST)
-        except:
-            selection = self.entree_prompt_principal.get("1.0", tk.END)
-        finally:
-            # copie le contenu de la variable <selection>
-            # dans la variable submission de la classe
-            # et renvoi True
-            # si selection n'est pas vide
-
-            if len(selection) > 1:
-                self.set_submission(
-                    content=selection + "\n",
-                )
-                return True
-            # renvois aussi True si il y avait toujourss quelque chose dans la variable submission
-            elif len(self.get_submission().lower()) > 1:
-                return True
-            # sinon renvoi False
-            else:
-                return False
-
-    def quitter(self) -> str:
-        # Afficher une boîte de message de confirmation
-        if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
-            self.save_to_submission()
-            self.get_thread().stop()
-            self.master.destroy()
-            self.destroy()
-        else:
-            print("L'utilisateur a annulé.")
-        return "Merci Au revoir"
+    #####################################################################################
+    # FIN DES GETTERS SETTERS
+    #####################################################################################
 
     # open a windows
     def affiche_banniere(self, image_banniere: ImageTk, slogan):  # type: ignore
@@ -392,7 +365,50 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere.create_image(
             0, 0, anchor="nw", image=image_banniere, tags="bg_img"
         )
-        self.canvas_image_banniere.pack(fill="both", expand=True)
+        # self.canvas_image_banniere.pack()
+
+    def save_to_submission(self) -> bool:
+        if not self.motcles_widget.get() is None:
+            print(self.motcles_widget.get())
+        # récupère le texte contenu dans le widget_mot_clé
+        speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
+        self.get_motcles().append(speciality)
+        # self.get_motcles().append(speciality)
+
+        # si une sélection est faite dans le prompt principale,
+        # elle est enregistrée dans la variable <selection>
+        # sinon c'est tout le contenu du prompt qui est enregistré
+        try:
+            selection = self.entree_prompt_principal.get(tk.SEL_FIRST, tk.SEL_LAST)
+        except:
+            selection = self.entree_prompt_principal.get("1.0", tk.END)
+        finally:
+            # copie le contenu de la variable <selection>
+            # dans la variable submission de la classe
+            # et renvoi True
+            # si selection n'est pas vide
+
+            if len(selection) > 1:
+                self.set_submission(
+                    content=selection + "\n",
+                )
+                return True
+            # renvois aussi True si il y avait toujourss quelque chose dans la variable submission
+            elif len(self.get_submission().lower()) > 1:
+                return True
+            # sinon renvoi False
+            else:
+                return False
+
+    def quitter(self):
+        # Afficher une boîte de message de confirmation
+        if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
+            self.save_to_submission()
+            self.get_thread().stop()
+            self.master.destroy()
+            exit()
+        else:
+            print("L'utilisateur a annulé.")
 
     def enlarge(self):
         self.btn_font.configure(size=(self.btn_font.cget("size") + 2))
@@ -403,12 +419,6 @@ class FenetrePrincipale(tk.Frame):
         self.btn_font.configure(size=(self.btn_font.cget("size") - 2))
         self.fontdict.configure(size=(self.btn_font.cget("size") - 2))
         self.default_font.configure(size=(self.btn_font.cget("size") - 2))
-
-    def affiche_ban(self):
-        self.affiche_banniere(
-            image_banniere=self.image,
-            slogan="... Jonathan LivingStone, dit legoeland... ",
-        )
 
     def groq_choix_ia(self):
         groq_client = Groq(api_key=GROQ_API_KEY)
@@ -454,7 +464,10 @@ class FenetrePrincipale(tk.Frame):
                 target=self.ecouter,
             )
         )
+        self.get_thread().daemon = True
         self.get_thread().start()
+        for element in self.get_thread().__dict__:
+            print(element+"::"+str(self.get_thread().__dict__[element]))
 
     def ecouter(self):
         loop = asyncio.new_event_loop()
@@ -528,6 +541,7 @@ class FenetrePrincipale(tk.Frame):
 
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
+        content_saved_discussion = ""
 
         # Open the microphone stream
         p = pyaudio.PyAudio()
@@ -546,17 +560,22 @@ class FenetrePrincipale(tk.Frame):
         )
 
         # entrez dans le mode veille
-        self.mode_veille()
+        content_saved_discussion += self.mode_veille()
+
+        print("Sortie de mode interactif")
+        return True
 
     def mode_veille(self):
+        content_saved_discussion = ""
+
         while True:
-            self.bouton_commencer_diction.configure(bg="blue")
 
             if self.get_stream().is_stopped():
                 self.get_stream().start_stream()
 
             check_ecout = self.attentif()
-
+            if check_ecout:
+                content_saved_discussion += " " + check_ecout
             if "afficher de l'aide" in check_ecout:
                 _ = self.display_help()
 
@@ -566,10 +585,19 @@ class FenetrePrincipale(tk.Frame):
                     lire_haute_voix(
                         "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
                     )
-                    self.bouton_commencer_diction.configure(bg=from_rgb_to_tkColors(DARK0))
-                    self.entree_prompt_principal.configure(bg=from_rgb_to_tkColors(LIGHT0))
+                    self.bouton_commencer_diction.configure(
+                        bg=from_rgb_to_tkColors(DARK0)
+                    )
+                    self.entree_prompt_principal.configure(
+                        bg=from_rgb_to_tkColors(LIGHT0)
+                    )
                     self.bouton_commencer_diction.flash()
+                    append_saved_texte(
+                        file_to_append="saved_text",
+                        readable_ai_response=content_saved_discussion,
+                    )
                     self.get_stream().close()
+                    self.get_thread().stop()
 
                     break
 
@@ -582,17 +610,26 @@ class FenetrePrincipale(tk.Frame):
                     "très bien, pour sortir de ce mode, dites : fin de la session"
                 )
 
-                self.bouton_commencer_diction.configure(bg="green")
-                self.entree_prompt_principal.configure(bg=from_rgb_to_tkColors(DARK0),fg=from_rgb_to_tkColors((0,255,50)))
+                self.bouton_commencer_diction.configure(
+                    bg=from_rgb_to_tkColors((182, 78, 20))
+                )
+                self.entree_prompt_principal.configure(
+                    bg=from_rgb_to_tkColors((DARK3)),
+                    fg=from_rgb_to_tkColors((182, 78, 20)),
+                )
 
                 # entrez dans le mode commandes vocale
-                self.mode_commandes_vocales()
+                content_saved_discussion += " " + self.mode_commandes_vocales()
+        return content_saved_discussion
 
     def mode_commandes_vocales(self):
+        content_saved_discussion = ""
         while True:
             mode_prompt = True
             check_ecout = self.attentif()
-            print("==> " + check_ecout)
+            if check_ecout:
+                print("==> " + check_ecout)
+                content_saved_discussion += " " + check_ecout
 
             if "afficher" in check_ecout and any(
                 keyword in check_ecout for keyword in ["de l'aide", "les commandes"]
@@ -680,7 +717,7 @@ class FenetrePrincipale(tk.Frame):
                     elif any(
                         keyword in check_ecout for keyword in ["lis-moi", "lis moi"]
                     ):
-                        _last_discussion.lire()
+                        lire_haute_voix(_last_discussion.get_ai_response())
 
                 elif "une" in check_ecout:
                     zenumber: int = textToNumber(
@@ -699,7 +736,8 @@ class FenetrePrincipale(tk.Frame):
                         elif "archive" in check_ecout:
                             _discussion.create_pdf()
                         elif any(
-                            keyword in check_ecout for keyword in ["lis-moi", "lis moi","dis-moi", "dis moi"]
+                            keyword in check_ecout
+                            for keyword in ["lis-moi", "lis moi", "dis-moi", "dis moi"]
                         ):
                             _last_discussion.lire()
                         mode_prompt = False
@@ -768,11 +806,17 @@ class FenetrePrincipale(tk.Frame):
                 if "la session" in check_ecout:
                     # sortie de la boucle des commandes vocales
                     self.get_stream().stop_stream()
-                    self.entree_prompt_principal.configure(bg=from_rgb_to_tkColors(LIGHT0),fg=from_rgb_to_tkColors(DARK3))
+                    self.entree_prompt_principal.configure(
+                        bg=from_rgb_to_tkColors(LIGHT0), fg=from_rgb_to_tkColors(DARK3)
+                    )
+                    self.bouton_commencer_diction.configure(
+                    bg=from_rgb_to_tkColors(DARK3)
+                )
                     mode_prompt = False
                     lire_haute_voix(
                         "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
                     )
+
                     break
 
             elif "lis-moi systématiquement tes réponses" in check_ecout:
@@ -853,6 +897,8 @@ class FenetrePrincipale(tk.Frame):
 
             self.get_stream().start_stream()
 
+        return content_saved_discussion
+
     def attentif(self):
         data_real_pre_vocal_command = self.get_stream().read(
             num_frames=8192, exception_on_overflow=False
@@ -872,7 +918,8 @@ class FenetrePrincipale(tk.Frame):
 
     def check_before_read(self, response_to_read):
         """
-        demande une confirmation avant de lire le résultat de la requette à haute voix"""
+        demande une confirmation avant de lire le résultat de la requette à haute voix
+        """
         if self.getokToRead():
             lire_haute_voix(response_to_read)
         else:
@@ -881,7 +928,6 @@ class FenetrePrincipale(tk.Frame):
     def delete_last_discussion(self):
         widget: tk.Widget = self.nametowidget(self.responses.pop())
         widget.destroy()
-        # lire_haute_voix("voilou")
 
     def delete_history(self):
         """
@@ -897,7 +943,6 @@ class FenetrePrincipale(tk.Frame):
 
         _list_box = tk.Listbox(
             master=frame,
-            # height=len(LIST_COMMANDS),
             width=len(max(LIST_COMMANDS, key=len)),
         )
         scrollbar_listbox = tk.Scrollbar(frame)
@@ -1497,7 +1542,11 @@ class FenetrePrincipale(tk.Frame):
 
         # préparation de l'espace de saisie des prompts
 
-        self.affiche_ban()
+        self.affiche_banniere(
+            image_banniere=self.image,
+            slogan="... Jonathan LivingStone, dit legoeland... ",
+        )
+
         self.master_frame_actual_prompt = tk.Canvas(
             self,
             relief="sunken",
@@ -1518,15 +1567,15 @@ class FenetrePrincipale(tk.Frame):
             self.master_frame_actual_prompt,
             relief="sunken",
             name="frame_actual_prompt",
+            bg=from_rgb_to_tkColors(DARK2)
         )
         self.frame_actual_prompt.pack(fill="x", expand=True)
 
         self.entree_prompt_principal = SimpleMarkdownText(
             self.frame_actual_prompt,
-            height=15,
+            height=10,
             font=self.default_font,
             name="entree_prompt_principal",
-
         )
 
         self.entree_prompt_principal.widgetName = "entree_prompt_principal"
@@ -1576,11 +1625,11 @@ class FenetrePrincipale(tk.Frame):
             mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
         )
         self.entree_prompt_principal.focus_set()
-        self.entree_prompt_principal.pack(side="right",fill="x", expand=True)
+        self.entree_prompt_principal.pack(side="right", fill="both", expand=True)
         self.entree_prompt_principal.configure(
             yscrollcommand=self.scrollbar_prompt_principal.set
         )
-    
+
         self.entree_prompt_principal.bind("<Control-Return>", func=self.go_submit)
 
         # Création d'un champ de saisie de l'utilisateur
@@ -1593,7 +1642,6 @@ class FenetrePrincipale(tk.Frame):
             self.frame_of_buttons_principal,
             activebackground=from_rgb_to_tkColors((255, 0, 0)),
             activeforeground=from_rgb_to_tkColors((0, 255, 255)),
-            # text="\u25B6",
             relief="flat",
             font=self.btn_font,
             text=chr(9654),
@@ -1626,17 +1674,15 @@ class FenetrePrincipale(tk.Frame):
 
         # Création d'un bouton pour Dicter
         self.bouton_commencer_diction = tk.Button(
-            master=self.frame_actual_prompt,
-            relief="flat",
-            font=tkfont.Font(
-                size=self.btn_font.cget('size')+4),
-            text=chr(9738),
+            self.frame_actual_prompt,
+            bg=from_rgb_to_tkColors(DARK3),
+            image=self.image_button,  # type: ignore
             command=self.lance_thread_ecoute,
-            bg="red",
-            fg=from_rgb_to_tkColors(LIGHT3),
         )
-
-        self.bouton_commencer_diction.pack(side=tk.LEFT,fill="y",expand=False)
+        self.bouton_commencer_diction.pack(side=tk.LEFT, expand=False)
+        # self.bouton_commencer_diction.bind("<Enter>",func=self.on_enter)
+        # self.bouton_commencer_diction.bind("<<Button1>>",func=self.on_clic)
+        # self.bouton_commencer_diction.bind("<Leave>",func=self.on_leave)
 
         # Création d'un bouton pour soumetre
         self.bouton_soumetre = tk.Button(
@@ -1711,7 +1757,7 @@ class FenetrePrincipale(tk.Frame):
         )
         self.button_keywords.pack(side=tk.RIGHT, expand=False)
         self.motcles_widget.pack(side="left", padx=2, pady=2)
-
+    
     def textwidget_to_mp3(self):
         """
         #### txt vers mp3
@@ -1722,7 +1768,7 @@ class FenetrePrincipale(tk.Frame):
         obj: SimpleMarkdownText = self.entree_prompt_principal
 
         if None == obj.get_selection():
-            # on reécupère tout le contenu de l'objet
+            # on récupère tout le contenu de l'objet
             texte_to_save_to_mp3 = obj.get("1.0", tk.END)
         else:
             texte_to_save_to_mp3 = obj.get_selection()
@@ -1952,13 +1998,12 @@ class FenetrePrincipale(tk.Frame):
         fenetre_response: Conversation = Conversation(
             ai_response=ai_response,
             text=simple_text,
-            # master=self,
             master=self.fenetre_scrollable.frame,
             submit=submit_func,
             agent_appel=agent_appel,
             model_to_use=model,
         )
-        fenetre_response.pack(fill="both", expand=True)
+        fenetre_response.pack()
         self.history.append(fenetre_response)
 
         self.responses.append(fenetre_response.id)
@@ -1970,18 +2015,12 @@ class FenetrePrincipale(tk.Frame):
         )
 
         fenetre_response.get_entree_response().insert_markdown(
-            "_" + datetime.now().isoformat() + " <" + self.model + ">_ - ",
-        )
-        fenetre_response.get_entree_response().insert_markdown(
-            "_" + str(_timing) + "secondes < " + str(type(agent_appel)) + " >_\n",
+            "_" + str(_timing)[:3] + "secondes < " + str(type(agent_appel)) + " >_\n",
         )
         fenetre_response.get_entree_response().insert_markdown(ai_response + "\n")
 
         fenetre_response.get_entree_question().insert_markdown(
-            datetime.now().isoformat() + " <" + self.model + "> :: ",
-        )
-        fenetre_response.get_entree_question().insert_markdown(
-            str(_timing) + "secondes < " + str(type(agent_appel)) + " >\n",
+            str(_timing)[:3] + "secondes < " + str(type(agent_appel)) + " >\n",
         )
 
         fenetre_response.get_entree_question().insert_markdown(simple_text + "\n")
