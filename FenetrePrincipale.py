@@ -37,7 +37,7 @@ from outils import (
     append_saved_texte,
     ask_to_resume,
     downloadimage,
-    infos_thread,
+    lancement_thread,
     lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
@@ -360,7 +360,7 @@ class FenetrePrincipale(tk.Frame):
             self.canvas_buttons_banniere,
             font=self.btn_font,
             text="INFORMATIONS",
-            command=lambda: infos_thread(func=self.recup_informations(20)),
+            command=lambda: lancement_thread(func=self.recup_informations(20)),
             relief="flat",
             highlightthickness=3,
             highlightcolor="yellow",
@@ -450,7 +450,7 @@ class FenetrePrincipale(tk.Frame):
 
     def soumettre(self) -> str:
         if self.save_to_submission():
-            this_thread = threading.Thread(target=lambda:infos_thread(self.asking()))
+            this_thread = threading.Thread(target=lambda:lancement_thread(self.asking()))
             lire_haute_voix("un instant s'il vous plait")
             list_of_words = self.get_submission().split()
             print("longeur du prompt:: " + str(len(list_of_words)))
@@ -465,7 +465,7 @@ class FenetrePrincipale(tk.Frame):
                 for number, bloc in enumerate(new_prompt_list):
                     print(str(number) + " " + str(bloc))
                     self.set_submission(str(bloc))
-                    threading.Thread(target=lambda:infos_thread(self.asking())).start()
+                    threading.Thread(target=lambda:lancement_thread(self.asking())).start()
                     time.sleep(1)
             else:
                 this_thread.start()
@@ -930,37 +930,48 @@ class FenetrePrincipale(tk.Frame):
         if subject.__len__()>0:
             lire_haute_voix("Très bien, je récupère tout sur "+subject)
                     # récupération des titres du jour
-            responses=requests.request(
+            articles = self.extract_infos(subject)
+            await self.print_infos_to_terminal(max_nb_articles, articles)
+
+            await self.ouvre_fenetre_infos(max_nb_articles, articles)
+        else : 
+            lire_haute_voix("oups désolé un problème est survenu")
+
+    async def ouvre_fenetre_infos(self, max_nb_articles, articles):
+        self.grandFenetre=GrandeFenetre(images=self.images,tags=self.tags,max_nb_articles=max_nb_articles)
+        await self.grandFenetre.insertContent(content = articles)
+
+    async def print_infos_to_terminal(self, max_nb_articles, articles):
+        print("Les articles du jour")
+        print(
+                        "****************************************************************"
+                    )
+            
+        self.images=[]
+        self.tags=[]
+        for n,article in enumerate(articles):
+            if n>max_nb_articles:
+                break
+            print(f":: {article["title"]}")
+            self.tags.append(article["url"])
+            print("****************************************")
+            print(f"Date de publication:: {article["publishedAt"]}")
+            print(f"Description:: {article["description"]}")
+            self.images.append(await downloadimage(article["urlToImage"],600))
+            print(f"Contenu:: {article["content"]}")
+            print(f"Auteur:: {article["author"]}")
+            print()
+
+    def extract_infos(self, subject):
+        responses=requests.request(
                         "GET",
                         "https://newsapi.org/v2/everything?q="+subject+
                         # + datetime.today().strftime("%d/%m/%Y, %H:%M:%S")
                         "&sortBy=popularity&apiKey=" + NEWS_API_KEY,
                     ) 
 
-            articles = responses.json()["articles"]
-            print("Les articles du jour")
-            print(
-                        "****************************************************************"
-                    )
-            
-            self.images=[]
-            self.tags=[]
-            for n,article in enumerate(articles):
-                if n>max_nb_articles:
-                    break
-                print(f":: {article["title"]}")
-                self.tags.append(article["url"])
-                print("****************************************")
-                print(f"Date de publication:: {article["publishedAt"]}")
-                print(f"Description:: {article["description"]}")
-                self.images.append(await downloadimage(article["urlToImage"],600))
-                print(f"Contenu:: {article["content"]}")
-                print(f"Auteur:: {article["author"]}")
-                print()
-
-            self.grandFenetre=await GrandeFenetre().insertContent(content = articles,images=self.images,tags=self.tags,max_nb_articles=max_nb_articles)
-        else : 
-            lire_haute_voix("oups désolé un problème est survenu")
+        articles = responses.json()["articles"]
+        return articles
 
     def attentif(self):
         data_real_pre_vocal_command = self.get_stream().read(

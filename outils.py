@@ -410,21 +410,28 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
             + "</div>"
         )
 
-def infos_thread(func):
+
+def lancement_thread(func):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(loop.create_task(func))
     loop.close()
 
+
 def callback(url):
     webbrowser.open_new(url)
-    
-async def downloadimage(url: str,taille:int)->ImageTk.PhotoImage|None:
-    try :
-        response = requests.get(url+ "?raw=true") #  tester url 
+
+
+async def downloadimage(url: str, taille: int) -> ImageTk.PhotoImage | None:
+    try:
+        response = requests.get(url + "?raw=true")  #  tester url
         image_bytes = io.BytesIO(response.content)
         with Image.open(fp=image_bytes, mode="r") as img:
-            kikispec = ImageTk.PhotoImage(image=img.resize((taille, int(taille*(float(img.height)/float(img.width))))))
+            kikispec = ImageTk.PhotoImage(
+                image=img.resize(
+                    (taille, int(taille * (float(img.height) / float(img.width))))
+                )
+            )
             return kikispec
 
     except:
