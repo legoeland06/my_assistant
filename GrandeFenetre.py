@@ -84,13 +84,13 @@ class GrandeFenetre(tk.Toplevel):
 
         # _ok=await self.insertContent(content)
 
-    async def insertContent(self, content,images:list,tags:list):
+    async def insertContent(self, content,images:list,tags:list,max_nb_articles:int):
         self.images=images
         self.tags=tags
         self.area_info.insert_markdown(mkd_text=(f"# Actualités"))
         n=0
         for article in content:
-            if n>19:
+            if n>max_nb_articles:
                 break
             self.area_info.tag_config("hyperlink", foreground="yellow", underline=True)
             self.area_info.tag_bind("hyperlink", "<Button-1>", lambda e: callback(self.tags.__getitem__(n)))

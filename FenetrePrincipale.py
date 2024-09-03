@@ -37,6 +37,7 @@ from outils import (
     append_saved_texte,
     ask_to_resume,
     downloadimage,
+    infos_thread,
     lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
@@ -359,10 +360,11 @@ class FenetrePrincipale(tk.Frame):
             self.canvas_buttons_banniere,
             font=self.btn_font,
             text="INFORMATIONS",
-            command=self.recup_inf,
+            command=lambda: infos_thread(func=self.recup_informations(20)),
             relief="flat",
             highlightthickness=3,
             highlightcolor="yellow",
+            activeforeground="white"
         )
         self.bouton_informations.configure(foreground="red", background="black")
 
@@ -386,8 +388,6 @@ class FenetrePrincipale(tk.Frame):
            0,0, anchor="nw", image=image_banniere, tags="bg_img"
         )
         self.canvas_image_banniere.pack(fill="x",expand=True)
-    async def recup_inf(self):
-        await self.recup_informations()
 
     def save_to_submission(self) -> bool:
         if not self.motcles_widget.get() is None:
@@ -450,7 +450,7 @@ class FenetrePrincipale(tk.Frame):
 
     def soumettre(self) -> str:
         if self.save_to_submission():
-            this_thread = threading.Thread(target=self.submit_thread)
+            this_thread = threading.Thread(target=lambda:infos_thread(self.asking()))
             lire_haute_voix("un instant s'il vous plait")
             list_of_words = self.get_submission().split()
             print("longeur du prompt:: " + str(len(list_of_words)))
@@ -465,7 +465,7 @@ class FenetrePrincipale(tk.Frame):
                 for number, bloc in enumerate(new_prompt_list):
                     print(str(number) + " " + str(bloc))
                     self.set_submission(str(bloc))
-                    threading.Thread(target=self.submit_thread).start()
+                    threading.Thread(target=lambda:infos_thread(self.asking())).start()
                     time.sleep(1)
             else:
                 this_thread.start()
@@ -812,7 +812,7 @@ class FenetrePrincipale(tk.Frame):
             elif "donne-moi les infos" in check_ecout:
                 self.get_stream().stop_stream()
                 mode_prompt = False
-                await self.recup_informations()
+                await self.recup_informations(40)
 
             elif "faire une recherche web sur " in check_ecout:
                 self.get_stream().stop_stream()
@@ -925,7 +925,7 @@ class FenetrePrincipale(tk.Frame):
 
         return content_saved_discussion
 
-    async def recup_informations(self):
+    async def recup_informations(self,max_nb_articles:int):
         subject= questionOuverte("sur quel sujet voulez-vous que j'oriente mes recherches ?",self.get_engine(),self.get_stream())
         if subject.__len__()>0:
             lire_haute_voix("Très bien, je récupère tout sur "+subject)
@@ -946,7 +946,7 @@ class FenetrePrincipale(tk.Frame):
             self.images=[]
             self.tags=[]
             for n,article in enumerate(articles):
-                if n>19:
+                if n>max_nb_articles:
                     break
                 print(f":: {article["title"]}")
                 self.tags.append(article["url"])
@@ -958,7 +958,7 @@ class FenetrePrincipale(tk.Frame):
                 print(f"Auteur:: {article["author"]}")
                 print()
 
-            self.grandFenetre=await GrandeFenetre().insertContent(content = articles,images=self.images,tags=self.tags)
+            self.grandFenetre=await GrandeFenetre().insertContent(content = articles,images=self.images,tags=self.tags,max_nb_articles=max_nb_articles)
         else : 
             lire_haute_voix("oups désolé un problème est survenu")
 
@@ -1127,11 +1127,11 @@ class FenetrePrincipale(tk.Frame):
 
         return str(response), timing
 
-    def submit_thread(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(loop.create_task(self.asking()))
-        loop.close()
+    # def submit_thread(self):
+    #     loop = asyncio.new_event_loop()
+    #     asyncio.set_event_loop(loop)
+    #     loop.run_until_complete(loop.create_task(self.asking()))
+    #     loop.close()
 
     def go_submit(self, _evt):
         self.soumettre()

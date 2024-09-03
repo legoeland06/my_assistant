@@ -410,6 +410,12 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
             + "</div>"
         )
 
+def infos_thread(func):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(loop.create_task(func))
+    loop.close()
+
 def callback(url):
     webbrowser.open_new(url)
     
