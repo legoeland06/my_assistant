@@ -1,10 +1,13 @@
 import asyncio
+import io
 import random
 import subprocess
 from threading import Thread
 import time
+import webbrowser
 from groq import Groq
 from openai import ChatCompletion  # type: ignore
+from PIL import Image, ImageTk
 
 import pyaudio
 import pyttsx3
@@ -90,7 +93,7 @@ def questionOuiouNon(
     stream.start_stream()
 
     while True:
-        engine.SetWords(enable_words=["oui","non","annulé"])
+        engine.SetWords(enable_words=["oui", "non", "annulé"])
         if engine.AcceptWaveform(
             stream.read(
                 num_frames=8192, exception_on_overflow=False
@@ -123,7 +126,7 @@ def questionOuverte(
                 num_frames=8192, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
         ):  # accept waveform of input voice
-            response = json.loads(engine.Result())["text"].lower()
+            response = str(json.loads(engine.Result())["text"]).lower()
             if len(response.split()) >= 1:
                 return response
 
@@ -345,6 +348,16 @@ def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
     return chunks
 
 
+def reformateText(text: str, n: int) -> list[str]:
+    reservoir = []
+    for line in text.splitlines():
+        if len(line) > n:
+            reservoir.extend(splittextintochunks(line, n))
+        else:
+            reservoir.append(line)
+    return reservoir
+
+
 def translate_it(text_to_translate: str | list) -> str:
     """
     traduit le text reçu par maximum de 500 caractères. Si le text est une liste,
@@ -356,7 +369,10 @@ def translate_it(text_to_translate: str | list) -> str:
     # Use any translator you like, in this example GoogleTranslator
     from deep_translator import GoogleTranslator as _translator
 
-    if not isinstance(text_to_translate, str):
+    if text_to_translate is None:
+        return ""
+
+    if not isinstance(text_to_translate, str) and isinstance(text_to_translate, list):
         reformat_translated = " ".join(str(x) for x in text_to_translate)
     else:
         reformat_translated = text_to_translate
@@ -394,14 +410,28 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
             + "</div>"
         )
 
+def callback(url):
+    webbrowser.open_new(url)
+    
+async def downloadimage(url: str,taille:int)->ImageTk.PhotoImage|None:
+    try :
+        response = requests.get(url+ "?raw=true") #  tester url 
+        image_bytes = io.BytesIO(response.content)
+        with Image.open(fp=image_bytes, mode="r") as img:
+            kikispec = ImageTk.PhotoImage(image=img.resize((taille, int(taille*(float(img.height)/float(img.width))))))
+            return kikispec
 
-def lire_text_from_object(object: SimpleMarkdownText | tk.Text | tk.Listbox):
-    try:
-        texte_to_talk = object.get_selection()  # type: ignore
     except:
-        texte_to_talk = object.get_text()  # type: ignore
+        return None
+
+
+def lire_text_from_object(object: SimpleMarkdownText):
+    try:
+        texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
+    except:
+        texte_to_talk = object.get("1.0", tk.END)
     finally:
-        say_txt(str(texte_to_talk)) if len(str(texte_to_talk)) > 0 else None
+        lire_haute_voix(texte_to_talk)
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):

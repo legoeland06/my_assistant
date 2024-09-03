@@ -6,6 +6,8 @@ from outils import (
     askToAi,
     from_rgb_to_tkColors,
     lire_haute_voix,
+    lire_text_from_object,
+    reformateText,
     splittextintochunks,
 )
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
@@ -67,7 +69,7 @@ class Conversation(tk.Frame):
             master=master,
             relief="flat",
         )
-        self.canvas_edition.pack()
+        self.canvas_edition.pack(fill="x",expand=True)
 
         self.canvas_boutons_conversation = tk.Frame(self.canvas_edition)
         self.cnv_global_conversation = tk.Frame(self.canvas_edition)
@@ -150,7 +152,7 @@ class Conversation(tk.Frame):
             self.canvas_boutons_conversation,
             font=self.btn_font,
             text="▶",
-            command=lambda: self.lire_text_from_object(self.entree_response),
+            command=lambda: lire_text_from_object(self.entree_response),
         )
         self.bouton_lire_conversation.configure(
             bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors(LIGHT3)
@@ -178,30 +180,32 @@ class Conversation(tk.Frame):
         scrollbar_question.pack(side=tk.RIGHT, fill="both")
 
         self.entree_response = SimpleMarkdownText(
-            self.cnv_response, font=self.default_font
+            self.cnv_response, font=self.default_font,
         )
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors((0,0,153)),
             height=3,
-            width=125,
+            width=99,
             wrap="word",
             pady=6,
             yscrollcommand=scrollbar_response.set,
+            startline=4,
+            undo=True,
         )
 
         self.entree_question.configure(
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors((128,0,0)),
             height=4,
-            width=125,
+            width=99,
             wrap="word",
             pady=6,
             yscrollcommand=scrollbar_question.set,
         )
         self.entree_question.bind("<Control-Return>", func=lambda: self.submit())  # type: ignore
-        self.entree_response.pack()
-        self.entree_question.pack()
+        self.entree_response.pack(fill="x", expand=True)
+        self.entree_question.pack(fill="x", expand=True)
 
         scrollbar_response.configure(
             command=self.entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
@@ -260,7 +264,7 @@ class Conversation(tk.Frame):
                 )
                 or "myPdf"
             ),
-            text_list=self.reformateText(
+            text_list=reformateText(
                 (
                     self.grande_fenetre.get_text()
                     if not self.grande_fenetre is None
@@ -270,14 +274,7 @@ class Conversation(tk.Frame):
             ),
         )
 
-    def reformateText(self, text: str, n: int) -> list[str]:
-        reservoir = []
-        for line in text.splitlines():
-            if len(line) > n:
-                reservoir.extend(splittextintochunks(line, n))
-            else:
-                reservoir.append(line)
-        return reservoir
+    
 
     def affiche_fenetre_agrandie(self):
         self.fenexport = tk.Toplevel()
@@ -291,7 +288,7 @@ class Conversation(tk.Frame):
             font=font.Font(size=self.btn_font.cget("size")+4),
             fg="green",
             text="▶",
-            command=lambda: self.lire_text_from_object(self.grande_fenetre),
+            command=lambda: lire_text_from_object(self.grande_fenetre),
         )
         self.bout_diminue = tk.Button(
             self.frame_of_cnv,
@@ -371,10 +368,4 @@ class Conversation(tk.Frame):
     def lire(self):
         lire_haute_voix(self.entree_response.get_text())
 
-    def lire_text_from_object(self, object: SimpleMarkdownText):
-        try:
-            texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-        except:
-            texte_to_talk = object.get("1.0", tk.END)
-        finally:
-            lire_haute_voix(texte_to_talk)
+

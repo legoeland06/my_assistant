@@ -1,5 +1,5 @@
 import tkinter as tk
-from Constants import DARK2, LIGHT0
+from Constants import BANNIERE_WIDTH, DARK2, LIGHT0
 from outils import (
     from_rgb_to_tkColors,
 )
@@ -21,8 +21,9 @@ class FenetreScrollable(tk.Frame):
         self.frame = tk.Frame(
             self.canvas,
             background=from_rgb_to_tkColors(LIGHT0),
-            width=770
+            # width=BANNIERE_WIDTH*2
         )
+        self.bind("<Configure>", self.onFrameConfigure)
         self.frame.bind("<Configure>", self.onFrameConfigure)
 
         self.vScrollbar = tk.Scrollbar(

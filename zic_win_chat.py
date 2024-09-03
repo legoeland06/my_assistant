@@ -86,16 +86,14 @@ def main(prompt=False):
     )
 
     root = tk.Tk(className="YourAssistant")
-    root.title = "RootTitle - "  # type: ignore
-
-    fenscroll = FenetreScrollable(root)
+    root.title = "RootTitle - " # type: ignore
 
     app = FenetrePrincipale(
-        master=root, title="AssIstant", model_to_use=model_used, fenscroll=fenscroll
+        master=root, title="AssIstant", model_to_use=model_used
     )
 
     app.title = "MyApp"
-
+    app.mainloop()
 
 if __name__ == "__main__":
     import argparse

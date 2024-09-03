@@ -2,6 +2,9 @@ import re
 import tkinter
 import tkinter.font as tkfont
 
+from Constants import LIGHT2
+
+
 class SimpleMarkdownText(tkinter.Text):
     """
     Really basic Markdown display. Thanks to Bryan Oakley's RichText:
@@ -10,52 +13,59 @@ class SimpleMarkdownText(tkinter.Text):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        default_font = tkfont.nametofont(self.cget("font"))
-        em = default_font.measure("m")
-        default_size = default_font.cget("size")
-        bold_font = tkfont.Font(**default_font.configure()) # type: ignore
-        italic_font = tkfont.Font(**default_font.configure()) # type: ignore
+        self.default_font = tkfont.nametofont("TkDefaultFont")
+        self.default_font.configure(size=14)
+        self.em = self.default_font.measure("m")
+        self.default_size = self.default_font.cget("size")
+        self.bold_font = tkfont.Font(**self.default_font.configure())  # type: ignore
+        self.italic_font = tkfont.Font(**self.default_font.configure())  # type: ignore
 
-        bold_font.configure(weight="bold")
-        italic_font.configure(slant="italic")
+        self.bold_font.configure(weight="bold")
+        self.italic_font.configure(slant="italic")
 
         # Small subset of markdown. Just enough to make text look nice.
-        self.tag_configure("**", font=bold_font)
-        self.tag_configure("*", font=italic_font)
-        self.tag_configure("_", font=italic_font,foreground="grey")
+        self.tag_configure("**", font=self.bold_font, foreground="orange")
+        self.tag_configure("*", font=self.italic_font)
+        self.tag_configure(
+            "_", font=self.italic_font, foreground=self.from_rgb_to_tkColors(LIGHT2)
+        )
         self.tag_chars = "*_"
         self.tag_char_re = re.compile(r"[*_]")
 
-        max_heading = 3
-        for i in range(1, max_heading + 1):
-            header_font = tkfont.Font(**default_font.configure()) # type: ignore
-            header_font.configure(size=int(default_size * i + 3), weight="bold")
+        self.max_heading = 3
+        for i in range(1, self.max_heading + 1):
+            header_font = tkfont.Font(**self.default_font.configure())  # type: ignore
+            header_font.configure(size=int(self.default_size * i + 3), weight="bold")
             self.tag_configure(
-                "#" * (max_heading - i), foreground="blue",font=header_font, spacing3=default_size
+                "#" * (self.max_heading - i),
+                foreground="orange",
+                font=header_font,
+                spacing3=header_font.cget('size'),
             )
 
-        lmargin2 = em + default_font.measure("\u2022 ")
-        self.tag_configure("bullet", lmargin1=em, lmargin2=lmargin2)
-        lmargin2 = em + default_font.measure("1. ")
-        self.tag_configure("numbered", lmargin1=em, lmargin2=lmargin2)
+        self.lmargin2 = self.em + self.default_font.measure("\u2022 ")
+        self.tag_configure("bullet", lmargin1=self.em, lmargin2=self.lmargin2)
+        self.lmargin2 = self.em + self.default_font.measure("1. ")
+        self.tag_configure("numbered", lmargin1=self.em, lmargin2=self.lmargin2)
 
         self.numbered_index = 1
+
     def clear_text(self):
         """
         efface le contenu du simpleMardownText
         """
         self.replace("1.0", tkinter.END, "")
 
-    def get_text(self)->str:
-        return self.get("1.0",tkinter.END)
-    
-    def get_selection(self) -> str|None:
+    def get_text(self) -> str:
+        return self.get("1.0", tkinter.END)
+
+    def get_selection(self) -> str | None:
         """
         récupère le contenu de la sélection
         """
-        try :
+        try:
             return self.get(tkinter.SEL_FIRST, tkinter.SEL_LAST)
-        except :
+        except:
             return None
 
     def insert_bullet(self, position, text):
@@ -80,8 +90,8 @@ class SimpleMarkdownText(tkinter.Text):
 
             elif line.startswith("#"):
                 tag = re.match(r"(#+) (.*)", line)
-                line = tag.group(2) # type: ignore
-                self.insert("end", line, tag.group(1)) # type: ignore
+                line = tag.group(2)  # type: ignore
+                self.insert("end", line, tag.group(1))  # type: ignore
 
             elif line.startswith("* "):
                 line = line[2:]
@@ -118,6 +128,12 @@ class SimpleMarkdownText(tkinter.Text):
 
                     else:
                         accumulated.append(c)
-                self.insert("end", "".join(accumulated), tag) # type: ignore
+                self.insert("end", "".join(accumulated), tag)  # type: ignore
 
             self.insert("end", "\n")
+
+    def from_rgb_to_tkColors(self, rgb):
+        """translates an rgb tuple of int to a tkinter friendly color code
+        You must give a tuplet (r,g,b) like _from_rgb((125,125,125))"""
+        r, g, b = rgb
+        return f"#{r:02x}{g:02x}{b:02x}"

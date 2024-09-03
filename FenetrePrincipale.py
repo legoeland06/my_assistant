@@ -1,16 +1,20 @@
 from datetime import datetime
 import asyncio
+from io import BytesIO
+import io
 import json
 import random
 import sys
 import time
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import PhotoImage, filedialog, messagebox, simpledialog
 from typing import Any, Tuple
+from requests import request
 from groq import Groq
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
 from openai import ChatCompletion  # type: ignore
 import pyaudio
+import requests
 from Constants import *
 import tkinter.font as tkfont
 import tkinter as tk
@@ -20,17 +24,19 @@ import threading
 
 from Conversation import Conversation
 from FenetreScrollable import FenetreScrollable
+from GrandeFenetre import GrandeFenetre
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 import my_search_engine as search
 import my_feedparser_rss
-from secret import GROQ_API_KEY
+from secret import GROQ_API_KEY, NEWS_API_KEY
 
 from outils import (
     actualise_index_html,
     append_response_to_file,
     append_saved_texte,
     ask_to_resume,
+    downloadimage,
     lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
@@ -89,7 +95,6 @@ class FenetrePrincipale(tk.Frame):
         # model ia à utiliser
         model_to_use: str,
         master,
-        fenscroll: FenetreScrollable,
     ):
         super().__init__(master)
         self.master = master
@@ -116,18 +121,18 @@ class FenetrePrincipale(tk.Frame):
         self.timer: float = 0
         self.model_to_use = model_to_use
         self.image = ImageTk.PhotoImage(
-            Image.open("banniere.jpeg").resize((BANNIERE_WIDTH, BANNIERE_HEIGHT))
+            Image.open("banniere.png").reduce(2)
         )  # type: ignore
         self.img = Image.open("casque1.png")
         self.img0 = Image.open("myrobot0.png")
         self.image_dict = self.img
         w, h = self.image_dict.width, self.image_dict.height
-        self.image_button= ImageTk.PhotoImage(image=self.image_dict.reduce(6))
+        self.image_button = ImageTk.PhotoImage(image=self.image_dict.reduce(6))
 
         self.image_link = ""
         self.content = ""
         self.motcles = []
-        self.pack(fill="both", expand=False)
+        # self.pack(fill="both", expand=False)
 
         # phase de construction de la fenetre principale
         self.creer_fenetre(
@@ -135,7 +140,7 @@ class FenetrePrincipale(tk.Frame):
             msg_to_write="Prompt...",
         )
 
-        self.fenetre_scrollable = fenscroll
+        self.fenetre_scrollable = FenetreScrollable(self.master)
         self.my_liste = []
         self.messages = [
             {
@@ -144,14 +149,16 @@ class FenetrePrincipale(tk.Frame):
             },
         ]
         self.actual_chat_completion = []
-        self.fenetre_scrollable.pack(fill="both", expand=True)
 
         # Mode de développement
         # BYPASS les sélection IHM chronophages en mode dev
         self.bypass()
         # après cette invocation l'application est lancée en mode audioChat directement
 
-        self.mainloop()
+        self.pack(fill="both", expand=False)
+        self.fenetre_scrollable.pack(fill="both", expand=True)
+
+
 
     def bypass(self):
         groq_client = Groq(api_key=GROQ_API_KEY)
@@ -271,7 +278,7 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_principal_banniere = tk.Frame(
             self, background=from_rgb_to_tkColors(DARK2), name="cnvs1"
         )
-        self.canvas_principal_banniere.configure(height=BANNIERE_HEIGHT)
+        # self.canvas_principal_banniere.configure(height=BANNIERE_HEIGHT/2)
         self.canvas_principal_banniere.pack(fill="x", expand=True)
         # ################################
         self.canvas_buttons_banniere = tk.Frame(
@@ -284,7 +291,7 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere = tk.Canvas(
             self.canvas_principal_banniere,
             height=BANNIERE_HEIGHT,
-            width=BANNIERE_WIDTH,
+            # width=BANNIERE_WIDTH,
             background=from_rgb_to_tkColors(DARK2),
             name="canva",
         )
@@ -347,7 +354,20 @@ class FenetrePrincipale(tk.Frame):
             highlightcolor="yellow",
         )
         self.bouton_DiminuePolice.configure(foreground="red", background="black")
-        self.bouton_DiminuePolice.pack(side=tk.LEFT)
+
+        self.bouton_informations = tk.Button(
+            self.canvas_buttons_banniere,
+            font=self.btn_font,
+            text="INFORMATIONS",
+            command=self.recup_inf,
+            relief="flat",
+            highlightthickness=3,
+            highlightcolor="yellow",
+        )
+        self.bouton_informations.configure(foreground="red", background="black")
+
+        # await self.recup_informations()
+        self.bouton_informations.pack(side=tk.LEFT)
 
         self.label_slogan = tk.Label(
             self.canvas_buttons_banniere,
@@ -363,9 +383,11 @@ class FenetrePrincipale(tk.Frame):
 
         # Add the image to the canvas, anchored at the top-left (northwest) corner
         self.canvas_image_banniere.create_image(
-            0, 0, anchor="nw", image=image_banniere, tags="bg_img"
+           0,0, anchor="nw", image=image_banniere, tags="bg_img"
         )
-        # self.canvas_image_banniere.pack()
+        self.canvas_image_banniere.pack(fill="x",expand=True)
+    async def recup_inf(self):
+        await self.recup_informations()
 
     def save_to_submission(self) -> bool:
         if not self.motcles_widget.get() is None:
@@ -467,7 +489,7 @@ class FenetrePrincipale(tk.Frame):
         self.get_thread().daemon = True
         self.get_thread().start()
         for element in self.get_thread().__dict__:
-            print(element+"::"+str(self.get_thread().__dict__[element]))
+            print(element + "::" + str(self.get_thread().__dict__[element]))
 
     def ecouter(self):
         loop = asyncio.new_event_loop()
@@ -560,12 +582,12 @@ class FenetrePrincipale(tk.Frame):
         )
 
         # entrez dans le mode veille
-        content_saved_discussion += self.mode_veille()
+        content_saved_discussion += await self.mode_veille()
 
         print("Sortie de mode interactif")
         return True
 
-    def mode_veille(self):
+    async def mode_veille(self):
         content_saved_discussion = ""
 
         while True:
@@ -619,10 +641,10 @@ class FenetrePrincipale(tk.Frame):
                 )
 
                 # entrez dans le mode commandes vocale
-                content_saved_discussion += " " + self.mode_commandes_vocales()
+                content_saved_discussion +=" " + await self.mode_commandes_vocales()
         return content_saved_discussion
 
-    def mode_commandes_vocales(self):
+    async def mode_commandes_vocales(self):
         content_saved_discussion = ""
         while True:
             mode_prompt = True
@@ -787,6 +809,10 @@ class FenetrePrincipale(tk.Frame):
                     mode_prompt = False
                     final_list = [item["title"] for item in RULS_RSS]
                     _c, _t = self.display_listbox_actus(final_list)
+            elif "donne-moi les infos" in check_ecout:
+                self.get_stream().stop_stream()
+                mode_prompt = False
+                await self.recup_informations()
 
             elif "faire une recherche web sur " in check_ecout:
                 self.get_stream().stop_stream()
@@ -810,8 +836,8 @@ class FenetrePrincipale(tk.Frame):
                         bg=from_rgb_to_tkColors(LIGHT0), fg=from_rgb_to_tkColors(DARK3)
                     )
                     self.bouton_commencer_diction.configure(
-                    bg=from_rgb_to_tkColors(DARK3)
-                )
+                        bg=from_rgb_to_tkColors(DARK3)
+                    )
                     mode_prompt = False
                     lire_haute_voix(
                         "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
@@ -898,6 +924,43 @@ class FenetrePrincipale(tk.Frame):
             self.get_stream().start_stream()
 
         return content_saved_discussion
+
+    async def recup_informations(self):
+        subject= questionOuverte("sur quel sujet voulez-vous que j'oriente mes recherches ?",self.get_engine(),self.get_stream())
+        if subject.__len__()>0:
+            lire_haute_voix("Très bien, je récupère tout sur "+subject)
+                    # récupération des titres du jour
+            responses=requests.request(
+                        "GET",
+                        "https://newsapi.org/v2/everything?q="+subject+
+                        # + datetime.today().strftime("%d/%m/%Y, %H:%M:%S")
+                        "&sortBy=popularity&apiKey=" + NEWS_API_KEY,
+                    ) 
+
+            articles = responses.json()["articles"]
+            print("Les articles du jour")
+            print(
+                        "****************************************************************"
+                    )
+            
+            self.images=[]
+            self.tags=[]
+            for n,article in enumerate(articles):
+                if n>19:
+                    break
+                print(f":: {article["title"]}")
+                self.tags.append(article["url"])
+                print("****************************************")
+                print(f"Date de publication:: {article["publishedAt"]}")
+                print(f"Description:: {article["description"]}")
+                self.images.append(await downloadimage(article["urlToImage"],600))
+                print(f"Contenu:: {article["content"]}")
+                print(f"Auteur:: {article["author"]}")
+                print()
+
+            self.grandFenetre=await GrandeFenetre().insertContent(content = articles,images=self.images,tags=self.tags)
+        else : 
+            lire_haute_voix("oups désolé un problème est survenu")
 
     def attentif(self):
         data_real_pre_vocal_command = self.get_stream().read(
@@ -1567,7 +1630,7 @@ class FenetrePrincipale(tk.Frame):
             self.master_frame_actual_prompt,
             relief="sunken",
             name="frame_actual_prompt",
-            bg=from_rgb_to_tkColors(DARK2)
+            bg=from_rgb_to_tkColors(DARK2),
         )
         self.frame_actual_prompt.pack(fill="x", expand=True)
 
@@ -1625,7 +1688,7 @@ class FenetrePrincipale(tk.Frame):
             mkd_text=msg_to_write + " **< CTRL + RETURN > pour valider.**"
         )
         self.entree_prompt_principal.focus_set()
-        self.entree_prompt_principal.pack(side="right", fill="both", expand=True)
+        self.entree_prompt_principal.pack(side="right",fill="x", expand=True)
         self.entree_prompt_principal.configure(
             yscrollcommand=self.scrollbar_prompt_principal.set
         )
@@ -1679,7 +1742,7 @@ class FenetrePrincipale(tk.Frame):
             image=self.image_button,  # type: ignore
             command=self.lance_thread_ecoute,
         )
-        self.bouton_commencer_diction.pack(side=tk.LEFT, expand=False)
+        self.bouton_commencer_diction.pack(side=tk.LEFT,fill="x", expand=True)
         # self.bouton_commencer_diction.bind("<Enter>",func=self.on_enter)
         # self.bouton_commencer_diction.bind("<<Button1>>",func=self.on_clic)
         # self.bouton_commencer_diction.bind("<Leave>",func=self.on_leave)
@@ -1757,7 +1820,7 @@ class FenetrePrincipale(tk.Frame):
         )
         self.button_keywords.pack(side=tk.RIGHT, expand=False)
         self.motcles_widget.pack(side="left", padx=2, pady=2)
-    
+
     def textwidget_to_mp3(self):
         """
         #### txt vers mp3
@@ -2003,7 +2066,7 @@ class FenetrePrincipale(tk.Frame):
             agent_appel=agent_appel,
             model_to_use=model,
         )
-        fenetre_response.pack()
+        fenetre_response.pack(fill="x",expand=True)
         self.history.append(fenetre_response)
 
         self.responses.append(fenetre_response.id)
