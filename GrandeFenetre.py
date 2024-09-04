@@ -12,12 +12,12 @@ from outils import callback, downloadimage, from_rgb_to_tkColors, lire_text_from
 
 
 class GrandeFenetre(tk.Toplevel):
-    def __init__(self,images,tags,max_nb_articles,*args, **kwargs):
+    images:list
+    tags:list
+    max_nb_articles:int
+
+    def __init__(self,*args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        self.images=images
-        self.tags=tags
-        self.max_nb_articles=max_nb_articles
         
         self.fontConversation = font.Font(
             family=ZEFONT[0],
@@ -90,13 +90,16 @@ class GrandeFenetre(tk.Toplevel):
 
         # _ok=await self.insertContent(content)
 
-    async def insertContent(self, content,):
-        
+    async def insertContent(self, content,images,tags,max_nb_articles):
+        self.images=images
+        self.tags=tags
+        self.max_nb_articles=max_nb_articles
         self.area_info.insert_markdown(mkd_text=(f"# Actualités"))
         n=0
         for article in content:
             if n>self.max_nb_articles:
                 break
+            
             self.area_info.tag_config("hyperlink", foreground="yellow", underline=True)
             self.area_info.tag_bind("hyperlink", "<Button-1>", lambda e: callback(self.tags.__getitem__(n)))
             self.area_info.insert(tk.END,f"## {n} Visitez :: {self.tags.__getitem__(n)[:30]}...","hyperlink")

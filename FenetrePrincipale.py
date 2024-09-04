@@ -109,6 +109,7 @@ class FenetrePrincipale(tk.Frame):
         self.prompts_history = []
         self.responses = []
         self.submission = ""
+        self.mode_prompt=False
         self.fontdict = tkfont.Font(
             family=ZEFONT[0],
             size=ZEFONT[1],
@@ -133,6 +134,7 @@ class FenetrePrincipale(tk.Frame):
         self.image_link = ""
         self.content = ""
         self.motcles = []
+        self.motcles_widget:tk.Entry|None=None
         # self.pack(fill="both", expand=False)
 
         # phase de construction de la fenetre principale
@@ -167,6 +169,7 @@ class FenetrePrincipale(tk.Frame):
         self.set_model(LLAMA370B)
         self.soumettre()
         self.lance_thread_ecoute()
+        
 
     def setokToRead(self, okToRead: bool):
         self.okToRead = okToRead
@@ -390,12 +393,11 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere.pack(fill="x",expand=True)
 
     def save_to_submission(self) -> bool:
-        if not self.motcles_widget.get() is None:
-            print(self.motcles_widget.get())
-        # récupère le texte contenu dans le widget_mot_clé
-        speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
-        self.get_motcles().append(speciality)
-        # self.get_motcles().append(speciality)
+        if isinstance(self.motcles_widget,tk.Entry) : 
+            # récupère le texte contenu dans le widget_mot_clé
+            speciality = self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
+            self.get_motcles().append(speciality)
+            # self.get_motcles().append(speciality)
 
         # si une sélection est faite dans le prompt principale,
         # elle est enregistrée dans la variable <selection>
@@ -449,6 +451,12 @@ class FenetrePrincipale(tk.Frame):
         self.affiche_ia_list(models)
 
     def soumettre(self) -> str:
+        print("soumettre")
+        if self.mode_prompt:
+            self.check_ecout=self.entree_prompt_principal.get_text()
+            return ""
+
+
         if self.save_to_submission():
             this_thread = threading.Thread(target=lambda:lancement_thread(self.asking()))
             lire_haute_voix("un instant s'il vous plait")
@@ -595,14 +603,14 @@ class FenetrePrincipale(tk.Frame):
             if self.get_stream().is_stopped():
                 self.get_stream().start_stream()
 
-            check_ecout = self.attentif()
-            if check_ecout:
-                content_saved_discussion += " " + check_ecout
-            if "afficher de l'aide" in check_ecout:
+            self.check_ecout = self.attentif()
+            if self.check_ecout:
+                content_saved_discussion += " " + self.check_ecout
+            if "afficher de l'aide" in self.check_ecout:
                 _ = self.display_help()
 
-            elif any(keyword in check_ecout for keyword in ["fermer", "ferme"]):
-                if "l'application" in check_ecout:
+            elif any(keyword in self.check_ecout for keyword in ["fermer", "ferme"]):
+                if "l'application" in self.check_ecout:
                     self.get_stream().stop_stream()
                     lire_haute_voix(
                         "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
@@ -623,8 +631,8 @@ class FenetrePrincipale(tk.Frame):
 
                     break
 
-            elif "active" in check_ecout and any(
-                keyword in check_ecout
+            elif "active" in self.check_ecout and any(
+                keyword in self.check_ecout
                 for keyword in ["le mode audio", "les commandes vocales"]
             ):
 
@@ -647,16 +655,16 @@ class FenetrePrincipale(tk.Frame):
     async def mode_commandes_vocales(self):
         content_saved_discussion = ""
         while True:
-            mode_prompt = True
-            check_ecout = self.attentif()
-            if check_ecout:
-                print("==> " + check_ecout)
-                content_saved_discussion += " " + check_ecout
+            self.mode_prompt = True
+            self.check_ecout = self.attentif()
+            if self.check_ecout:
+                print("==> " + self.check_ecout)
+                content_saved_discussion += " " + self.check_ecout
 
-            if "afficher" in check_ecout and any(
-                keyword in check_ecout for keyword in ["de l'aide", "les commandes"]
+            if "afficher" in self.check_ecout and any(
+                keyword in self.check_ecout for keyword in ["de l'aide", "les commandes"]
             ):
-                mode_prompt = False
+                self.mode_prompt = False
                 _ = self.display_help()
                 lire_haute_voix(
                     ("état des lieux de la configuration du tchat intéractif")
@@ -677,16 +685,16 @@ class FenetrePrincipale(tk.Frame):
                     )
                 )
 
-            elif "quel jour sommes-nous" in check_ecout.lower():
+            elif "quel jour sommes-nous" in self.check_ecout.lower():
                 self.get_stream().stop_stream()
-                mode_prompt = False
+                self.mode_prompt = False
                 lire_haute_voix(
                     self.get_synonymsOf("Nous sommes le " + time.strftime("%Y-%m-%d"))
                 )
 
-            elif "quelle heure est-il" in check_ecout.lower():
+            elif "quelle heure est-il" in self.check_ecout.lower():
                 self.get_stream().stop_stream()
-                mode_prompt = False
+                self.mode_prompt = False
                 lire_haute_voix(
                     self.get_synonymsOf(
                         "il est exactement "
@@ -694,54 +702,54 @@ class FenetrePrincipale(tk.Frame):
                     )
                 )
 
-            elif "est-ce que tu m'écoutes" in check_ecout.lower():
+            elif "est-ce que tu m'écoutes" in self.check_ecout.lower():
                 self.get_stream().stop_stream()
-                mode_prompt = False
+                self.mode_prompt = False
                 lire_haute_voix(
                     self.get_synonymsOf("oui je suis toujours à l'écoute <kiki>")
                 )
 
             elif any(
-                keyword in check_ecout for keyword in ["effacer", "supprimer"]
+                keyword in self.check_ecout for keyword in ["effacer", "supprimer"]
             ) and any(
-                keyword in check_ecout for keyword in ["conversation", "discussion"]
+                keyword in self.check_ecout for keyword in ["conversation", "discussion"]
             ):
-                if "historique" in check_ecout:
+                if "historique" in self.check_ecout:
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     self.delete_history()
 
-                elif "la dernière" in check_ecout:
+                elif "la dernière" in self.check_ecout:
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     self.delete_last_discussion()
 
             elif any(
-                keyword in check_ecout for keyword in ["conversation", "discussion"]
+                keyword in self.check_ecout for keyword in ["conversation", "discussion"]
             ):
                 if any(
-                    keyword in check_ecout for keyword in ["la liste des", "historique"]
+                    keyword in self.check_ecout for keyword in ["la liste des", "historique"]
                 ):
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     lire_haute_voix("Voici")
                     self.display_history()
 
-                elif "la dernière" in check_ecout:
+                elif "la dernière" in self.check_ecout:
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     _conversation = self.responses[len(self.responses) - 1]
                     _last_discussion: Conversation = self.nametowidget(_conversation)
-                    if "affiche" in check_ecout:
+                    if "affiche" in self.check_ecout:
                         _last_discussion.agrandir_fenetre()
-                    if "archive" in check_ecout:
+                    if "archive" in self.check_ecout:
                         _last_discussion.create_pdf()
                     elif any(
-                        keyword in check_ecout for keyword in ["lis-moi", "lis moi"]
+                        keyword in self.check_ecout for keyword in ["lis-moi", "lis moi"]
                     ):
                         lire_haute_voix(_last_discussion.get_ai_response())
 
-                elif "une" in check_ecout:
+                elif "une" in self.check_ecout:
                     zenumber: int = textToNumber(
                         questionOuverte(
                             "laquelle ?",
@@ -751,21 +759,21 @@ class FenetrePrincipale(tk.Frame):
                     )
                     nb_conversations = len(self.responses)
                     if zenumber <= nb_conversations:
-                        if "affiche" in check_ecout:
+                        if "affiche" in self.check_ecout:
                             _conversation = self.responses[zenumber - 1]
                             _discussion: Conversation = self.nametowidget(_conversation)
                             _discussion.agrandir_fenetre()
-                        elif "archive" in check_ecout:
+                        elif "archive" in self.check_ecout:
                             _discussion.create_pdf()
                         elif any(
-                            keyword in check_ecout
+                            keyword in self.check_ecout
                             for keyword in ["lis-moi", "lis moi", "dis-moi", "dis moi"]
                         ):
                             _last_discussion.lire()
-                        mode_prompt = False
+                        self.mode_prompt = False
 
                     else:
-                        mode_prompt = False
+                        self.mode_prompt = False
                         lire_haute_voix(
                             "je suis désolé mais il n'y a pas plus de "
                             + str(nb_conversations)
@@ -774,12 +782,12 @@ class FenetrePrincipale(tk.Frame):
 
             elif (
                 any(
-                    keyword in check_ecout
+                    keyword in self.check_ecout
                     for keyword in ["les actualités", "les informations"]
                 )
-                and "affiche" in check_ecout
+                and "affiche" in self.check_ecout
             ):
-                if "toutes" in check_ecout:
+                if "toutes" in self.check_ecout:
                     self.get_stream().stop_stream()
                     for liste_rss in URL_ACTU_GLOBAL_RSS:
 
@@ -798,7 +806,7 @@ class FenetrePrincipale(tk.Frame):
                                 liste_rss["content"].split(" | ")
                             )
 
-                        mode_prompt = False
+                        self.mode_prompt = False
                         _response = self.send_prompt(
                             content_discussion=make_resume(feed_rss),
                             necessite_ai=True,
@@ -806,30 +814,30 @@ class FenetrePrincipale(tk.Frame):
                         )
                 else:
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     final_list = [item["title"] for item in RULS_RSS]
                     _c, _t = self.display_listbox_actus(final_list)
-            elif "donne-moi les infos" in check_ecout:
+            elif "donne-moi les infos" in self.check_ecout:
                 self.get_stream().stop_stream()
-                mode_prompt = False
+                self.mode_prompt = False
                 await self.recup_informations(40)
 
-            elif "faire une recherche web sur " in check_ecout:
+            elif "faire une recherche web sur " in self.check_ecout:
                 self.get_stream().stop_stream()
-                mode_prompt = False
-                check_ecout = check_ecout.replace(
+                self.mode_prompt = False
+                self.check_ecout = self.check_ecout.replace(
                     " faire une recherche web sur", "\nrechercher sur le web : "
                 )
 
                 _websearching = self.send_prompt(
-                    check_ecout, necessite_ai=True, grorOrNot=False
+                    self.check_ecout, necessite_ai=True, grorOrNot=False
                 )
                 self.check_before_read(_websearching)
 
             elif any(
-                keyword in check_ecout for keyword in ["fin de", "ferm", "termin"]
+                keyword in self.check_ecout for keyword in ["fin de", "ferm", "termin"]
             ):
-                if "la session" in check_ecout:
+                if "la session" in self.check_ecout:
                     # sortie de la boucle des commandes vocales
                     self.get_stream().stop_stream()
                     self.entree_prompt_principal.configure(
@@ -838,26 +846,26 @@ class FenetrePrincipale(tk.Frame):
                     self.bouton_commencer_diction.configure(
                         bg=from_rgb_to_tkColors(DARK3)
                     )
-                    mode_prompt = False
+                    self.mode_prompt = False
                     lire_haute_voix(
                         "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
                     )
 
                     break
 
-            elif "lis-moi systématiquement tes réponses" in check_ecout:
+            elif "lis-moi systématiquement tes réponses" in self.check_ecout:
                 self.get_stream().stop_stream()
-                mode_prompt = False
+                self.mode_prompt = False
                 self.setokToRead(True)
                 lire_haute_voix("c'est noté")
 
-            elif "arrêtez la lecture systématique des réponses" in check_ecout:
+            elif "arrêtez la lecture systématique des réponses" in self.check_ecout:
                 self.get_stream().stop_stream()
-                mode_prompt = False
+                self.mode_prompt = False
                 self.setokToRead(False)
                 lire_haute_voix("c'est noté")
 
-            elif "gérer les préférences" in check_ecout:
+            elif "gérer les préférences" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.nb_mots = textToNumber(
                     questionOuverte(
@@ -866,28 +874,28 @@ class FenetrePrincipale(tk.Frame):
                         self.get_stream(),
                     )
                 )
-                mode_prompt = False
+                self.mode_prompt = False
                 lire_haute_voix("c'est noté pour " + str(self.nb_mots) + " mots")
 
-            elif "la validation orale" in check_ecout:
+            elif "la validation orale" in self.check_ecout:
                 if any(
-                    keyword in check_ecout
+                    keyword in self.check_ecout
                     for keyword in ["active", "activer", "activez"]
                 ):
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     self.setValide(True)
                     lire_haute_voix("c'est noté")
 
                 elif any(
-                    keyword in check_ecout
+                    keyword in self.check_ecout
                     for keyword in ["stopper", "arrêter", "arrêtez"]
                 ):
                     self.get_stream().stop_stream()
-                    mode_prompt = False
+                    self.mode_prompt = False
                     self.setValide(False)
                     lire_haute_voix("c'est noté")
-            if mode_prompt and check_ecout.split().__len__() >= self.nb_mots:
+            if self.mode_prompt and self.check_ecout.split().__len__() >= self.nb_mots:
                 self.get_stream().stop_stream()
 
                 if self.getValide():
@@ -899,7 +907,7 @@ class FenetrePrincipale(tk.Frame):
 
                     if "oui" == result:
                         _response = self.send_prompt(
-                            check_ecout,
+                            self.check_ecout,
                             necessite_ai=True,
                             grorOrNot=True,
                         )
@@ -916,7 +924,7 @@ class FenetrePrincipale(tk.Frame):
 
                 else:
                     _response = self.send_prompt(
-                        check_ecout, necessite_ai=True, grorOrNot=True
+                        self.check_ecout, necessite_ai=True, grorOrNot=True
                     )
 
                     self.check_before_read(_response)
@@ -926,20 +934,22 @@ class FenetrePrincipale(tk.Frame):
         return content_saved_discussion
 
     async def recup_informations(self,max_nb_articles:int):
-        subject= questionOuverte("sur quel sujet voulez-vous que j'oriente mes recherches ?",self.get_engine(),self.get_stream())
+        if isinstance(self.motcles_widget,tk.Entry):
+            subject=self.motcles_widget.get()
+        else :
+            subject= questionOuverte("sur quel sujet voulez-vous que j'oriente mes recherches ?",self.get_engine(),self.get_stream())
         if subject.__len__()>0:
             lire_haute_voix("Très bien, je récupère tout sur "+subject)
                     # récupération des titres du jour
-            articles = self.extract_infos(subject)
-            await self.print_infos_to_terminal(max_nb_articles, articles)
+            articles = await self.extract_infos(subject)
+            images,tags=await self.print_infos_to_terminal(max_nb_articles, articles)
 
-            await self.ouvre_fenetre_infos(max_nb_articles, articles)
+            # ouvre la grande fentre
+            _grandFenetre=GrandeFenetre()
+            # et affiche les informations 
+            return await _grandFenetre.insertContent(content = articles,images=images,tags=tags,max_nb_articles=max_nb_articles)
         else : 
             lire_haute_voix("oups désolé un problème est survenu")
-
-    async def ouvre_fenetre_infos(self, max_nb_articles, articles):
-        self.grandFenetre=GrandeFenetre(images=self.images,tags=self.tags,max_nb_articles=max_nb_articles)
-        await self.grandFenetre.insertContent(content = articles)
 
     async def print_infos_to_terminal(self, max_nb_articles, articles):
         print("Les articles du jour")
@@ -947,22 +957,23 @@ class FenetrePrincipale(tk.Frame):
                         "****************************************************************"
                     )
             
-        self.images=[]
-        self.tags=[]
+        images=[]
+        tags=[]
         for n,article in enumerate(articles):
             if n>max_nb_articles:
                 break
             print(f":: {article["title"]}")
-            self.tags.append(article["url"])
+            tags.append(article["url"])
             print("****************************************")
             print(f"Date de publication:: {article["publishedAt"]}")
             print(f"Description:: {article["description"]}")
-            self.images.append(await downloadimage(article["urlToImage"],600))
+            images.append(await downloadimage(article["urlToImage"],600))
             print(f"Contenu:: {article["content"]}")
             print(f"Auteur:: {article["author"]}")
             print()
+        return images,tags
 
-    def extract_infos(self, subject):
+    async def extract_infos(self, subject):
         responses=requests.request(
                         "GET",
                         "https://newsapi.org/v2/everything?q="+subject+
@@ -1597,11 +1608,11 @@ class FenetrePrincipale(tk.Frame):
 
         # on récupère le tk.Entry de la fenetre principale : frame_of_buttons_principal.motcles_widget
         # on le clean et on y insère le thème récupéré par la simpledialog auparavant
-
-        self.motcles_widget.select_from(0)
-        self.motcles_widget.select_to(tk.END)
-        self.motcles_widget.select_clear()
-        self.motcles_widget.insert(0, mots_cle)
+        if isinstance(self.motcles_widget,tk.Entry):
+            self.motcles_widget.select_from(0)
+            self.motcles_widget.select_to(tk.END)
+            self.motcles_widget.select_clear()
+            self.motcles_widget.insert(0, mots_cle)
 
         # crée et affiche une _listbox remplie avec la variable list_to_check
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
@@ -1704,7 +1715,7 @@ class FenetrePrincipale(tk.Frame):
             yscrollcommand=self.scrollbar_prompt_principal.set
         )
 
-        self.entree_prompt_principal.bind("<Control-Return>", func=self.go_submit)
+        self.entree_prompt_principal.bind("<Control-Return>", func=self.soumettre())
 
         # Création d'un champ de saisie de l'utilisateur
         self.scrollbar_prompt_principal.configure(
