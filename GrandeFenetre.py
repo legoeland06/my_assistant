@@ -1,22 +1,25 @@
-import time
 import tkinter as tk
-from tkinter import PhotoImage, font
+from tkinter import font
 from tkinter import simpledialog
 from typing import Any
+from PIL import ImageTk,Image
 
 
 from Constants import DARK2, LIGHT2, ZEFONT
 from PdfMaker import makePdfFromTtext
+from RechercheArticles import RechercheArticles
 from SimpleMarkdownText import SimpleMarkdownText
 from outils import callback, downloadimage, from_rgb_to_tkColors, lire_text_from_object,  reformateText, translate_it
 
 
 class GrandeFenetre(tk.Toplevel):
     images:list
-    tags:list
-    max_nb_articles:int
+    links:list
 
     def __init__(self,*args, **kwargs):
+        """
+        construit une grande fenetre qui va recevoir les informations d'actualités
+        """
         super().__init__(*args, **kwargs)
         
         self.fontConversation = font.Font(
@@ -30,7 +33,7 @@ class GrandeFenetre(tk.Toplevel):
         self.default_font = font.nametofont("TkDefaultFont")
         self.default_font.configure(size=8)
         self.btn_font = font.nametofont("TkIconFont")
-        self.btn_font.configure(size=8)
+        self.btn_font.configure(size=14)
 
         self.frame_of_cnv = tk.Frame(self)
         self.frame_of_cnv.pack(side="top", fill="x")
@@ -87,43 +90,37 @@ class GrandeFenetre(tk.Toplevel):
         )
         self.area_info.pack(fill="both",expand=True)
 
-
-        # _ok=await self.insertContent(content)
-
-    async def insertContent(self, content,images,tags,max_nb_articles):
-        self.images=images
-        self.tags=tags
-        self.max_nb_articles=max_nb_articles
-        self.area_info.insert_markdown(mkd_text=(f"# Actualités"))
-        n=0
-        for article in content:
-            if n>self.max_nb_articles:
-                break
-            
+    async def insertContent(self, motcles:str,rechercheArticles:RechercheArticles):
+        """
+        récupère contenus images et liens et remplie la grande fenetre
+        contenant les informations
+        """
+        self.area_info.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
+        for n,article in enumerate(rechercheArticles.articles):
             self.area_info.tag_config("hyperlink", foreground="yellow", underline=True)
-            self.area_info.tag_bind("hyperlink", "<Button-1>", lambda e: callback(self.tags.__getitem__(n)))
-            self.area_info.insert(tk.END,f"## {n} Visitez :: {self.tags.__getitem__(n)[:30]}...","hyperlink")
+            self.area_info.tag_bind("hyperlink", "<Button-1>", lambda e: callback(article.url))
+            self.area_info.insert(tk.END,f"Visitez :: {article.url[:30]}...","hyperlink")
             self.area_info.insert_markdown(f"\n")
-            self.area_info.insert_markdown(f"## {n} :: {translate_it(article["title"])}")
+            self.area_info.insert_markdown(f"## :: {n+1} :: {translate_it(article.title)}")
             self.area_info.insert_markdown(f"\n")
-            self.area_info.insert_markdown(f"**Date de publication::** {translate_it(article["publishedAt"])}")
-            self.area_info.insert_markdown(f"**Description::** {translate_it(article["description"])}")
+            self.area_info.insert_markdown(f"**Date de publication::** {translate_it(article.publishedAt)}")
+            self.area_info.insert_markdown(f"**Description::** {translate_it(article.description)}")
             self.area_info.insert_markdown(f"\n")
-            try:
+            if isinstance(article.image,ImageTk.PhotoImage):
                 # Insérer le Canvas dans le widget Text
-                img=self.images.__getitem__(n)
+                img=article.image
                 canvas=tk.Canvas(self.area_info, width=img.width(), height=img.height())
                 canvas.create_image(0, 0, anchor="nw", image=img)
                 canvas.create_rectangle(0, 0, img.width(), img.height(), outline=from_rgb_to_tkColors(LIGHT2), width=2)
                 self.area_info.window_create(tk.END, window=canvas,padx=10,pady=10)
-            except:
-                self.area_info.insert_markdown(f"**aucuneImage** {article["urlToImage"]}")
+            else:
+                self.area_info.insert_markdown(f"**aucuneImage** {article.urlToImage}")
+
             self.area_info.insert_markdown(f"\n")
-            self.area_info.insert_markdown(f"**Contenu::** {translate_it(article["content"])}")
-            self.area_info.insert_markdown(f"**Auteur::** {translate_it(article["author"])}**")
+            self.area_info.insert_markdown(f"**Contenu::** {translate_it(article.content)}")
+            self.area_info.insert_markdown(f"**Auteur::** {translate_it(article.author)}**")
             self.area_info.insert_markdown(f"\n")
-            n+=1
-        return True
+        
 
     def augmente(self):
         self.fontConversation.configure(size=(self.fontConversation.cget("size") + 2))

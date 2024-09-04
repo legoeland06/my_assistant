@@ -19,7 +19,7 @@ REQUEST_TIMEOUT_DEFAULT = 50
 MAX_HISTORY = 15
 ZEFONT = (
     "Trebuchet",
-    10,
+    14,
     "roman",
     "normal",
 )
@@ -392,3 +392,5 @@ PREPROMPTS = [
     "combien de paramètre possèdes-tu ?",
     "Ecris moi un hello word en Rust et en suite en Java17",
 ]
+
+

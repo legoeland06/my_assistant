@@ -8,7 +8,6 @@ from outils import (
     lire_haute_voix,
     lire_text_from_object,
     reformateText,
-    splittextintochunks,
 )
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
@@ -54,9 +53,9 @@ class Conversation(tk.Frame):
             weight=ZEFONT[3],
         )
         self.default_font = font.nametofont("TkDefaultFont")
-        self.default_font.configure(size=8)
+        self.default_font.configure(size=14)
         self.btn_font = font.nametofont("TkIconFont")
-        self.btn_font.configure(size=8)
+        self.btn_font.configure(size=14)
 
         self.fenexport = None
         self.submit = submit
@@ -324,6 +323,9 @@ class Conversation(tk.Frame):
             fg=from_rgb_to_tkColors(
                 LIGHT2,
             ),
+            undo=True,
+            padx=20,
+            pady=15
         )
 
         self.grande_fenetre.insert_markdown(self.get_ai_response())

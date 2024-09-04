@@ -111,8 +111,6 @@ def questionOuiouNon(
             elif "non" in response:
                 stream.stop_stream()
                 return "non"
-            else:
-                return "non"
 
 
 def questionOuverte(
@@ -422,10 +420,13 @@ def callback(url):
     webbrowser.open_new(url)
 
 
-async def downloadimage(url: str, taille: int) -> ImageTk.PhotoImage | None:
+async def downloadimage(url_or_path: str, taille: int) -> ImageTk.PhotoImage | None:
     try:
-        response = requests.get(url + "?raw=true")  #  tester url
-        image_bytes = io.BytesIO(response.content)
+        image_bytes=url_or_path
+        if "http" in url_or_path:
+            response = requests.get(url_or_path + "?raw=true")  #  tester url
+            image_bytes = io.BytesIO(response.content)
+        
         with Image.open(fp=image_bytes, mode="r") as img:
             kikispec = ImageTk.PhotoImage(
                 image=img.resize(
@@ -433,10 +434,13 @@ async def downloadimage(url: str, taille: int) -> ImageTk.PhotoImage | None:
                 )
             )
             return kikispec
-
     except:
         return None
-
+def chargeImage(filename:str,taille:int):
+    img=Image.open(filename)
+    return ImageTk.PhotoImage(image=img.resize(
+                (taille, int(taille * (float(img.height) / float(img.width))))
+            ))
 
 def lire_text_from_object(object: SimpleMarkdownText):
     try:
