@@ -111,51 +111,56 @@ QUESTIONS = [
 
 LIST_COMMANDS = (
     """
-MODE VEILLE
-*********************************************************
-*********************************************************
-afficher de l'aide : pour afficher cette aide
+# Commandes vocales
+## MODE VEILLE
+**afficher de l'aide**
+affiche cette fenetre d'aide
 
-ferme l'application : pour sortir du mode global d'écoute
+**ferme l'application**
+sort du mode global d'écoute et éteint le micro
 
-activer les commandes vocales
+**activer les commandes vocales**
+active le mdoe interactif
 
-MODE INTERACTIF
-*********************************************************
-*********************************************************
-quel jour sommes-nous : donne la date du jour
-quelle heure est-il : donne l'heure d'aujourd'hui
-est-ce que tu m'écoutes : répond s'il est en mode intéractif
+## MODE INTERACTIF
+**quel jour sommes-nous**
+donne la date du jour
 
-gérez les préférences : préférence de déclenchement des réponses
-activer/désactiver les validations orales
-lis-moi systématiquement tes réponses
-arrêtez la lecture systématique des réponses
+**quelle heure est-il**
+donne l'heure d'aujourd'hui
 
+**est-ce que tu m'écoutes**
+répond s'il est en mode intéractif
 
-Historique des conversations:
-*********************************************************
-afficher l'historique des conversations
-montre-moi les conversations
+**gérez les préférences**
+préférence de déclenchement des réponses
 
-effacer la dernière conversation/discussion
-
-supprimer/effacer l'historique des conversations/discussions
+**activer/désactiver les validations orales**
+**lis-moi systématiquement tes réponses**
+**arrêtez la lecture systématique des réponses**
 
 
-Actualités:
-*********************************************************
-affiche/afficher les actualités/informations
+### Historique des conversations:
+**afficher l'historique des conversations**
+ouvre une liste des conversations créées
 
-affiche/afficher toutes les actualités
+**montre-moi les conversations**
+idem
 
-Accéder au web:
-*********************************************************
-faire une recherche web sur
+**effacer la dernière conversation/discussion**
+**supprimer/effacer l'historique des conversations/discussions**
 
-Sortir du mode intéractif:
-*********************************************************
-fin de la session
+### Actualités:
+**affiche/afficher les actualités/informations**
+**affiche/afficher toutes les actualités**
+**donne-moi les infos**
+en mode recherche newsAPI
+
+### Accéder au web:
+**faire une recherche web sur**
+
+### Sortir du mode intéractif:
+**fin de la session**
 
 """
 ).split("\n")

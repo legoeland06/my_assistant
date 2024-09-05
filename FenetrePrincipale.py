@@ -1091,27 +1091,31 @@ class FenetrePrincipale(tk.Frame):
         """
         frame = tk.Toplevel()
 
-        _list_box = tk.Listbox(
+        help_infos = SimpleMarkdownText(
             master=frame,
             width=len(max(LIST_COMMANDS, key=len)),
         )
         scrollbar_listbox = tk.Scrollbar(frame)
-        scrollbar_listbox.configure(command=_list_box.yview)
+        scrollbar_listbox.configure(command=help_infos.yview)
 
-        _list_box.pack(side=tk.LEFT, fill="both")
+        help_infos.pack(side=tk.LEFT, fill="both")
 
         for item in LIST_COMMANDS:
-            _list_box.insert(tk.END, item)
+            help_infos.insert_markdown(item)
 
-        _list_box.configure(
-            background=from_rgb_to_tkColors(LIGHT3),
-            foreground=from_rgb_to_tkColors(DARK3),
+        help_infos.configure(
+            background=from_rgb_to_tkColors((40,0,40)),
+            foreground=from_rgb_to_tkColors(LIGHT2),
             yscrollcommand=scrollbar_listbox.set,
+            padx=20,
+            pady=10,
+            wrap="word",
+            state="disabled",
         )
 
         scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
 
-        _sortie = _list_box.bind("<<ListboxSelect>>", func=self.lire_commande)
+        _sortie = help_infos.bind("<<ListboxSelect>>", func=self.lire_commande)
         return _sortie
 
     def display_listbox_actus(self, final_list):

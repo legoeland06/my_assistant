@@ -19,6 +19,8 @@ like llama-8b-8192, llama-70b-8192
 ![capture.png](functionnalities.png)
 ![capture.png](getnews.png)
 * **listen**
+
+![capture](help.png)
   
     -> "salut"
   
