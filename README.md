@@ -1,10 +1,10 @@
 # YourAssistant
-![capture.png](capture_principale.png)
+![capture.png](recherches.png)
 
 **Assistant conversationnel** 
 Gestion de l'historique des conversations sur la session en cours (en RAM)
-![capture.png](capture05.png)
-
+![capture.png](principale.png)
+![capture.png](results.png)
 # Use your local offline AI models
 **using ollama server**
 
@@ -13,11 +13,11 @@ Gestion de l'historique des conversations sur la session en cours (en RAM)
 # Use Groq api for online Ai Models
 like llama-8b-8192, llama-70b-8192
 
-![capture.png](capture02.png)
+![capture.png](enginegroq.png)
 
 **Functionalities**
-
-![capture.png](capture03.png)
+![capture.png](functionnalities.png)
+![capture.png](getnews.png)
 * **listen**
   
     -> "salut"
