@@ -1,15 +1,10 @@
 import tkinter as tk
 from tkinter import font
 from tkinter import simpledialog
-from typing import Any
-from PIL import ImageTk,Image
-
-
 from Constants import DARK2, LIGHT2, ZEFONT
 from PdfMaker import makePdfFromTtext
-from RechercheArticles import RechercheArticles
 from SimpleMarkdownText import SimpleMarkdownText
-from outils import callback, downloadimage, from_rgb_to_tkColors, lire_text_from_object,  reformateText, translate_it
+from outils import from_rgb_to_tkColors, lire_text_from_object,  reformateText
 
 
 class GrandeFenetre(tk.Toplevel):
@@ -89,38 +84,6 @@ class GrandeFenetre(tk.Toplevel):
             command=self.area_info.yview, bg=from_rgb_to_tkColors(DARK2)
         )
         self.area_info.pack(fill="both",expand=True)
-
-    async def insertContent(self, motcles:str,rechercheArticles:RechercheArticles):
-        """
-        récupère contenus images et liens et remplie la grande fenetre
-        contenant les informations
-        """
-        self.area_info.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
-        for n,article in enumerate(rechercheArticles.articles):
-            self.area_info.tag_config("hyperlink", foreground="yellow", underline=True)
-            self.area_info.tag_bind("hyperlink", "<Button-1>", lambda e: callback(article.url))
-            self.area_info.insert(tk.END,f"Visitez :: {article.url[:30]}...","hyperlink")
-            self.area_info.insert_markdown(f"\n")
-            self.area_info.insert_markdown(f"## :: {n+1} :: {translate_it(article.title)}")
-            self.area_info.insert_markdown(f"\n")
-            self.area_info.insert_markdown(f"**Date de publication::** {translate_it(article.publishedAt)}")
-            self.area_info.insert_markdown(f"**Description::** {translate_it(article.description)}")
-            self.area_info.insert_markdown(f"\n")
-            if isinstance(article.image,ImageTk.PhotoImage):
-                # Insérer le Canvas dans le widget Text
-                img=article.image
-                canvas=tk.Canvas(self.area_info, width=img.width(), height=img.height())
-                canvas.create_image(0, 0, anchor="nw", image=img)
-                canvas.create_rectangle(0, 0, img.width(), img.height(), outline=from_rgb_to_tkColors(LIGHT2), width=2)
-                self.area_info.window_create(tk.END, window=canvas,padx=10,pady=10)
-            else:
-                self.area_info.insert_markdown(f"**aucuneImage** {article.urlToImage}")
-
-            self.area_info.insert_markdown(f"\n")
-            self.area_info.insert_markdown(f"**Contenu::** {translate_it(article.content)}")
-            self.area_info.insert_markdown(f"**Auteur::** {translate_it(article.author)}**")
-            self.area_info.insert_markdown(f"\n")
-        
 
     def augmente(self):
         self.fontConversation.configure(size=(self.fontConversation.cget("size") + 2))

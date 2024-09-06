@@ -17,21 +17,18 @@ import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox as msgBox
 import tkinter.font as tkfont
-from typing import Any, List, Mapping, Tuple
+from typing import Any, List, Tuple
 import vosk
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
-import PyPDF2
 import markdown
 import requests
 from Constants import (
     BYEBYE,
-    DARK3,
     DICT_NUMBERS,
     GOOGLECHROME_APP,
     INFOS_PROMPTS,
     LIENS_CHROME,
-    LIGHT3,
     MODEL_PATH,
     PREPROMPTS,
     PROMPTS_SYSTEMIQUES,
@@ -43,7 +40,6 @@ from Constants import (
     TRAITEMENT_EN_COURS,
     WIDTH_TERM,
 )
-from SimpleMarkdownText import SimpleMarkdownText
 
 
 def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
@@ -167,9 +163,8 @@ def from_rgb_to_tkColors(rgb):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def bold_it(obj: tk.Text | SimpleMarkdownText):
-    return tkfont.Font(**obj.configure())  # type: ignore
-
+def bold_it(obj):
+    return tkfont.Font(**obj.configure())
 
 def read_text_file(file) -> list:
     """lit le fichier text chargé est passé en paramètre"""
@@ -442,7 +437,7 @@ def chargeImage(filename:str,taille:int):
                 (taille, int(taille * (float(img.height) / float(img.width))))
             ))
 
-def lire_text_from_object(object: SimpleMarkdownText):
+def lire_text_from_object(object:Any):
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
     except:
@@ -455,9 +450,9 @@ def get_pre_prompt(rubrique: str, prompt_name: str):
     return PROMPTS_SYSTEMIQUES[rubrique].replace(rubrique, prompt_name)
 
 
-def close_infos_model(button: tk.Button, text_area: SimpleMarkdownText):
-    button.destroy()
-    text_area.destroy()
+# def close_infos_model(button: tk.Button, text_area):
+#     button.destroy()
+#     text_area.destroy()
 
 
 def lire_ligne(evt: tk.Event):
@@ -471,39 +466,39 @@ def lire_ligne(evt: tk.Event):
     )  # type: ignore
 
 
-def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
-    default_font = tkfont.nametofont("TkDefaultFont")
-    default_font.configure(size=8)
-    canvas_bouton_minimize = tk.Frame(master=master, bg=from_rgb_to_tkColors(DARK3))
-    canvas_bouton_minimize.pack(fill="x", expand=True)
-    infos_model = SimpleMarkdownText(master, font=default_font)
-    bouton_minimize = tk.Button(
-        canvas_bouton_minimize,
-        text="-",
-        command=lambda: close_infos_model(
-            button=canvas_bouton_minimize, text_area=infos_model  # type: ignore
-        ),
-        fg=from_rgb_to_tkColors(DARK3),
-        bg="red",
-    )
-    bouton_minimize.pack(side=tk.RIGHT)
-    infos_model.configure(
-        background=from_rgb_to_tkColors(DARK3),
-        fg=from_rgb_to_tkColors(LIGHT3),
-        height=11,
-    )
-    print("okok")
-    jsonified = (
-        json.dumps(
-            content["details"],
-            indent=4,
-        )
-        + "\n"
-    )
+# def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
+#     default_font = tkfont.nametofont("TkDefaultFont")
+#     default_font.configure(size=8)
+#     canvas_bouton_minimize = tk.Frame(master=master, bg=from_rgb_to_tkColors(DARK3))
+#     canvas_bouton_minimize.pack(fill="x", expand=True)
+#     infos_model = SimpleMarkdownText(master, font=default_font)
+#     bouton_minimize = tk.Button(
+#         canvas_bouton_minimize,
+#         text="-",
+#         command=lambda: close_infos_model(
+#             button=canvas_bouton_minimize, text_area=infos_model  # type: ignore
+#         ),
+#         fg=from_rgb_to_tkColors(DARK3),
+#         bg="red",
+#     )
+#     bouton_minimize.pack(side=tk.RIGHT)
+#     infos_model.configure(
+#         background=from_rgb_to_tkColors(DARK3),
+#         fg=from_rgb_to_tkColors(LIGHT3),
+#         height=11,
+#     )
+#     print("okok")
+#     jsonified = (
+#         json.dumps(
+#             content["details"],
+#             indent=4,
+#         )
+#         + "\n"
+#     )
 
-    print(jsonified)
-    infos_model.pack(fill="x", expand=True)
-    infos_model.insert_markdown(mkd_text=jsonified)
+#     print(jsonified)
+#     infos_model.pack(fill="x", expand=True)
+#     infos_model.insert_markdown(mkd_text=jsonified)
 
 
 def textToNumber(text: str) -> int:

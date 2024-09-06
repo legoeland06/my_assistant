@@ -130,12 +130,11 @@ class FenetrePrincipale(tk.Frame):
         self.image = ImageTk.PhotoImage(
             Image.open("banniere.png").reduce(2)
         )  # type: ignore
-        self.image_button_diction = chargeImage("casque1.png",200)
+        self.image_button_diction = chargeImage("casque1.png", 200)
 
         self.image_link = ""
         self.content = ""
-        self.motcles = []
-        self.motcles_widget: tk.Entry | None = None
+        self.widgetMotcles: tk.Entry | None = None
 
         # phase de construction de la fenetre principale
         self.creer_fenetre(
@@ -210,11 +209,15 @@ class FenetrePrincipale(tk.Frame):
     def get_client(self) -> Any:
         return self.client
 
-    def set_motcles(self, motcles: list[str]):
-        self.motcles = motcles
-
     def get_motcles(self) -> list[str]:
-        return self.motcles
+        if (
+            isinstance(self.widgetMotcles, tk.Entry)
+            and self.widgetMotcles.get().__len__()
+        ):
+            motcles: list[str] = self.widgetMotcles.get().split()
+            return motcles
+        else:
+            return []
 
     def set(self, content: str):
         self.content = content
@@ -388,14 +391,6 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere.pack(fill="x", expand=True)
 
     def save_to_submission(self) -> bool:
-        if isinstance(self.motcles_widget, tk.Entry):
-            # récupère le texte contenu dans le widget_mot_clé
-            speciality = (
-                self.motcles_widget.get() if len(self.motcles_widget.get()) else ""
-            )
-            self.get_motcles().append(speciality)
-            # self.get_motcles().append(speciality)
-
         # si une sélection est faite dans le prompt principale,
         # elle est enregistrée dans la variable <selection>
         # sinon c'est tout le contenu du prompt qui est enregistré
@@ -425,7 +420,6 @@ class FenetrePrincipale(tk.Frame):
         # Afficher une boîte de message de confirmation
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
-            self.get_thread().stop()
             self.master.destroy()
             exit()
         else:
@@ -820,19 +814,25 @@ class FenetrePrincipale(tk.Frame):
             elif "donne-moi les infos" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.mode_prompt = False
-                subject, informations = await self.recup_informations(20)
-                if informations.__len__() and "oui" == questionOuiouNon(
+                subject, articles = await self.recup_informations(20)
+                if articles.__len__() and "oui" == questionOuiouNon(
                     f"voulez-vous que je lise ce que j'ai trouvé sur {subject} ?",
                     self.get_engine(),
                     self.get_stream(),
                 ):
-                    for line in informations.splitlines():
-                        print(line)
-                    
-                    for line in informations.splitlines():
-                        lire_haute_voix(translate_it(line))
+                    for article in articles:
 
-                    self.entree_prompt_principal.insert(tk.END, str(informations))
+                        print(article.title)
+                        print(article.description)
+                        print(article.content)
+
+                        self.entree_prompt_principal.insert_markdown("# "+article.title)
+                        self.entree_prompt_principal.insert_markdown("## "+article.description)
+                        self.entree_prompt_principal.insert_markdown(article.content)
+
+                    for article in articles:
+                        lire_haute_voix(translate_it(article.title+' '+article.description+' '+article.content))
+
 
             elif "faire une recherche web sur " in self.check_ecout:
                 self.get_stream().stop_stream()
@@ -952,47 +952,49 @@ class FenetrePrincipale(tk.Frame):
         )
         this_thread.start()
 
-    async def recup_informations(self, max_article_a_recup: int):
+    async def recup_informations(self, max_article_a_recup: int = 10):
         """
         * récupère les motclés écrits dans motcle_widget sinon,
         * demande oralement à l'utilisateur de donner un motcle pour la recherche
         d'actualités
 
         """
-        subject = ""
-        if isinstance(self.motcles_widget, tk.Entry):
-            try:
-                texte, nb = self.motcles_widget.get().split(":")
-            except:
-                texte = self.motcles_widget.get()
-            finally:
-                if texte.__len__():
-                    subject = texte
-                    max_article_a_recup = int(nb)
 
-        if subject.__len__() == 0:
-            subject = questionOuverte(
+        # self.grandeFenetre = GrandeFenetre()
+        if len(self.get_motcles()):
+            for motcle in self.get_motcles():
+                motcle, nb = motcle.split(":")
+                responseObject = await self.extract_infos(
+                    motcle, int(nb) or max_article_a_recup
+                )
+                if isinstance(responseObject, RechercheArticles):
+                    self.searchHystory.append(responseObject)
+                    await responseObject.insertContentToGrandeFentre(motcles=motcle)
+                # await self.grandeFenetre.insertContent(
+                #     motcles=motcle,
+                #     rechercheArticles=responseObject,
+                # )
+            return motcle, responseObject.articles
+        else:
+            motcle = questionOuverte(
                 "sur quel sujet voulez-vous que j'oriente mes recherches ?",
                 self.get_engine(),
                 self.get_stream(),
             )
+            lire_haute_voix("Très bien, je récupère tout sur " + motcle)
 
-        lire_haute_voix("Très bien, je récupère tout sur " + subject)
-        self.grandeFenetre = GrandeFenetre()
-        # récupération des titres du jour
-        responseObject = await self.extract_infos(subject, max_article_a_recup)
+            # récupération des titres du jour
+            responseObject = await self.extract_infos(motcle, max_article_a_recup)
 
-        lire_haute_voix(f"j'ai trouvé {responseObject.articles.__len__()} articles")
+            lire_haute_voix(f"j'ai trouvé {responseObject.articles.__len__()} articles")
 
-        if isinstance(responseObject, RechercheArticles):
-            self.searchHystory.append(responseObject)
+            if isinstance(responseObject, RechercheArticles):
+                self.searchHystory.append(responseObject)
+                await responseObject.insertContentToGrandeFentre(motcles=motcle)
 
-        await self.grandeFenetre.insertContent(
-            motcles=subject,
-            rechercheArticles=responseObject,
-        )
+            return motcle, responseObject.articles
 
-        return subject, self.grandeFenetre.area_info.get_text()
+        
 
     async def extract_infos(self, subject, max_article_a_recup: int):
         """
@@ -1020,16 +1022,16 @@ class FenetrePrincipale(tk.Frame):
                 break
             if not "removed" in str(article["title"]).lower():
                 _transfert = Article(
-                source=article["source"],
-                author=article["author"],
-                title=article["title"],
-                description=article["description"],
-                url=article["url"],
-                urlToImage=article["urlToImage"],
-                publishedAt=article["publishedAt"],
-                content=article["content"],
-                image=await downloadimage(article["urlToImage"], 600),
-            )
+                    source=article["source"],
+                    author=article["author"],
+                    title=article["title"],
+                    description=article["description"],
+                    url=article["url"],
+                    urlToImage=article["urlToImage"],
+                    publishedAt=article["publishedAt"],
+                    content=article["content"],
+                    image=await downloadimage(article["urlToImage"], 600),
+                )
                 reponsesObject.articles.append(_transfert)
                 print(str(n) + "/" + str(max_article_a_recup) + " ; ")
 
@@ -1104,7 +1106,7 @@ class FenetrePrincipale(tk.Frame):
             help_infos.insert_markdown(item)
 
         help_infos.configure(
-            background=from_rgb_to_tkColors((40,0,40)),
+            background=from_rgb_to_tkColors((40, 0, 40)),
             foreground=from_rgb_to_tkColors(LIGHT2),
             yscrollcommand=scrollbar_listbox.set,
             padx=20,
@@ -1665,11 +1667,11 @@ class FenetrePrincipale(tk.Frame):
 
         # on récupère le tk.Entry de la fenetre principale : frame_of_buttons_principal.motcles_widget
         # on le clean et on y insère le thème récupéré par la simpledialog auparavant
-        if isinstance(self.motcles_widget, tk.Entry):
-            self.motcles_widget.select_from(0)
-            self.motcles_widget.select_to(tk.END)
-            self.motcles_widget.select_clear()
-            self.motcles_widget.insert(0, mots_cle)
+        if isinstance(self.widgetMotcles, tk.Entry):
+            self.widgetMotcles.select_from(0)
+            self.widgetMotcles.select_to(tk.END)
+            self.widgetMotcles.select_clear()
+            self.widgetMotcles.insert(0, mots_cle)
 
         # crée et affiche une _listbox remplie avec la variable list_to_check
         _listbox: tk.Listbox = self.traite_listbox(list_to_check)
@@ -1819,7 +1821,7 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_commencer_diction = tk.Button(
             self.frame_actual_prompt,
             bg=from_rgb_to_tkColors(DARK3),
-            image= self.image_button_diction, # type: ignore
+            image=self.image_button_diction,  # type: ignore
             command=self.lance_thread_ecoute,
         )
         self.bouton_commencer_diction.pack(side=tk.LEFT, fill="x", expand=True)
@@ -1879,11 +1881,11 @@ class FenetrePrincipale(tk.Frame):
         )
         self.bouton_load_txt.pack(side="left")
 
-        self.motcles_widget = tk.Entry(
+        self.widgetMotcles = tk.Entry(
             self.frame_of_buttons_principal,
             name="motcles_widget",
             relief="flat",
-            width=30,
+            width=50,
             fg="red",
             bg=from_rgb_to_tkColors(DARK3),
             font=("trebuchet", 10, "bold"),
@@ -1898,7 +1900,7 @@ class FenetrePrincipale(tk.Frame):
             command=lambda: self.affiche_prepromts(PROMPTS_SYSTEMIQUES.keys()),  # type: ignore
         )
         self.button_keywords.pack(side=tk.RIGHT, expand=False)
-        self.motcles_widget.pack(side="left", padx=2, pady=2)
+        self.widgetMotcles.pack(side="left", fill="x",padx=2, pady=2)
 
     def onLeave(self):
         self.bouton_commencer_diction.configure(bg=from_rgb_to_tkColors(DARK3))

@@ -3,6 +3,7 @@ import tkinter
 import tkinter.font as tkfont
 
 from Constants import LIGHT2
+from outils import from_rgb_to_tkColors
 
 
 class SimpleMarkdownText(tkinter.Text):
@@ -27,7 +28,7 @@ class SimpleMarkdownText(tkinter.Text):
         self.tag_configure("**", font=self.bold_font, foreground="orange")
         self.tag_configure("*", font=self.italic_font)
         self.tag_configure(
-            "_", font=self.italic_font, foreground=self.from_rgb_to_tkColors(LIGHT2)
+            "_", font=self.italic_font, foreground=from_rgb_to_tkColors(LIGHT2)
         )
         self.tag_chars = "*_"
         self.tag_char_re = re.compile(r"[*_]")
@@ -132,8 +133,3 @@ class SimpleMarkdownText(tkinter.Text):
 
             self.insert("end", "\n")
 
-    def from_rgb_to_tkColors(self, rgb):
-        """translates an rgb tuple of int to a tkinter friendly color code
-        You must give a tuplet (r,g,b) like _from_rgb((125,125,125))"""
-        r, g, b = rgb
-        return f"#{r:02x}{g:02x}{b:02x}"
