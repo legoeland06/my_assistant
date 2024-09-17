@@ -1,9 +1,9 @@
 import tkinter as tk
 from Constants import BANNIERE_WIDTH, DARK2, LIGHT0
+from Decorators import singleton
 from outils import (
     from_rgb_to_tkColors,
 )
-
 
 class FenetreScrollable(tk.Frame):
     def __init__(self, parent):
@@ -37,6 +37,8 @@ class FenetreScrollable(tk.Frame):
         self.canvas.create_window(
             (4, 4), window=self.frame, anchor="center", tags="self.frame"
         )
+
+        self.pack(fill="both",expand=True)
 
     def onFrameConfigure(self, event):
         """Reset the scroll region to encompass the inner frame"""

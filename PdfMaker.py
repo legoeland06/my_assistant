@@ -33,7 +33,7 @@ class PDF(fpdf.FPDF):
 
 def _transformer(text_list: list, n: int) -> list:
     """
-    prend une liste `l` et un entier `m` en entrée, et renvoie une liste
+    Prend une liste `l` et un entier `m` en entrée, et renvoie une liste
     de sous-listes, chacune contenant `m` éléments de la liste originale
     """
     return [text_list[i : i + n] for i in range(0, len(text_list), n)]

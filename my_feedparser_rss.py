@@ -41,6 +41,9 @@ def generic_search_rss(rss_url: list,nombre_items:int):
             + search_item.replace(" ", "+")
             + "&hl=fr&gl=FR&ceid=FR:fr"
         )
+        liks=(
+            "https://www.linforme.com/rss/all_headline.xml"
+        )
         feed = feedparser.parse(link_to_rss)
 
         # pour le moment on ne prend que les 10 premières news
@@ -56,6 +59,26 @@ def generic_search_rss(rss_url: list,nombre_items:int):
 
     return rubrique
 
+
+def linforme(nombre_items:int):
+    rubrique = ""
+    
+    links=(
+        "https://www.linforme.com/rss/all_headline.xml"
+    )
+    links2=("https://zoesagan.ghost.io/rss/")
+
+    feed = feedparser.parse(links+links2)
+    print(f"FEED::{feed}")
+    # pour le moment on ne prend que les 10 premières news
+    for entry in feed.entries:
+        resultat += entry.title + "\n"
+
+    rubrique += (
+            "L'informé.com:\n*************************************\n" + resultat + "\n"
+        )
+
+    return rubrique
 
 # if __name__ == "__main__":
 #     generic_search_rss("sport","reuters.com")

@@ -14,7 +14,8 @@ class SimpleMarkdownText(tkinter.Text):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.default_font = tkfont.nametofont("TkDefaultFont")
+        self.default_font = tkfont.nametofont("TkTextFont")
+        # self.default_font = tkfont.nametofont("TkDefaultFont")
         self.default_font.configure(size=14)
         self.em = self.default_font.measure("m")
         self.default_size = self.default_font.cget("size")
@@ -84,7 +85,7 @@ class SimpleMarkdownText(tkinter.Text):
         support then use a real parser.
         """
         for line in mkd_text.split("\n"):
-            if line == "":
+            if line == str():
                 # Blank lines reset numbering
                 self.numbered_index = 1
                 self.insert("end", line)

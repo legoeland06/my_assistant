@@ -4,12 +4,10 @@ import time
 import tkinter as tk
 
 # from tkinter import simpledialog
-from tkinter import messagebox
 from groq import Groq
 import openai
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
-from FenetreScrollable import FenetreScrollable
 from outils import lire_haute_voix
 from secret import GROQ_API_KEY
 
@@ -18,7 +16,7 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
 
     print("PROMPT:: \n" + prompt)
     mytime = time.perf_counter_ns()
-    ai_response = ""
+    ai_response = str()
     if isinstance(agent_appel, Groq):
 
         this_message = [
@@ -41,8 +39,15 @@ def ask_to_ai(agent_appel, prompt, model_to_use):
             ai_response = llm.choices[0].message.content
             print(str(type(ai_response)))
 
-        except:
-            messagebox.Message("OOps, ")
+        except ValueError as ve:
+            print (type(ve))
+            print (ve.args)
+            print (ve)
+            
+        except Exception as e:
+            print (type(e))
+            print (e.args)
+            print (e)
 
     # calcul le temps écoulé par la thread
     timing: float = (time.perf_counter_ns() - mytime) / cst.TIMING_COEF
@@ -86,14 +91,14 @@ def main(prompt=False):
     )
 
     root = tk.Tk(className="YourAssistant")
-    root.title = "RootTitle - " # type: ignore
+    root.title = "AssIstant - " # type: ignore
 
-    app = FenetrePrincipale(
+    fenetrePrincipale = FenetrePrincipale(
         master=root, title="AssIstant", model_to_use=model_used
     )
 
-    app.title = "MyApp"
-    app.mainloop()
+    fenetrePrincipale.title = "MyApp"
+    fenetrePrincipale.mainloop()
 
 if __name__ == "__main__":
     import argparse

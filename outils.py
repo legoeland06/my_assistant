@@ -4,7 +4,9 @@ import random
 import subprocess
 from threading import Thread
 import time
+from tkinter import simpledialog
 import webbrowser
+import PyPDF2
 from groq import Groq
 from openai import ChatCompletion  # type: ignore
 from PIL import Image, ImageTk
@@ -16,7 +18,6 @@ import json
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox as msgBox
-import tkinter.font as tkfont
 from typing import Any, List, Tuple
 import vosk
 import ollama
@@ -40,6 +41,7 @@ from Constants import (
     TRAITEMENT_EN_COURS,
     WIDTH_TERM,
 )
+from secret import NEWS_API_KEY
 
 
 def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
@@ -163,9 +165,6 @@ def from_rgb_to_tkColors(rgb):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def bold_it(obj):
-    return tkfont.Font(**obj.configure())
-
 def read_text_file(file) -> list:
     """lit le fichier text chargé est passé en paramètre"""
     with open(file, "r", encoding="utf-8") as file_to_read:
@@ -197,7 +196,7 @@ def load_txt(parent):
             # on prepare le text pour le présenter à la méthode insert_markdown
             # qui demande un texte fait de lignes séparées par des \n
             # transforme list[str] -> str
-            resultat_reformater = "".join(resultat_txt)
+            resultat_reformater = str().join(resultat_txt)
 
             return str(resultat_reformater)
 
@@ -230,11 +229,11 @@ def load_pdf(parent) -> str:
 
 
 def read_pdf(book: str):
-    text = ""
-    # pdf_Reader = PyPDF2.PdfReader(book)
-    # pages = pdf_Reader.pages
-    # for page in pages:
-    #     text += page.extract_text() + "\n"
+    text = str()
+    pdf_Reader = PyPDF2.PdfReader(book)
+    pages = pdf_Reader.pages
+    for page in pages:
+        text += page.extract_text() + "\n"
     return text
 
 
@@ -284,32 +283,54 @@ def getEngine() -> vosk.KaldiRecognizer:
     return rec
 
 
-def traitement_du_texte(texte: str, number: int) -> list[Any | str]:
+def getStream()->pyaudio.Stream:
+    return pyaudio.PyAudio().open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16_000,
+        input=True,
+        frames_per_buffer=8_192,
+    )
+
+
+def traitement_du_texte(texte: str) -> list[Any | str]:
     """
     ### traitement_du_texte
-    #### si le texte possède plus de <number> caractères :
-        on coupe le texte en plusieurs listes de maximum <number> caractères
-        et on renvois cette liste de liste
-    #### sinon :
-        on envois le texte telquel
-
-    ### RETURN : str ou List
+    transforme le texte en liste de phrases
+    ### RETURN : List
     """
-    from nltk.tokenize import sent_tokenize, word_tokenize
+    from nltk.tokenize import sent_tokenize
 
-    liste_of_sent: List[str] = sent_tokenize(text=texte)
+    liste_of_sent: List[str] = sent_tokenize(text=texte,language="french")
 
-    liste_of_sentences = [
-        sentence for sentence in liste_of_sent if len(sentence.split(" ")) <= number
-    ]
+    if isinstance(liste_of_sent,list):
+        liste_of_sentences = [
+            sentence for sentence in liste_of_sent if len(sentence.split(" "))
+        ]
 
-    return liste_of_sentences
+        return liste_of_sentences
+    return texte.splitlines()
+    
 
 
 def _traitement_du_texte(text: str, n: int) -> list:
     text_list: list = text.splitlines()
-
     return [text_list[i : i + n] for i in range(0, len(text_list), n)]
+
+
+def getNewsApi(subject):
+    """
+    ### Récupére les titres du jour
+    **_autour du subject_ donné en parametre de méthode**
+    * Pour voir la forme de l'objet JSON, visitez : https://newsapi.org/
+    """
+    return requests.request(
+        "GET",
+        "https://newsapi.org/v2/everything?q=" + subject +
+        # + datetime.today().strftime("%d/%m/%Y, %H:%M:%S")
+        "&searchin=title&domains=972mag.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
+        + NEWS_API_KEY,
+    )
 
 
 def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
@@ -326,7 +347,7 @@ def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
                    with a maximum length of `maxcharsperchunk` characters
     """
     chunks = []
-    currentchunk = ""
+    currentchunk = str()
 
     for word in text.split():
         if len(currentchunk) + len(word) + 1 > maxcharsperchunk:
@@ -417,11 +438,11 @@ def callback(url):
 
 async def downloadimage(url_or_path: str, taille: int) -> ImageTk.PhotoImage | None:
     try:
-        image_bytes=url_or_path
+        image_bytes = url_or_path
         if "http" in url_or_path:
             response = requests.get(url_or_path + "?raw=true")  #  tester url
             image_bytes = io.BytesIO(response.content)
-        
+
         with Image.open(fp=image_bytes, mode="r") as img:
             kikispec = ImageTk.PhotoImage(
                 image=img.resize(
@@ -431,13 +452,16 @@ async def downloadimage(url_or_path: str, taille: int) -> ImageTk.PhotoImage | N
             return kikispec
     except:
         return None
-def chargeImage(filename:str,taille:int):
-    img=Image.open(filename)
-    return ImageTk.PhotoImage(image=img.resize(
-                (taille, int(taille * (float(img.height) / float(img.width))))
-            ))
 
-def lire_text_from_object(object:Any):
+
+def chargeImage(filename: str, taille: int):
+    img = Image.open(filename)
+    return ImageTk.PhotoImage(
+        image=img.resize((taille, int(taille * (float(img.height) / float(img.width)))))
+    )
+
+
+def lire_text_from_object(object: Any):
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
     except:
@@ -464,41 +488,6 @@ def lire_ligne(evt: tk.Event):
             )
         )
     )  # type: ignore
-
-
-# def display_infos_model(master: tk.Canvas, content: Mapping[str, Any]):
-#     default_font = tkfont.nametofont("TkDefaultFont")
-#     default_font.configure(size=8)
-#     canvas_bouton_minimize = tk.Frame(master=master, bg=from_rgb_to_tkColors(DARK3))
-#     canvas_bouton_minimize.pack(fill="x", expand=True)
-#     infos_model = SimpleMarkdownText(master, font=default_font)
-#     bouton_minimize = tk.Button(
-#         canvas_bouton_minimize,
-#         text="-",
-#         command=lambda: close_infos_model(
-#             button=canvas_bouton_minimize, text_area=infos_model  # type: ignore
-#         ),
-#         fg=from_rgb_to_tkColors(DARK3),
-#         bg="red",
-#     )
-#     bouton_minimize.pack(side=tk.RIGHT)
-#     infos_model.configure(
-#         background=from_rgb_to_tkColors(DARK3),
-#         fg=from_rgb_to_tkColors(LIGHT3),
-#         height=11,
-#     )
-#     print("okok")
-#     jsonified = (
-#         json.dumps(
-#             content["details"],
-#             indent=4,
-#         )
-#         + "\n"
-#     )
-
-#     print(jsonified)
-#     infos_model.pack(fill="x", expand=True)
-#     infos_model.insert_markdown(mkd_text=jsonified)
 
 
 def textToNumber(text: str) -> int:

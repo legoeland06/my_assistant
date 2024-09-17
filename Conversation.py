@@ -185,9 +185,10 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors((0,0,153)),
             height=3,
-            width=99,
+            width=101,
             wrap="word",
             pady=6,
+            padx=6,
             yscrollcommand=scrollbar_response.set,
             startline=4,
             undo=True,
@@ -197,9 +198,10 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors((128,0,0)),
             height=4,
-            width=99,
+            width=101,
             wrap="word",
             pady=6,
+            padx=6,
             yscrollcommand=scrollbar_question.set,
         )
         self.entree_question.bind("<Control-Return>", func=lambda: self.submit())  # type: ignore

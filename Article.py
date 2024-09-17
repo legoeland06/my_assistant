@@ -1,5 +1,4 @@
-from typing import Any
-from PIL import Image, ImageTk
+from PIL import ImageTk
 
 
 class Article:
