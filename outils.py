@@ -123,6 +123,8 @@ def questionOuverte(
             )  # read in chunks of 4096 bytes
         ):  # accept waveform of input voice
             response = str(json.loads(engine.Result())["text"]).lower()
+            if response=="les sujets d'actualité":
+                return str()
             if len(response.split()) >= 1:
                 return response
 
@@ -328,7 +330,7 @@ def getNewsApi(subject):
         "GET",
         "https://newsapi.org/v2/everything?q=" + subject +
         # + datetime.today().strftime("%d/%m/%Y, %H:%M:%S")
-        "&searchin=title&domains=972mag.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
+        "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
         + NEWS_API_KEY,
     )
 
@@ -472,12 +474,6 @@ def lire_text_from_object(object: Any):
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
     return PROMPTS_SYSTEMIQUES[rubrique].replace(rubrique, prompt_name)
-
-
-# def close_infos_model(button: tk.Button, text_area):
-#     button.destroy()
-#     text_area.destroy()
-
 
 def lire_ligne(evt: tk.Event):
     widget_to_read: tk.Listbox = evt.widget

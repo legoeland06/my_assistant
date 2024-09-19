@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import simpledialog
 
+from GrandeFenetre import GrandeFenetre
 from PdfMaker import makePdfFromTtext
 from outils import (
     askToAi,
@@ -27,7 +28,7 @@ class Conversation(tk.Frame):
     """
 
     id:str
-    grande_fenetre:SimpleMarkdownText
+    grande_fenetre:GrandeFenetre
     def __init__(
         self,
         master: tk.Frame,
@@ -185,7 +186,7 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT3),
             fg=from_rgb_to_tkColors((0,0,153)),
             height=3,
-            width=101,
+            width=100,
             wrap="word",
             pady=6,
             padx=6,
@@ -198,7 +199,7 @@ class Conversation(tk.Frame):
             bg=from_rgb_to_tkColors(LIGHT2),
             fg=from_rgb_to_tkColors((128,0,0)),
             height=4,
-            width=101,
+            width=100,
             wrap="word",
             pady=6,
             padx=6,
@@ -267,7 +268,7 @@ class Conversation(tk.Frame):
             ),
             text_list=reformateText(
                 (
-                    self.grande_fenetre.get_text()
+                    self.grande_fenetre.area_info.get_text()
                     if not self.grande_fenetre is None
                     else "texte vide"
                 ),
@@ -275,64 +276,11 @@ class Conversation(tk.Frame):
             ),
         )
 
-    
-
     def affiche_fenetre_agrandie(self):
-        self.fenexport = tk.Toplevel()
-        self.fenexport.title(self.widgetName)
-        self.frame_of_cnv = tk.Frame(self.fenexport)
-        self.frame_of_cnv.pack(side="top",fill="x")
+        self.grande_fenetre = GrandeFenetre(tk.Toplevel(None))
+        self.grande_fenetre.area_info.configure(bg=from_rgb_to_tkColors((0x01,0x2a,0x4a)))
+        self.grande_fenetre.area_info.insert_markdown(self.get_ai_response())
 
-        self.grande_fenetre=SimpleMarkdownText(self.fenexport)
-        self.boutlire = tk.Button(
-            self.frame_of_cnv,
-            font=font.Font(size=self.btn_font.cget("size")+4),
-            fg="green",
-            text="▶",
-            command=lambda: lire_text_from_object(self.grande_fenetre),
-        )
-        self.bout_diminue = tk.Button(
-            self.frame_of_cnv,
-            fg="blue",
-            font=font.Font(size=self.btn_font.cget("size")+4),
-            text="α",
-            command=self.diminue,  
-        )
-        self.bout_augmente = tk.Button(
-            self.frame_of_cnv,
-            fg="blue",
-            font=font.Font(size=self.btn_font.cget("size")+4),
-            text="Α",
-            command=self.augmente,  
-        )
-        self.bout_ok = tk.Button(
-            self.frame_of_cnv,
-            fg="green",
-            font=font.Font(size=self.btn_font.cget("size")+4),
-            text="🆗",
-            command=self.create_pdf,  
-        )
-
-        self.bout_augmente.pack(side="left")
-        self.bout_diminue.pack(side="left")
-        self.boutlire.pack(side="left", expand=False)
-        self.bout_ok.pack(side="left")
-
-        self.grande_fenetre.configure(
-            font=self.fontConversation,
-            wrap="word",
-            bg=from_rgb_to_tkColors((28,0,0)),
-            fg=from_rgb_to_tkColors(
-                LIGHT2,
-            ),
-            undo=True,
-            padx=20,
-            pady=15
-        )
-
-        self.grande_fenetre.insert_markdown(self.get_ai_response())
-
-        self.grande_fenetre.pack(fill="both",expand=True)
 
     def normalize_me(self):
         self.entree_response.configure(

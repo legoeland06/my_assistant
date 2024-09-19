@@ -79,6 +79,3 @@ def linforme(nombre_items:int):
         )
 
     return rubrique
-
-# if __name__ == "__main__":
-#     generic_search_rss("sport","reuters.com")

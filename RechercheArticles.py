@@ -24,15 +24,13 @@ class RechercheArticles():
         récupère contenus images et liens et remplie la grande fenetre
         contenant les informations
         """
-        # grandeFenetre:GrandeFenetre=self.initGrandeFenetre()
         _a=grandeFenetre.area_info
         _a.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
         for n,article in enumerate(self.articles):
-            _a.tag_config("hyperlink", foreground="yellow", underline=True)
             _a.tag_bind("hyperlink", "<Button-1>", lambda e: callback(article.url))
             _a.insert(tk.END,f"Visitez :: {article.url[:30]}...","hyperlink")
             _a.insert_markdown(f"\n## :: {n+1} :: {translate_it(article.title)}\n")
-            _a.insert_markdown(f"**Date de publication::** {translate_it(article.publishedAt)}")
+            _a.insert_markdown(f"CreatedAt: Date de publication:: {translate_it(article.publishedAt)}")
             _a.insert_markdown(f"**Description::** {translate_it(article.description)}\n")
             if isinstance(article.image,ImageTk.PhotoImage):
                 # Insérer le Canvas dans le widget Text

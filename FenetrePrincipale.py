@@ -19,10 +19,8 @@ from PIL import Image, ImageTk
 import threading
 
 from Conversation import Conversation
-from Decorators import singleton
 from FenetreScrollable import FenetreScrollable
 from GrandeFenetre import GrandeFenetre
-from PdfMaker import _transformer
 from RechercheArticles import RechercheArticles
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
@@ -80,6 +78,7 @@ class FenetrePrincipale(tk.Frame):
         self.title = title
         self.ai_response = str()
         self.nb_mots = 4
+        self.threads=[]
         self.valide = False
         self.ok_to_Read = False
         self.prompts_history = []
@@ -141,6 +140,7 @@ class FenetrePrincipale(tk.Frame):
         groq_client = Groq(api_key=GROQ_API_KEY)
         self.set_client(groq_client)
         self.set_model(LLAMA370B)
+        self.lance_thread_ecoute()
 
     def set_ok_to_Read(self, ok_to_Read: bool):
         """setter for chatAudioMode"""
@@ -193,7 +193,6 @@ class FenetrePrincipale(tk.Frame):
             isinstance(self.widgetMotcles, tk.Entry)
             and self.widgetMotcles.get().__len__()
         ):
-            # mostcle_tag = re.match(r"(.*):.", self.widgetMotcles.get())
             motcles: list[str] = self.widgetMotcles.get().split()
             return motcles
         else:
@@ -340,7 +339,7 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_informations = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
-            text="W W W",
+            text="NEWS",
             command=self.recup_inf,
             relief="flat",
             highlightthickness=3,
@@ -400,8 +399,21 @@ class FenetrePrincipale(tk.Frame):
         # Afficher une boîte de message de confirmation
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
+            mainthread = threading.main_thread()
+            for i in threading.enumerate():
+                if i != mainthread and isinstance(i,StoppableThread):
+                    print(i.getName())
+                    i.stop()
+
+            for j in self.threads:
+                if isinstance(j,StoppableThread):
+                    print(j.getName())
+                    j.stop()
+                    j.join()
             self.master.destroy()
-            exit()
+                
+
+            # exit()
         else:
             print("L'utilisateur a annulé.")
 
@@ -423,9 +435,10 @@ class FenetrePrincipale(tk.Frame):
 
     def soumettre(self) -> str:
         if self.save_to_submission():
-            this_thread = threading.Thread(
+            this_thread = StoppableThread(
                 target=lambda: lancement_thread(self.asking())
             )
+            self.threads.append(this_thread)
             lire_haute_voix("un instant s'il vous plait")
             list_of_words = self.get_submission().split()
             nbreCaracteres = len(self.get_submission())
@@ -441,10 +454,12 @@ class FenetrePrincipale(tk.Frame):
                 for number, bloc in enumerate(new_prompt_list):
                     print(str(number) + "\n" + " ".join(bloc))
                     self.set_submission(" ".join(bloc))
-                    _this = threading.Thread(
+                    _this = StoppableThread(
                         target=lambda: lancement_thread(self.asking())
                     )
                     _this.start()
+                    self.threads.append(_this)
+
                     time.sleep(2)
             else:
                 this_thread.start()
@@ -458,6 +473,8 @@ class FenetrePrincipale(tk.Frame):
 
     def lance_thread_ecoute(self):
         self.bouton_commencer_diction.flash()
+        
+        # TODO: a simplifier
         self.set_thread(
             StoppableThread(
                 None,
@@ -467,6 +484,8 @@ class FenetrePrincipale(tk.Frame):
         )
         self.get_thread().daemon = True
         self.get_thread().start()
+        self.threads.append(self.get_thread())
+
         for element in self.get_thread().__dict__:
             print(element + "::" + str(self.get_thread().__dict__[element]))
 
@@ -796,13 +815,13 @@ class FenetrePrincipale(tk.Frame):
             elif "donne-moi les infos" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.mode_prompt = False
-                articles = await self.recup_informations(20)
+                articles = await self.recup_informations(30)
                 if (
                     isinstance(articles, list)
                     and articles.__len__()
                     and "oui"
                     == questionOuiouNon(
-                        f"voulez-vous que je lise ce que j'ai trouvé sur la recherche ?",
+                        "voulez-vous que je lise ce que j'ai trouvé sur la recherche ?",
                         self.get_engine(),
                         self.get_stream(),
                     )
@@ -944,10 +963,11 @@ class FenetrePrincipale(tk.Frame):
 
     def recup_inf(self):
 
-        this_thread = threading.Thread(
+        this_thread = StoppableThread(
             target=lambda: lancement_thread(func=self.recup_informations(20))
         )
         this_thread.start()
+        self.threads.append(this_thread)
 
     async def recup_infos(self):
         await self.recup_informations(20)
@@ -1009,7 +1029,7 @@ class FenetrePrincipale(tk.Frame):
 
         rechercheArticles = RechercheArticles(
             status=_responses.json()["status"],
-            articles=[],  # responses.json()["articles"],
+            articles=[], 
             totalResults=_responses.json()["totalResults"],
         )
 
@@ -1032,13 +1052,11 @@ class FenetrePrincipale(tk.Frame):
                 print(str(n) + "/" + str(max_article_a_recup) + " ; ")
 
         return rechercheArticles
-    
+
     def recup_audio(self):
         pass
 
-
-# bubble aitable make workflow
-
+    # bubble aitable make workflow
 
     def attentif(self):
         """
@@ -1046,8 +1064,7 @@ class FenetrePrincipale(tk.Frame):
         * récupération du resultat et encapsulation dans un objet JSON
         * retourne la partie text de l'objet JSON pour traitement ou un texte VIDE
         """
-        # if not self.get_stream():
-        #     return simpledialog.askstring(title="pas de micro",prompt="entrez votre commande") or ""
+        
         try:
             data_real_pre_vocal_command = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
@@ -2091,10 +2108,7 @@ class FenetrePrincipale(tk.Frame):
                 feed_rss = my_feedparser_rss.le_monde_informatique(
                     content_selected.split(" | ")
                 )
-            # elif "global_search" in value.lower():
-            #     feed_rss = my_feedparser_rss.generic_search_rss(
-            #         rss_url=content_selected.split(" | "), nombre_items=10
-            #     )
+           
             elif "global_search" in value.lower():
                 feed_rss = my_feedparser_rss.linforme(nombre_items=10)
             else:
@@ -2240,7 +2254,6 @@ class FenetrePrincipale(tk.Frame):
         response = ai_response[:499] if len(ai_response) >= 500 else ai_response
         longueur = len(self.get_prompts_history())
 
-        # check if len(list)>MAX_HISTORY
         if longueur >= MAX_HISTORY:
             # on fait un résumé des 10 anciennes conversations (MAX_HISTORY=15)
             conversation_resumee = ask_to_resume(

@@ -1,71 +1,116 @@
 # zic_chat.py
 from argparse import Namespace
+import json
 import time
 import tkinter as tk
 
-# from tkinter import simpledialog
 from groq import Groq
-import openai
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
 from outils import lire_haute_voix
 from secret import GROQ_API_KEY
 
-
-def ask_to_ai(agent_appel, prompt, model_to_use):
-
-    print("PROMPT:: \n" + prompt)
-    mytime = time.perf_counter_ns()
-    ai_response = str()
-    if isinstance(agent_appel, Groq):
-
-        this_message = [
-            {"role": "system", "content": ""},
-            {"role": "assistant", "content": ""},
-            {"role": "user", "content": prompt},
-        ]
-
+def make_api_call(client, messages, max_tokens, is_final_answer=False):
+    for attempt in range(5):
         try:
-            llm: openai.ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
-                messages=this_message,
-                model=model_to_use,
-                temperature=1,
-                max_tokens=1024,
-                top_p=1,
-                stream=False,
-                stop=None,
+            response = client.chat.completions.create(
+                model="llama-3.1-70b-versatile",
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.2,
+                response_format={"type": "json_object"}
             )
-
-            ai_response = llm.choices[0].message.content
-            print(str(type(ai_response)))
-
-        except ValueError as ve:
-            print (type(ve))
-            print (ve.args)
-            print (ve)
-            
+            return json.loads(response.choices[0].message.content)
         except Exception as e:
-            print (type(e))
-            print (e.args)
-            print (e)
+            if attempt == 2:
+                if is_final_answer:
+                    return {"title": "Error", "content": f"Failed to generate final answer after 3 attempts. Error: {str(e)}"}
+                else:
+                    return {"title": "Error", "content": f"Failed to generate step after 3 attempts. Error: {str(e)}", "next_action": "final_answer"}
+            time.sleep(1)  # Wait for 1 second before retrying
 
-    # calcul le temps écoulé par la thread
-    timing: float = (time.perf_counter_ns() - mytime) / cst.TIMING_COEF
+def generate_response(client, prompt):
+    messages = [
+        {"role": "system", "content": """You are an expert AI assistant that explains your reasoning step by step. For each step, 
+         provide a title that describes what you're doing in that step, along with the content.
+          Decide if you need another step or if you're ready to give the final answer.
+          Respond in JSON format with 'title', 'content', and 'next_action' (either 'continue' or 'final_answer') keys.
+          USE AS MANY REASONING STEPS AS POSSIBLE. AT LEAST 3. BE AWARE OF YOUR LIMITATIONS AS AN LLM AND WHAT YOU CAN AND CANNOT DO. 
+         IN YOUR REASONING, INCLUDE EXPLORATION OF ALTERNATIVE ANSWERS. 
+         CONSIDER YOU MAY BE WRONG, AND IF YOU ARE WRONG IN YOUR REASONING, WHERE IT WOULD BE. 
+         FULLY TEST ALL OTHER POSSIBILITIES. YOU CAN BE WRONG. WHEN YOU SAY YOU ARE RE-EXAMINING, 
+         ACTUALLY RE-EXAMINE, AND USE ANOTHER APPROACH TO DO SO. DO NOT JUST SAY YOU ARE RE-EXAMINING. USE AT LEAST 3 METHODS TO DERIVE THE ANSWER. USE BEST PRACTICES.
 
-    # TODO
-    print(ai_response)
+Example of a valid JSON response:
+```json
+{
+    "title": "Identifying Key Information",
+    "content": "To begin solving this problem, we need to carefully examine the given information and identify the crucial elements that will guide our solution process. This involves...",
+    "next_action": "continue"
+}```
+""" },
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": "Thank you! I will now think step by step following my instructions, starting at the beginning after decomposing the problem."}
+    ]
+    
+    steps = []
+    step_count = 1
+    total_thinking_time = 0
+    
+    while True:
+        start_time = time.time()
+        step_data = make_api_call(client, messages, 300)
+        end_time = time.time()
+        thinking_time = end_time - start_time
+        total_thinking_time += thinking_time
+        
+        if step_data:
+            # Handle potential errors
+            if step_data.get('title') == "Error":
+                steps.append((f"Etape {step_count}: {step_data.get('title')}", step_data.get('content'), thinking_time))
+                break
+            
+            step_title = f"Etape {step_count}: {step_data.get('title', 'No Title')}"
+            step_content = step_data.get('content', 'No Content')
+            steps.append((step_title, step_content, thinking_time))
+            
+            messages.append({"role": "assistant", "content": json.dumps(step_data)})
+            
+            if step_data.get('next_action') == 'final_answer':
+                break
+            
+            step_count += 1
 
-    return ai_response, timing
+        else:
+            break
 
+    # Generate final answer
+    messages.append({"role": "user", "content": "Please provide the final answer based on your reasoning above."})
+    
+    start_time = time.time()
+    final_data = make_api_call(client, messages, 2000, is_final_answer=True)
+    end_time = time.time()
+    thinking_time = end_time - start_time
+    total_thinking_time += thinking_time
+    
+    if final_data:
+        if final_data.get('title') == "Error":
+            steps.append(("Final Answer", final_data.get('content'), thinking_time))
+        else:
+            steps.append(("Final Answer", final_data.get('content', 'No Content'), thinking_time))
+        
+    return steps, total_thinking_time
 
-def traitement_rapide(texte: str, model_to_use, talking) -> str:
+def traitement_rapide(texte: str, model_to_use, talking) -> list:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
-    ai_response, _timing = ask_to_ai(
-        agent_appel=groq_client, prompt=texte, model_to_use=model_to_use
+    ai_response, _timing = generate_response(
+        client=groq_client, prompt=texte
     )
     readable_ai_response = ai_response
-    lire_haute_voix(readable_ai_response) if talking else None
+    if talking:
+        lire_haute_voix(" ".join(readable_ai_response))
+
     return readable_ai_response
 
 
@@ -78,8 +123,12 @@ def main(prompt=False):
     """
     model_used = cst.LLAMA370B
     if prompt:
-        traitement_rapide(str(prompt), model_to_use=model_used, talking=False)
-        exit(0)
+        for line in traitement_rapide(str(prompt), model_to_use=model_used, talking=False):
+            zetitl,zecontent,zetime=line
+            print(f"\n=> {zetitl}")
+            print(f"\n\t{zecontent}")
+            print(f"{zetime}\n")
+        exit()
 
     model_used = cst.LLAMA370B.split(":")[0]
     lire_haute_voix("Ia sélectionnée :" + model_used)
@@ -91,7 +140,7 @@ def main(prompt=False):
     )
 
     root = tk.Tk(className="YourAssistant")
-    root.title = "AssIstant - " # type: ignore
+    root.title = "AssIstant - "  # type: ignore
 
     fenetrePrincipale = FenetrePrincipale(
         master=root, title="AssIstant", model_to_use=model_used
@@ -99,6 +148,7 @@ def main(prompt=False):
 
     fenetrePrincipale.title = "MyApp"
     fenetrePrincipale.mainloop()
+
 
 if __name__ == "__main__":
     import argparse

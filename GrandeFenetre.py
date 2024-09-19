@@ -1,10 +1,13 @@
+import asyncio
+import threading
 import tkinter as tk
 from tkinter import font
 from tkinter import simpledialog
-from Constants import DARK2, DARK3, LIGHT1, LIGHT2, ZEFONT
+from Constants import DARK2, DARK3, LIGHT1, LIGHT2
 from PdfMaker import makePdfFromTtext
 from SimpleMarkdownText import SimpleMarkdownText
-from outils import from_rgb_to_tkColors, lire_text_from_object, reformateText
+import my_grep
+from outils import from_rgb_to_tkColors, lire_text_from_object, load_txt, reformateText
 
 
 class GrandeFenetre(tk.Frame):
@@ -33,6 +36,14 @@ class GrandeFenetre(tk.Frame):
             fg="green",
             text="X",
             command=self.quitter,
+        )
+
+        self.boutGrepTxt = tk.Button(
+            self.frame_of_cnv,
+            font=font.Font(size=self.btn_font.cget("size") + 4),
+            fg="green",
+            text="🔎",
+            command=self.grepTxt,
         )
 
         self.boutReduire = tk.Button(
@@ -98,6 +109,7 @@ class GrandeFenetre(tk.Frame):
         )
 
         self.boutQuit.pack(side="left")
+        self.boutGrepTxt.pack(side="left")
         self.boutReduire.pack(side="left")
         self.boutAugmente.pack(side="left")
         self.bout_augmente.pack(side="left")
@@ -124,15 +136,39 @@ class GrandeFenetre(tk.Frame):
         )
         self.area_info.pack(fill="both", expand=True)
 
+    def grepTxt(self):
+        pattern = simpledialog.askstring(
+            title="Motclé",
+            prompt="Entrez le motclé à investiguer : ",
+            initialvalue="Yeux",
+        )
+        if pattern:
+            t = threading.Thread(target=lambda: self.goSearch(pattern))
+            t.daemon = True
+            t.start()
+
+    def goSearch(self, pattern: str):
+        loop = asyncio.new_event_loop()
+        task = loop.create_task(self.ok_pati(pattern))  # type: ignore
+        loop.run_until_complete(task)
+
+    async def ok_pati(self, pattern: str):
+        _ = my_grep.lance_grep(textFile=load_txt(None), pattern=pattern)
+        self.area_info.clear_text()
+        self.area_info.configure(bg=from_rgb_to_tkColors((0x4F, 0x0D, 0x12)))
+        self.area_info.insert_markdown(mkd_text="# Pattern : " + pattern)
+        print(_)
+        if len(_):
+            self.area_info.insert_markdown(_)
+
     def quitter(self):
-        self.destroy()
+        self.master.destroy()
 
     def augmenteHeight(self):
-        self.area_info.configure(height=self.area_info.cget('height')+2)
+        self.area_info.configure(height=self.area_info.cget("height") + 2)
 
     def diminueHeight(self):
-        self.area_info.configure(height=self.area_info.cget('height')-2)
-
+        self.area_info.configure(height=self.area_info.cget("height") - 2)
 
     def transferer(self):
         self.area_info.tag_add("sel", "1.0", "end")
@@ -172,3 +208,9 @@ class GrandeFenetre(tk.Frame):
                 n=115,
             ),
         )
+
+
+if __name__ == "__main__":
+    grf = GrandeFenetre()
+    grf.grepTxt()
+    grf.mainloop()
