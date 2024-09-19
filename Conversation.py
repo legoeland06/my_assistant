@@ -107,7 +107,7 @@ class Conversation(tk.Frame):
             self.canvas_boutons_conversation,
             font=self.btn_font,
             text="➕",
-            command=self.agrandir_fenetre,
+            command=self.affiche_fenetre_agrandie,
         )
         self.bouton_agrandir_fenetre.configure(
             bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
@@ -246,9 +246,6 @@ class Conversation(tk.Frame):
         self.entree_question.configure(
             height=10,
         )
-
-    def agrandir_fenetre(self):
-        self.affiche_fenetre_agrandie()
 
     def augmente(self):
         self.fontConversation.configure(size=(self.fontConversation.cget("size") + 2))

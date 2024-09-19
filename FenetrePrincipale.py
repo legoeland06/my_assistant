@@ -735,7 +735,7 @@ class FenetrePrincipale(tk.Frame):
                     _conversation = self.responses[len(self.responses) - 1]
                     _last_discussion: Conversation = self.nametowidget(_conversation)
                     if "affiche" in self.check_ecout:
-                        _last_discussion.agrandir_fenetre()
+                        _last_discussion.affiche_fenetre_agrandie()
                     if "archive" in self.check_ecout:
                         _last_discussion.create_pdf()
                     elif any(
@@ -757,7 +757,7 @@ class FenetrePrincipale(tk.Frame):
                         if "affiche" in self.check_ecout:
                             _conversation = self.responses[zenumber - 1]
                             _discussion: Conversation = self.nametowidget(_conversation)
-                            _discussion.agrandir_fenetre()
+                            _discussion.affiche_fenetre_agrandie()
                         elif "archive" in self.check_ecout:
                             _discussion.create_pdf()
                         elif any(
@@ -1176,13 +1176,18 @@ class FenetrePrincipale(tk.Frame):
 
             scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
 
-            _ = _list_box.bind("<<ListboxSelect>>", func=self.demander_actu)
+            _ = _list_box.bind("<<ListboxSelect>>", func=self.lancement_infos)
 
         except:
             lire_haute_voix("oups problème de liste d'information")
         finally:
             _, _, text_vocal_command, _ = initialise_conversation_audio()
         return self.get_submission(), text_vocal_command
+    
+    def lancement_infos(self,evt):
+        _thread=StoppableThread(self.demander_actu(evt))
+        _thread.start()
+        self.threads.append(_thread)
 
     def marge_text(self, texte):
         long_text = len(texte)
@@ -2206,6 +2211,8 @@ class FenetrePrincipale(tk.Frame):
         )
 
         fenetre_response.get_entree_question().insert_markdown(simple_text + "\n")
+
+        fenetre_response.affiche_fenetre_agrandie()
 
     def print_liste_des_conversations(self):
         print("liste des conversations\n************************************")
