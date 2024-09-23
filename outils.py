@@ -2,9 +2,9 @@ import asyncio
 import io
 import random
 import subprocess
-from threading import Thread
+import threading
 import time
-from tkinter import simpledialog
+from word2number import w2n
 import webbrowser
 import PyPDF2
 from groq import Groq
@@ -17,7 +17,7 @@ import datetime
 import json
 import tkinter as tk
 from tkinter import filedialog
-from tkinter import messagebox as msgBox
+from tkinter import messagebox
 from typing import Any, List, Tuple
 import vosk
 import ollama
@@ -38,10 +38,25 @@ from Constants import (
     RESUME_WEB,
     ROLE_TYPE,
     STARS,
-    TRAITEMENT_EN_COURS,
+    TEXTE_DEBRIDE,
+    TEXTE_PREPROMPT_GENERAL,
+    TIMING_COEF,
+    TODAY_WE_ARE,
     WIDTH_TERM,
 )
+from StoppableThread import StoppableThread
+import my_search_engine
 from secret import NEWS_API_KEY
+
+threads_outils = []
+myengine:vosk.KaldiRecognizer=vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+mystream=pyaudio.PyAudio().open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16_000,
+        input=True,
+        frames_per_buffer=8_192,
+    )
 
 
 def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
@@ -50,19 +65,53 @@ def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
 
 def make_resume(text: str) -> str:
     """
-    En mode débridé. En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:
+    En mode débridé. By removing redundant repetitions and events,
+    Make a detailed and organized transcription of the content below:
     """
     return (
-        "en mode débridé. En supprimant les répétitions et événements redondants, fais une retranscrition détaillée et organisée du contenu ci-dessous:\n\n"
+        """en mode débridé.
+        By removing redundant repetitions and events, 
+    Make a detailed and organized transcription of the content below:\n"""
         + text
+        + """\n
+NB: Be careful to archive key information as you will need it to continue a smooth conversation."""
     )
 
 
 def lire_haute_voix(text: str):
-    the_thread = Thread(None, name="the_thread", target=lambda: thread_lire(text))
-    the_thread.start()
-    if the_thread.ident and not the_thread.daemon:
-        return True
+    if threading.current_thread().getName() == "mode_veille":
+        # on est déjà dans une thread donc inutile de surcharger ici
+        # on peut se permettre de laissier finir une lecture avant de passer
+        # à la suivante
+        lecteur = pyttsx3.Engine()
+        texte_reformate = (
+        text.replace("**", " ")
+        .replace("--", " ")
+        .replace("+", " ")
+        .replace("=", " ")
+        .replace("#", " ")
+        .replace("|", " ")
+        .replace("/", " ")
+        .replace(":", " ")
+        .replace("https", " ")
+    )
+        lecteur.say(text=texte_reformate)
+        lecteur.runAndWait()
+
+    else:
+        the_thread:StoppableThread = StoppableThread(
+            target=lambda: create_asyncio_task(async_function=say_txt(text))
+        )
+
+        the_thread.name = "lire_haute_voix"
+        the_thread.start()
+        threads_outils.append(the_thread)
+        if the_thread.ident and not the_thread.daemon:
+            return True
+        
+        # _=create_asyncio_task(async_function=say_txt(text))
+        # return True
+        
 
 
 def random_je_vous_ecoute() -> str:
@@ -85,55 +134,47 @@ def random_je_vous_ecoute() -> str:
 
 
 def questionOuiouNon(
-    question: str, engine: vosk.KaldiRecognizer, stream: pyaudio.Stream
-) -> str:
+    question: str
+) -> bool | str:
     lire_haute_voix(question)
-    stream.start_stream()
+    mystream.start_stream()
 
     while True:
-        engine.SetWords(enable_words=["oui", "non", "annulé"])
-        if engine.AcceptWaveform(
-            stream.read(
+        # engine.SetWords(enable_words=["oui", "non", "annulé"])
+        if myengine.AcceptWaveform(
+            mystream.read(
                 num_frames=8192, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
         ):  # accept waveform of input voice
-            response = json.loads(engine.Result())["text"].lower()
+            response = json.loads(myengine.Result())["text"].lower()
             if "annulé" in response:
-                stream.stop_stream()
+                mystream.stop_stream()
                 return "annulé"
 
             elif "oui" in response:
-                stream.stop_stream()
-                return "oui"
+                mystream.stop_stream()
+                return True
 
             elif "non" in response:
-                stream.stop_stream()
-                return "non"
+                mystream.stop_stream()
+                return False
 
 
 def questionOuverte(
-    question: str, engine: vosk.KaldiRecognizer, stream: pyaudio.Stream
+    question: str
 ) -> str:
     lire_haute_voix(question)
-    stream.start_stream()
+    mystream.start_stream()
     while True:
-        if engine.AcceptWaveform(
-            stream.read(
+        if myengine.AcceptWaveform(
+            mystream.read(
                 num_frames=8192, exception_on_overflow=False
             )  # read in chunks of 4096 bytes
         ):  # accept waveform of input voice
-            response = str(json.loads(engine.Result())["text"]).lower()
-            if response=="les sujets d'actualité":
-                return str()
+            response = str(json.loads(myengine.Result())["text"]).lower()
             if len(response.split()) >= 1:
+                lire_haute_voix("merci")
                 return response
-
-
-def thread_lire(text: str):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.create_task(say_txt(alire=text))
-    loop.run_forever()
 
 
 async def say_txt(alire: str):
@@ -158,6 +199,8 @@ async def say_txt(alire: str):
 
     if lecteur._inLoop:
         lecteur.proxy.stop()
+
+    return True
 
 
 def from_rgb_to_tkColors(rgb):
@@ -193,7 +236,7 @@ def load_txt(parent):
             print(file_to_read.name)
 
             resultat_txt = read_text_file(file_to_read.name)
-            lire_haute_voix("Fin de l'extraction")
+            # lire_haute_voix("Fin de l'extraction")
 
             # on prepare le text pour le présenter à la méthode insert_markdown
             # qui demande un texte fait de lignes séparées par des \n
@@ -203,7 +246,7 @@ def load_txt(parent):
             return str(resultat_reformater)
 
     except:
-        msgBox.Message("Problème avec ce fichier txt")
+        messagebox.Message("Problème avec ce fichier txt")
         return ""
 
 
@@ -226,7 +269,7 @@ def load_pdf(parent) -> str:
 
         return resultat_txt
     except:
-        msgBox.Message("Problème avec ce fichier pdf")
+        messagebox.Message("Problème avec ce fichier pdf")
         return "None"
 
 
@@ -277,22 +320,25 @@ def getEngine() -> vosk.KaldiRecognizer:
     """
     # initialise a voice recognizer
     lire_haute_voix("initialisation du micro")
-    rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+    # if myengine.__init__:
+    #     return myengine
+    # rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
     lire_haute_voix("micro initialisé")
     # set verbosity of vosk to NO-VERBOSE
     vosk.SetLogLevel(-1)
     # Initialize the model and return an instance
-    return rec
+    return myengine
 
 
-def getStream()->pyaudio.Stream:
-    return pyaudio.PyAudio().open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16_000,
-        input=True,
-        frames_per_buffer=8_192,
-    )
+def getStream() -> pyaudio.Stream:
+    return mystream
+    # return pyaudio.PyAudio().open(
+    #     format=pyaudio.paInt16,
+    #     channels=1,
+    #     rate=16_000,
+    #     input=True,
+    #     frames_per_buffer=8_192,
+    # )
 
 
 def traitement_du_texte(texte: str) -> list[Any | str]:
@@ -303,16 +349,15 @@ def traitement_du_texte(texte: str) -> list[Any | str]:
     """
     from nltk.tokenize import sent_tokenize
 
-    liste_of_sent: List[str] = sent_tokenize(text=texte,language="french")
+    liste_of_sent: List[str] = sent_tokenize(text=texte, language="french")
 
-    if isinstance(liste_of_sent,list):
+    if isinstance(liste_of_sent, list):
         liste_of_sentences = [
             sentence for sentence in liste_of_sent if len(sentence.split(" "))
         ]
 
         return liste_of_sentences
     return texte.splitlines()
-    
 
 
 def _traitement_du_texte(text: str, n: int) -> list:
@@ -326,13 +371,19 @@ def getNewsApi(subject):
     **_autour du subject_ donné en parametre de méthode**
     * Pour voir la forme de l'objet JSON, visitez : https://newsapi.org/
     """
-    return requests.request(
+    news_api = requests.request(
         "GET",
         "https://newsapi.org/v2/everything?q=" + subject +
         # + datetime.today().strftime("%d/%m/%Y, %H:%M:%S")
         "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
         + NEWS_API_KEY,
     )
+
+    # lemonde = requests.request(
+    #     "GET", "https://www.lemonde.fr/" + subject + "/rss_full.xml"
+    # )
+
+    return news_api
 
 
 def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
@@ -374,7 +425,9 @@ def reformateText(text: str, n: int) -> list[str]:
     return reservoir
 
 
-def translate_it(text_to_translate: str | list) -> str:
+def translate_it(
+    text_to_translate: str | list, initial: str = "auto", target: str = "fr"
+) -> str:
     """
     traduit le text reçu par maximum de 500 caractères. Si le text est une liste,
     on la traduit une à une str
@@ -393,12 +446,12 @@ def translate_it(text_to_translate: str | list) -> str:
     else:
         reformat_translated = text_to_translate
 
-    translated = _translator(source="auto", target="fr").translate(
+    translated = _translator(source=initial, target=target).translate(
         text=reformat_translated
     )  # output -> Weiter so, du bist großartig
 
     # print(translated)
-    return str(translated)
+    return translated
 
 
 def actualise_index_html(texte: str, question: str, timing: float, model: str):
@@ -427,14 +480,17 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
         )
 
 
-def lancement_thread(func):
+def create_asyncio_task(async_function):
+    """
+    méthode générique asynchrone
+    """
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(loop.create_task(func))
+    loop.run_until_complete(loop.create_task(async_function))
     loop.close()
 
 
-def callback(url):
+def call_article_link(url):
     webbrowser.open_new(url)
 
 
@@ -474,6 +530,7 @@ def lire_text_from_object(object: Any):
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
     return PROMPTS_SYSTEMIQUES[rubrique].replace(rubrique, prompt_name)
+
 
 def lire_ligne(evt: tk.Event):
     widget_to_read: tk.Listbox = evt.widget
@@ -524,11 +581,23 @@ def lancer_chrome(url: str) -> subprocess.Popen[str]:
     )
 
 
-def tester_appellation(appelation: str) -> str | None:
-    for lien in LIENS_CHROME:
-        if lien in appelation:
-            chrome_pid = lancer_chrome(url=LIENS_CHROME[lien])
-            return lien
+def lancer_search_chrome(word_to_search: str) -> subprocess.Popen[str]:
+    link_search = "https://www.google.fr/search?q="
+
+    return subprocess.Popen(
+        GOOGLECHROME_APP + link_search + word_to_search,
+        text=True,
+        shell=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+
+def tester_appelation(appelation: str) -> str | None:
+    for name, link in LIENS_CHROME.items():
+        if name in appelation:
+            _pid = lancer_chrome(url=link)
+            return link
 
 
 def lire_fichier(file_name: str) -> str:
@@ -543,10 +612,6 @@ def lire_fichier(file_name: str) -> str:
 
 def lire_url(url: str) -> str:
     return url
-
-
-def veullez_patienter(moteur_de_diction):
-    moteur_de_diction(TRAITEMENT_EN_COURS, stop_ecoute=True)
 
 
 def merci_au_revoir(
@@ -576,37 +641,223 @@ def get_groq_ia_list(api_key):
     return sortie
 
 
-def ask_to_resume(agent_appel, prompt, model_to_use):
+def ask_to_resume(agent_appel, prompt: str, model_to_use):
 
-    if isinstance(agent_appel, Groq):
+    ai_response, _timing = ask_to_ai(
+        agent_appel=agent_appel,
+        prompt=make_resume(prompt),
+        model_to_use=model_to_use,
+        motcle=str(),
+        p_history=str(),
+    )
+
+    return str(ai_response)
+
+
+def letters_to_number(letters: str, lang: str = "fr") -> int | bool:
+    try:
+        result = w2n.word_to_num(translate_it(letters, initial="fr", target="en"))
+        return int(result)
+    except:
+        return False
+
+
+def websearching(term: str):
+    """
+    ### make a litle web-search
+
+    récupérer le mot dans le prompt directement
+    en isolant la ligne et en récupérant tout ce qu'il y a après
+    avoir identifier les mots clés "recherche web : "
+    expression_found = (term.split(" : ")[1]).replace(" ", "+")
+    resultat_de_recherche = str(self.lancer_chrome(expression_found))
+
+    on execute cette recherche sur le web
+    avec l'agent de recherche search.main()
+    """
+
+    # TODO : récupérer le mot dans le prompt directement
+    # en isolant la ligne et en récupérant tout ce qu'il y a après
+    # avoir identifier les mots clés "recherche web : "
+    expression_found = (term.split(" : ")[1]).replace(" ", "+")
+    # resultat_de_recherche = str(lancer_chrome(expression_found))
+
+    # on execute cette recherche sur le web
+    # avec l'agent de recherche search.main()
+    lire_haute_voix("recherche web " + term.split(" : ")[1])
+    search_results: list = my_search_engine.main(expression_found)
+
+    goodlist = "\n".join(
+        [
+            str(element["snippet"] + "\n" + element["formattedUrl"] + "\n")
+            for element in search_results
+        ]
+    )
+    return goodlist
+
+
+def check_content(content: str, client, model_to_use) -> tuple:
+    """
+    content (str) : content to check
+
+    str : content augmented with potentialy web-searches
+    bool : isAskToDebride wich notify to débride AI
+    float : timing
+    Exemple :
+        >>> a, b, c = check_content(content)"""
+    time0 = time.perf_counter_ns()
+    result_recherche = []
+    isAskToDebride = False
+    for line in [line for line in content.splitlines() if line.strip()]:
+        # si on a trouvé la phrase << rechercher sur le web : >>
+        if "rechercher sur le web : " in line:
+            goodlist = websearching(line)
+
+            # TODO : PAS SUR DE l'UTILITE
+            super_result, _ = ask_to_ai(
+                client, goodlist, model_to_use, motcle=str(), p_history=str()
+            )
+
+            result_recherche.append(
+                {
+                    "resultat_de_recherche": line.split(" : ")[1]
+                    + "\n"
+                    + str(super_result)
+                }
+            )
+
+            bonne_liste = "Recherche sur le Web : \n"
+            for recherche in [
+                element["resultat_de_recherche"] for element in result_recherche
+            ]:
+                bonne_liste += recherche + "\n\n"
+
+            content += "\nRésultat des recherches : \n" + str(
+                bonne_liste if len(str(recherche)) else ""
+            )
+
+        # si on a trouvé la phrase << en mode débridé >>
+        if not isAskToDebride and "en mode débridé" in line:
+            isAskToDebride = True
+
+    timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
+
+    return content, isAskToDebride, timing
+
+
+def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history) -> tuple:
+    letexte, isAskToDebride, timing = check_content(
+        content=prompt, client=agent_appel, model_to_use=model_to_use
+    )
+    time0 = time.perf_counter_ns()
+    if isinstance(agent_appel, ollama.Client):
+        try:
+            llm: ollama.Client = agent_appel.chat(  # type: ignore
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": str(letexte),
+                        "num_ctx": 2048,
+                        "num_predict": 40,
+                        "keep_alive": -1,
+                    },
+                ],  # type: ignore
+            )
+            ai_response = llm["message"]["content"]  # type: ignore
+
+        except ollama.RequestError as requestError:
+            print("OOps aucun model chargé : ", requestError)
+        except ollama.ResponseError as responseError:
+            print("OOps la requête ne s'est pas bien déroulée", responseError)
+    elif isinstance(agent_appel, Groq):
 
         this_message = [
             {
+                "role": "system",
+                "content": (
+                    TEXTE_DEBRIDE
+                    if isAskToDebride
+                    else (
+                        TEXTE_PREPROMPT_GENERAL
+                        + (
+                            ("\nYou are an expert in : " + str(motcle))
+                            if len(str(motcle).strip())
+                            else ""
+                        )
+                    )
+                ),
+            },
+            {
+                "role": "assistant",
+                "content": TODAY_WE_ARE
+                + (
+                    # prend tout l'historique des prompts
+                    str(p_history)
+                    if len(str(p_history))
+                    else ""
+                ),
+            },
+            {
                 "role": "user",
-                "content": str(prompt)
-                + "\n Instruction: faire un résumé de toutes les conversations ci-dessus en un prompt concentré",
+                "content": letexte,
             },
         ]
 
         try:
-            llm: ChatCompletion = agent_appel.chat.completions.create(
-                messages=this_message,  # type: ignore
+            llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
+                messages=this_message,
                 model=model_to_use,
                 temperature=1,
                 max_tokens=4060,
+                # response_format="{type:jsonformat}"
                 n=1,
+                function_call="auto",
                 stream=False,
                 stop=None,
                 timeout=10,
-            )  # type: ignore
+            )
 
-            ai_response = llm.choices[0].message.content
+            ai_response = llm.choices[0].message.content  # type: ignore
+
         except:
-            msgBox.Message("OOps, ")
-    else:
-        msgBox.Message("Ne fonctionne qu'avec groq")
+            messagebox.Message("OOps, ")
 
-    return ai_response
+    elif isinstance(agent_appel, Ola.__class__):
+        try:
+            llm: Ola = agent_appel(
+                base_url="http://localhost:11434",
+                model=model_to_use,
+                request_timeout=REQUEST_TIMEOUT_DEFAULT,
+                additional_kwargs={
+                    "num_ctx": 2048,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            )
+
+            ai_response = llm.chat(letexte).message.content
+
+        except:
+            messagebox.Message("OOps, ")
+
+    # TODO
+    try:
+        # calcul le temps écoulé
+        timing: float = timing + (time.perf_counter_ns() - time0) / TIMING_COEF
+        print(ai_response)
+        append_response_to_file(RESUME_WEB, ai_response)
+        actualise_index_html(
+            texte=str(ai_response),
+            question=letexte,
+            timing=timing,
+            model=model_to_use,
+        )
+
+        return ai_response, timing
+    except:
+        print("problème de de délais de réponse")
+        return "problème de délais de réponse", timing
 
 
 def askToAi(agent_appel, prompt, model_to_use) -> tuple:
@@ -647,9 +898,9 @@ def askToAi(agent_appel, prompt, model_to_use) -> tuple:
             )
             ai_response = llm.chat(prompt).message.content
         except:
-            msgBox.Message("OOps, ")
+            messagebox.Message("OOps, ")
 
-    # calcul le temps écoulé par la thread
+    # calcul le temps écoulé
     timing: float = (time.perf_counter_ns() - time0) / 1_000_000_000.0
     print(ai_response)
     print("Type_agent_appel::" + str(type(agent_appel)))

@@ -3,21 +3,35 @@ import feedparser
 from outils import translate_it
 
 
-def lemonde(rss_url):
-    rubrique = ""
+def lemonde(rss_url:list):
+    rubrique = []
     for item in rss_url:
         resultat = ""
         feed = feedparser.parse("https://www.lemonde.fr/" + item + "/rss_full.xml")
 
         for entry in feed.entries:
             resultat += entry.title_detail["value"] + "\n"
-        rubrique += translate_it(resultat)
+        rubrique.append(translate_it(resultat))
 
     return rubrique
 
 
+def lemondeAfrique(rss_url):
+    rubrique = []
+    for item in rss_url:
+        resultat = ""
+        feed = feedparser.parse("https://www.lemonde.fr/" + item + "/rss_full.xml")
+
+        for entry in feed.entries:
+            resultat += entry.title_detail["value"] + "\n"
+            resultat += str(entry.description) + "\n"
+            # resultat += str(entry.content)+ "\n"
+        rubrique.append(translate_it(resultat))
+
+    return rubrique
+
 def le_monde_informatique(rss_url):
-    rubrique = ""
+    rubrique = []
     for item in rss_url:
         resultat = ""
         feed = feedparser.parse(
@@ -26,13 +40,13 @@ def le_monde_informatique(rss_url):
 
         for entry in feed.entries:
             resultat += entry.title_detail["value"] + "\n"
-        rubrique += translate_it(resultat)
+        rubrique.append(translate_it(resultat))
 
     return rubrique
 
 
 def generic_search_rss(rss_url: list,nombre_items:int):
-    rubrique = ""
+    rubrique = []
     for search_item in rss_url:
         resultat = ""
 
@@ -50,18 +64,22 @@ def generic_search_rss(rss_url: list,nombre_items:int):
         for entry in feed.entries[:nombre_items]:
             resultat += entry.title + "\n"
 
-        rubrique += (
-            search_item.replace("+", " ")
+        # rubrique += (
+        #     search_item.replace("+", " ")
+        #     + ":\n*************************************\n"
+        #     + resultat
+        #     + "\n"
+        # )
+        rubrique.append(search_item.replace("+", " ")
             + ":\n*************************************\n"
             + resultat
-            + "\n"
-        )
+            + "\n")
 
     return rubrique
 
 
 def linforme(nombre_items:int):
-    rubrique = ""
+    rubrique = []
     
     links=(
         "https://www.linforme.com/rss/all_headline.xml"
@@ -74,7 +92,10 @@ def linforme(nombre_items:int):
     for entry in feed.entries:
         resultat += entry.title + "\n"
 
-    rubrique += (
+    # rubrique += (
+    #         "L'informé.com:\n*************************************\n" + resultat + "\n"
+    #     )
+    rubrique.append(
             "L'informé.com:\n*************************************\n" + resultat + "\n"
         )
 

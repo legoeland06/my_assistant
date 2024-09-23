@@ -1,13 +1,13 @@
 from datetime import datetime
-import asyncio
+
 import json
 import random
+import sys
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any, Tuple
 from groq import Groq
 import ollama
-from llama_index.llms.ollama import Ollama as Ola
 from openai import ChatCompletion  # type: ignore
 import pyaudio
 from Article import Article
@@ -24,26 +24,28 @@ from GrandeFenetre import GrandeFenetre
 from RechercheArticles import RechercheArticles
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
-import my_search_engine as search
 import my_feedparser_rss
 from secret import GROQ_API_KEY
 
 from outils import (
     _traitement_du_texte,
-    actualise_index_html,
-    append_response_to_file,
+    getStream,
+    threads_outils,
     append_saved_texte,
+    ask_to_ai,
     ask_to_resume,
     chargeImage,
     downloadimage,
     getNewsApi,
-    lancement_thread,
+    create_asyncio_task,
+    lancer_chrome,
+    lancer_search_chrome,
     lecteur_init,
     from_rgb_to_tkColors,
     get_groq_ia_list,
     get_pre_prompt,
     getEngine,
-    initialise_conversation_audio,
+    letters_to_number,
     lire_haute_voix,
     load_pdf,
     load_txt,
@@ -51,7 +53,7 @@ from outils import (
     questionOuiouNon,
     questionOuverte,
     read_text_file,
-    textToNumber,
+    tester_appelation,
     traitement_du_texte,
     translate_it,
 )
@@ -61,7 +63,7 @@ type History = list[Conversation]
 
 class FenetrePrincipale(tk.Frame):
     streaming: pyaudio.Stream
-    engine_model: vosk.KaldiRecognizer = getEngine()
+    engine_model: vosk.KaldiRecognizer
 
     def __init__(
         self,
@@ -73,14 +75,15 @@ class FenetrePrincipale(tk.Frame):
         super().__init__(master)
         self.master = master
         self.ia = LLAMA3
+        self.debride = False
         self.history = []
         self.searchHystory = []
         self.title = title
         self.ai_response = str()
         self.nb_mots = 4
-        self.threads=[]
-        self.valide = False
-        self.ok_to_Read = False
+        self.threads = []
+        self.valide = True
+        self.ok_to_Read = True
         self.prompts_history = []
         self.responses = []
         self.submission = str()
@@ -101,7 +104,9 @@ class FenetrePrincipale(tk.Frame):
         self.image: ImageTk.PhotoImage = ImageTk.PhotoImage(
             Image.open("banniere.png").reduce(2)
         )  # type: ignore
-        self.image_button_diction = chargeImage("casque1.png", 200)
+        self.image_button_diction1 = chargeImage("oeil1.jpg", 200)
+        self.image_button_diction2 = chargeImage("oeil2.jpg", 200)
+        self.image_button_diction3 = chargeImage("oeil3.jpg", 200)
 
         self.image_link = str()
         self.content = str()
@@ -121,7 +126,8 @@ class FenetrePrincipale(tk.Frame):
             },
         ]
         self.actual_chat_completion = []
-
+        self.engine_model = getEngine()
+        self.streaming = getStream()
         # Mode de développement
         # BYPASS les sélection IHM chronophages en mode dev
         self.bypass()
@@ -141,6 +147,12 @@ class FenetrePrincipale(tk.Frame):
         self.set_client(groq_client)
         self.set_model(LLAMA370B)
         self.lance_thread_ecoute()
+
+    def set_debride(self, status: bool):
+        self.debride = status
+
+    def get_debride(self) -> bool:
+        return self.debride
 
     def set_ok_to_Read(self, ok_to_Read: bool):
         """setter for chatAudioMode"""
@@ -233,6 +245,7 @@ class FenetrePrincipale(tk.Frame):
         return True
 
     def get_stream(self) -> pyaudio.Stream:
+        # return getStream()
         return self.streaming
 
     def get_engine(self) -> vosk.KaldiRecognizer:
@@ -351,6 +364,35 @@ class FenetrePrincipale(tk.Frame):
         # await self.recup_informations()
         self.bouton_informations.pack(side=tk.LEFT)
 
+        self.bouton_active_debride = tk.Button(
+            self.canvas_buttons_banniere,
+            font=self.btn_font,
+            text="☢ activate",
+            command=lambda: self.debride_switch(True),
+            relief="flat",
+            highlightthickness=3,
+            highlightcolor="yellow",
+            activeforeground="white",
+        )
+        self.bouton_active_debride.configure(foreground="red", background="black")
+
+        # await self.recup_debriderbouton_active_debride()
+
+        self.bouton_desactive_debride = tk.Button(
+            self.canvas_buttons_banniere,
+            font=self.btn_font,
+            text="☢ activated",
+            command=lambda: self.debride_switch(False),
+            relief="flat",
+            highlightthickness=3,
+            highlightcolor="yellow",
+            activeforeground="white",
+        )
+        self.bouton_desactive_debride.configure(foreground="yellow", background="black")
+
+        # await self.recup_debriderbouton_active_debride()
+        self.bouton_active_debride.pack(side=tk.LEFT)
+
         self.label_slogan = tk.Label(
             self.canvas_buttons_banniere,
             text=slogan,
@@ -395,23 +437,48 @@ class FenetrePrincipale(tk.Frame):
             else:
                 return False
 
+    def debride_switch(self, status):
+        self.set_debride(status=status)
+        if self.get_debride():
+            self.bouton_desactive_debride.pack(side=tk.LEFT)
+            self.bouton_active_debride.pack_forget()
+        else:
+            self.bouton_active_debride.pack(side=tk.LEFT)
+            self.bouton_desactive_debride.pack_forget()
+
+        # self.update()
+
     def quitter(self):
         # Afficher une boîte de message de confirmation
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.save_to_submission()
             mainthread = threading.main_thread()
             for i in threading.enumerate():
-                if i != mainthread and isinstance(i,StoppableThread):
-                    print(i.getName())
-                    i.stop()
+                # e:StoppableThread=(StoppableThread) i # type: ignore
+                if i != mainthread:
+                    print(f"ThreadThreading::{i.getName()}")
+                    i.stop()  # type: ignore
 
             for j in self.threads:
-                if isinstance(j,StoppableThread):
-                    print(j.getName())
-                    j.stop()
-                    j.join()
+                # e:StoppableThread=(StoppableThread)j # type: ignore
+                # if isinstance(j, StoppableThread):
+                j:StoppableThread=j
+                print(f"ThreadThreads::{j.getName()}")
+                # j.join()
+                j.stop()
+
+            for t in threads_outils:
+                t:StoppableThread|threading.Thread=t
+                print(f"ThreadThreading::{t.getName()}")
+                if isinstance(t,StoppableThread):
+                    t.stop()
+                elif isinstance(t,threading.Thread):
+                    t.daemon=False
+
             self.master.destroy()
-                
+            # mainthread.is_alive()
+            # mainthread.join()
+            sys.exit()
 
             # exit()
         else:
@@ -436,9 +503,10 @@ class FenetrePrincipale(tk.Frame):
     def soumettre(self) -> str:
         if self.save_to_submission():
             this_thread = StoppableThread(
-                target=lambda: lancement_thread(self.asking())
+                target=lambda: create_asyncio_task(async_function=self.asking())
             )
-            self.threads.append(this_thread)
+            this_thread.name = "submission"
+            threads_outils.append(this_thread)
             lire_haute_voix("un instant s'il vous plait")
             list_of_words = self.get_submission().split()
             nbreCaracteres = len(self.get_submission())
@@ -455,10 +523,11 @@ class FenetrePrincipale(tk.Frame):
                     print(str(number) + "\n" + " ".join(bloc))
                     self.set_submission(" ".join(bloc))
                     _this = StoppableThread(
-                        target=lambda: lancement_thread(self.asking())
+                        target=lambda: create_asyncio_task(async_function=self.asking())
                     )
+                    _this.name = "part_of_submission"
                     _this.start()
-                    self.threads.append(_this)
+                    threads_outils.append(_this)
 
                     time.sleep(2)
             else:
@@ -473,26 +542,27 @@ class FenetrePrincipale(tk.Frame):
 
     def lance_thread_ecoute(self):
         self.bouton_commencer_diction.flash()
-        
+        self.bouton_commencer_diction.configure(
+            image=self.image_button_diction2,  # type: ignore
+            bg=from_rgb_to_tkColors((182, 78, 20)),
+        )
+        self.bouton_commencer_diction.update()
+
         # TODO: a simplifier
         self.set_thread(
             StoppableThread(
                 None,
-                name="my_thread",
-                target=self.ecouter,
+                name="mode_veille",
+                target=lambda: create_asyncio_task(async_function=self.dialog_ia()),
             )
         )
         self.get_thread().daemon = True
         self.get_thread().start()
-        self.threads.append(self.get_thread())
+        threads_outils.append(self.get_thread())
 
+        print("Infos Threads:\n***************************************")
         for element in self.get_thread().__dict__:
             print(element + "::" + str(self.get_thread().__dict__[element]))
-
-    def ecouter(self):
-        loop = asyncio.new_event_loop()
-        task = loop.create_task(self.dialog_ia())  # type: ignore
-        loop.run_until_complete(task)
 
     def get_synonymsOf(self, expression):
         prompt = (
@@ -562,21 +632,8 @@ class FenetrePrincipale(tk.Frame):
     # TODO : problème ici, difficulté à arrêter le thread !!
     async def dialog_ia(self):
         content_saved_discussion = str()
-
-        # Open the microphone stream
-        p = pyaudio.PyAudio()
-        self.set_stream(
-            p.open(
-                format=pyaudio.paInt16,
-                channels=1,
-                rate=16000,
-                input=True,
-                frames_per_buffer=8192,
-            )
-        )
-
         lire_haute_voix(
-            "Bienvenue ! pour activer les commandes vocales, il suffit de dire : << active les commandes vocales >>"
+            "Bienvenue ! pour activer les commandes vocales, il suffit de dire : << passe en mode audio >>"
         )
 
         # entrez dans le mode veille
@@ -598,52 +655,71 @@ class FenetrePrincipale(tk.Frame):
             if "afficher de l'aide" in self.check_ecout:
                 _ = self.display_help()
 
+            elif "quel est le mode actuel" in self.check_ecout:
+                self.get_stream().stop_stream()
+                lire_haute_voix("nous sommes actuellement dans le mode veille")
+
             elif any(keyword in self.check_ecout for keyword in ["fermer", "ferme"]):
                 if "l'application" in self.check_ecout:
                     self.get_stream().stop_stream()
-                    lire_haute_voix(
-                        "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
-                    )
                     self.bouton_commencer_diction.configure(
-                        bg=from_rgb_to_tkColors(DARK0)
+                        image=self.image_button_diction1,  # type: ignore
+                        bg=from_rgb_to_tkColors(DARK0),
                     )
                     self.entree_prompt_principal.configure(
                         bg=from_rgb_to_tkColors(LIGHT0)
                     )
                     self.bouton_commencer_diction.flash()
+                    self.bouton_commencer_diction.update()
                     append_saved_texte(
                         file_to_append="saved_text",
                         readable_ai_response=content_saved_discussion,
                     )
+                    lire_haute_voix(
+                        "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
+                    )
                     self.get_stream().close()
-                    self.get_thread().stop()
+                    # self.get_thread().stop()
 
                     break
 
-            elif any(
-                keyword in self.check_ecout for keyword in ["active", "passe"]
-            ) and any(
-                keyword in self.check_ecout
-                for keyword in ["mode audio", "commande vocale"]
-            ):
+            elif any(keyword in self.check_ecout for keyword in ["active", "passe"]):
+                if any(
+                    keyword in self.check_ecout
+                    for keyword in ["mode audio", "commande vocale"]
+                ):
 
-                lire_haute_voix("pour sortir, dites : fin de la session")
+                    self.bouton_commencer_diction.configure(
+                        image=self.image_button_diction3,  # type: ignore
+                        bg=from_rgb_to_tkColors((182, 78, 20)),
+                    )
 
-                self.bouton_commencer_diction.configure(
-                    bg=from_rgb_to_tkColors((182, 78, 20))
-                )
-                self.entree_prompt_principal.configure(
-                    bg=from_rgb_to_tkColors((DARK3)),
-                    fg=from_rgb_to_tkColors((182, 78, 20)),
-                )
+                    self.entree_prompt_principal.configure(
+                        bg=from_rgb_to_tkColors((DARK3)),
+                        fg=from_rgb_to_tkColors((182, 78, 20)),
+                    )
 
-                # entrez dans le mode commandes vocale
-                content_saved_discussion += " " + await self.mode_commandes_vocales()
+                    self.bouton_commencer_diction.update()
+                    lire_haute_voix("pour sortir, dites : fin de la session")
+
+                    # entrez dans le mode commandes vocale
+                    content_saved_discussion += (
+                        " " + await self.mode_commandes_vocales()
+                    )
+                elif "mode débridé" in self.check_ecout:
+                    self.debride_switch(True)
+                    lire_haute_voix("mode débridé activé")
+                elif "mode normal" in self.check_ecout:
+                    self.debride_switch(False)
+                    lire_haute_voix("mode debridé désactivé")
+
         return content_saved_discussion
 
     async def mode_commandes_vocales(self):
         content_saved_discussion = str()
+
         _ = self.display_help()
+        reserve = str()
         while True:
             self.mode_prompt = True
             self.check_ecout = self.attentif()
@@ -662,28 +738,37 @@ class FenetrePrincipale(tk.Frame):
                 )
                 lire_haute_voix(
                     (
-                        f"ne demande pas avant de lire la réponse : {translate_it(str(self.get_ok_to_Read()))}"
+                        "je vous lis systématiquement les réponses"
+                        if self.get_ok_to_Read()
+                        else "les réponses ne sont pas lues"
                     )
                 )
                 lire_haute_voix(
                     (
-                        f"demande de validation du prompt : {translate_it(str(self.getValide()))}"
+                        "à la fin de votre question ou prompt valide, je vous demande si vous avez terminé"
+                        if self.getValide()
+                        else f"dès lors que votre prompte est valide, je déclenche ma réponse."
                     )
                 )
                 lire_haute_voix(
                     (
-                        f"nombre minimum de mots que doit contenir un prompt valide : {str(self.nb_mots)}"
+                        f"un prompt est valide dès lors qu'il contient au moins {str(self.nb_mots)} mots"
                     )
                 )
 
-            elif "quel jour sommes-nous" in self.check_ecout.lower():
+            if "quel est le mode actuel" in self.check_ecout:
+                self.get_stream().stop_stream()
+                self.mode_prompt = False
+                lire_haute_voix("nous sommes actuellement dans le mode audio")
+
+            elif "quel jour sommes-nous" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.mode_prompt = False
                 lire_haute_voix(
                     self.get_synonymsOf("Nous sommes le " + time.strftime("%Y-%m-%d"))
                 )
 
-            elif "quelle heure est-il" in self.check_ecout.lower():
+            elif "quelle heure est-il" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.mode_prompt = False
                 lire_haute_voix(
@@ -693,12 +778,34 @@ class FenetrePrincipale(tk.Frame):
                     )
                 )
 
-            elif "est-ce que tu m'écoutes" in self.check_ecout.lower():
+            elif "est-ce que tu m'écoutes" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.mode_prompt = False
                 lire_haute_voix(
                     self.get_synonymsOf("oui je suis toujours à l'écoute <kiki>")
                 )
+
+            elif "lancer une application" in self.check_ecout:
+                self.get_stream().stop_stream()
+                self.mode_prompt = False
+                if any(
+                    keyw in self.check_ecout
+                    for keyw in ["internet", "chrome", "google"]
+                ):
+                    lancer_search_chrome(
+                        questionOuverte(
+                            "Que voulez vous chercher ?",
+                        ).replace(" ", "+")
+                    )
+                else:
+                    lancer_chrome(
+                        tester_appelation(
+                            questionOuverte(
+                                "laquelle ?",
+                            )
+                        )
+                        or ""
+                    )
 
             elif any(
                 keyword in self.check_ecout for keyword in ["effacer", "supprimer"]
@@ -716,6 +823,12 @@ class FenetrePrincipale(tk.Frame):
                     self.mode_prompt = False
                     self.delete_last_discussion()
 
+                elif "les dernières" in self.check_ecout:
+                    self.get_stream().stop_stream()
+                    self.mode_prompt = False
+                    for i in range(letters_to_number(questionOuverte("combien ?"))):
+                        self.delete_last_discussion()
+
             elif any(
                 keyword in self.check_ecout
                 for keyword in ["conversation", "discussion"]
@@ -732,8 +845,10 @@ class FenetrePrincipale(tk.Frame):
                 elif "la dernière" in self.check_ecout:
                     self.get_stream().stop_stream()
                     self.mode_prompt = False
+
                     _conversation = self.responses[len(self.responses) - 1]
                     _last_discussion: Conversation = self.nametowidget(_conversation)
+
                     if "affiche" in self.check_ecout:
                         _last_discussion.affiche_fenetre_agrandie()
                     if "archive" in self.check_ecout:
@@ -742,14 +857,15 @@ class FenetrePrincipale(tk.Frame):
                         keyword in self.check_ecout
                         for keyword in ["lis-moi", "lis moi"]
                     ):
-                        lire_haute_voix(_last_discussion.get_ai_response())
+                        lire_haute_voix(
+                            f"Contenu de la dernière conversation sur un total de {self.responses.__len__()} conversations enregistrées. "
+                            + _last_discussion.get_ai_response()
+                        )
 
                 elif "une" in self.check_ecout:
-                    zenumber: int = textToNumber(
+                    zenumber: int = letters_to_number(
                         questionOuverte(
                             "laquelle ?",
-                            self.get_engine(),
-                            self.get_stream(),
                         )
                     )
                     nb_conversations = len(self.responses)
@@ -802,11 +918,12 @@ class FenetrePrincipale(tk.Frame):
                             )
 
                         self.mode_prompt = False
-                        _response = self.send_prompt(
-                            content_discussion=make_resume(feed_rss),
-                            necessite_ai=True,
-                            grorOrNot=False,
-                        )
+                        for category in feed_rss:
+                            _response = self.send_prompt(
+                                content_discussion=make_resume(category),
+                                necessite_ai=True,
+                                grorOrNot=False,
+                            )
                 else:
                     self.get_stream().stop_stream()
                     self.mode_prompt = False
@@ -815,16 +932,19 @@ class FenetrePrincipale(tk.Frame):
             elif "donne-moi les infos" in self.check_ecout:
                 self.get_stream().stop_stream()
                 self.mode_prompt = False
-                articles = await self.recup_informations(30)
-                if (
-                    isinstance(articles, list)
-                    and articles.__len__()
-                    and "oui"
-                    == questionOuiouNon(
-                        "voulez-vous que je lise ce que j'ai trouvé sur la recherche ?",
-                        self.get_engine(),
-                        self.get_stream(),
+                _motcle, articles = await self.recup_informations(
+                    letters_to_number(
+                        questionOuverte(
+                            "combien d'articles souhaitez vous que je tente de récupèrer ?",
+                        )
                     )
+                )
+                if (
+                    questionOuiouNon(
+                        "voulez-vous que je lise ce que j'ai trouvé sur la recherche ?",
+                    )
+                    and isinstance(articles, list)
+                    and articles.__len__()
                 ):
                     for article in articles:
                         print(article.title)
@@ -875,10 +995,16 @@ class FenetrePrincipale(tk.Frame):
                         bg=from_rgb_to_tkColors(DARK3)
                     )
                     self.mode_prompt = False
+
+                    self.bouton_commencer_diction.configure(
+                        image=self.image_button_diction2,  # type: ignore
+                        bg=from_rgb_to_tkColors((182, 78, 20)),
+                    )
+                    self.bouton_commencer_diction.update()
+
                     lire_haute_voix(
                         "merci. Pour ré-activer le mode commande vocales, il s'uffit de demander"
                     )
-
                     break
 
             elif "lis-moi systématiquement tes réponses" in self.check_ecout:
@@ -895,13 +1021,24 @@ class FenetrePrincipale(tk.Frame):
 
             elif "gérer les préférences" in self.check_ecout:
                 self.get_stream().stop_stream()
-                self.nb_mots = textToNumber(
+                nbmot: int | bool = letters_to_number(
                     questionOuverte(
                         "à partir de combien de mots dois je déclencher ma réponse ?",
-                        self.get_engine(),
-                        self.get_stream(),
                     )
                 )
+                if not nbmot:
+                    self.nb_mots = 4
+                elif isinstance(nbmot, int):
+                    self.nb_mots = nbmot
+                _question_validation = questionOuiouNon(
+                    "souhaitez vous une validation orale de vos prompt ?",
+                )
+                _question_ok_to_read = questionOuiouNon(
+                    "souhaitez vous une réponse orale de vos prompt ?",
+                )
+                self.setValide(valide=True if _question_validation else False)
+                self.set_ok_to_Read(ok_to_Read=True if _question_ok_to_read else False)
+
                 self.mode_prompt = False
                 lire_haute_voix("c'est noté pour " + str(self.nb_mots) + " mots")
 
@@ -929,24 +1066,26 @@ class FenetrePrincipale(tk.Frame):
                 if self.getValide():
                     result = questionOuiouNon(
                         "avez vous terminé ?",
-                        self.get_engine(),
-                        self.get_stream(),
                     )
 
-                    if "oui" == result:
+                    if "annulé" == result:
+                        self.get_engine().Reset()
+                        lire_haute_voix("ok")
+
+                    elif result:
                         _response = self.send_prompt(
-                            self.check_ecout,
+                            reserve + "\n" + self.check_ecout,
                             necessite_ai=True,
                             grorOrNot=True,
                         )
                         await self.check_before_read(_response)
+                        reserve = str()
 
-                    elif "non" == result:
+                    elif not result:
+                        reserve += "\n" + self.check_ecout
+                        self.check_ecout = str()
+
                         lire_haute_voix("continuez")
-
-                    elif "annulé" == result:
-                        self.get_engine().Reset()
-                        lire_haute_voix("ok")
 
                     del result
 
@@ -957,17 +1096,12 @@ class FenetrePrincipale(tk.Frame):
 
                     await self.check_before_read(_response)
 
-            self.get_stream().start_stream()
+            try:
+                self.get_stream().start_stream()
+            except NameError as nerr:
+                print(nerr)
 
         return content_saved_discussion
-
-    def recup_inf(self):
-
-        this_thread = StoppableThread(
-            target=lambda: lancement_thread(func=self.recup_informations(20))
-        )
-        this_thread.start()
-        self.threads.append(this_thread)
 
     async def recup_infos(self):
         await self.recup_informations(20)
@@ -979,6 +1113,19 @@ class FenetrePrincipale(tk.Frame):
         d'actualités
 
         """
+
+        async def insert_article_to_grande_fenetre(motcle: str):
+            if isinstance(rechercheArticles, RechercheArticles):
+                self.searchHystory.append(rechercheArticles)
+                t = StoppableThread(
+                    target=await rechercheArticles.insertContentToGrandeFentre(
+                        motcles=motcle, grandeFenetre=self.grandeFenetre
+                    ),
+                )
+                t.name="find_articles"
+                threads_outils.append(t)
+                t.start()
+
         self.grandeFenetre = GrandeFenetre(tk.Toplevel(None))
         if len(self.get_motcles()):
             for element in self.get_motcles():
@@ -986,20 +1133,18 @@ class FenetrePrincipale(tk.Frame):
                 rechercheArticles: RechercheArticles = await self.extract_infos(
                     mot, int(nb) or max_article_a_recup
                 )
-                if isinstance(rechercheArticles, RechercheArticles):
-                    self.searchHystory.append(rechercheArticles)
-                    await rechercheArticles.insertContentToGrandeFentre(
-                        motcles=mot, grandeFenetre=self.grandeFenetre
-                    )
+                await insert_article_to_grande_fenetre(motcle=mot)
 
             return rechercheArticles.articles
         else:
             motcle = questionOuverte(
                 "sur quel sujet voulez-vous que j'oriente mes recherches ?",
-                self.get_engine(),
-                self.get_stream(),
             )
-            lire_haute_voix("Très bien, je récupère tout sur " + motcle)
+            if motcle == "les sujets d'actualité":
+                lire_haute_voix("Très bien, je récupère les actus en général")
+                motcle = str()
+            else:
+                lire_haute_voix("Très bien, je récupère tout sur " + motcle)
 
             # récupération des titres du jour
             rechercheArticles = await self.extract_infos(motcle, max_article_a_recup)
@@ -1008,11 +1153,7 @@ class FenetrePrincipale(tk.Frame):
                 f"j'ai trouvé {rechercheArticles.articles.__len__()} articles"
             )
 
-            if isinstance(rechercheArticles, RechercheArticles):
-                self.searchHystory.append(rechercheArticles)
-                await rechercheArticles.insertContentToGrandeFentre(
-                    motcles=motcle, grandeFenetre=self.grandeFenetre
-                )
+            await insert_article_to_grande_fenetre(motcle=motcle)
 
             return motcle, rechercheArticles.articles
 
@@ -1026,10 +1167,22 @@ class FenetrePrincipale(tk.Frame):
         * retourne l'objet rechercheArticle actualisé
         """
         _responses = getNewsApi(subject)
+        # _response_rss = my_feedparser_rss.lemondeAfrique([subject])
+        # print(f"response_rss: {_response_rss}")
+        # # _response_rss = my_feedparser_rss.feedparser.parse("https://www.lemonde.fr/" + subject + "/rss_full.xml")
+        # _response = self.send_prompt(
+        #     content_discussion=make_resume(_response_rss),
+        #     necessite_ai=True,
+        #     grorOrNot=False,
+        # )
+        # _response_rss_in_text = await self.asking()
+        # print(f"response_rss_in_text: {_response_rss_in_text}")
+        # resultat += entry.title_detail["value"] + "\n"
+        # rubrique += translate_it(resultat)
 
         rechercheArticles = RechercheArticles(
             status=_responses.json()["status"],
-            articles=[], 
+            articles=[],
             totalResults=_responses.json()["totalResults"],
         )
 
@@ -1053,10 +1206,77 @@ class FenetrePrincipale(tk.Frame):
 
         return rechercheArticles
 
-    def recup_audio(self):
-        pass
+    async def save_to_history(self, fenetre_name: str, question: str, ai_response: str):
+        """
+        #### crée une sauvegarde des anciens échanges:
+        Lorsque les conversations sont effacées de la fenêtre scrollable,
+        la conversation correspondande est effacée aussi de la liste.
+        ### A partir de (MAX_HISTORY=15) conversations,
+        ### on fait un résumé des anciennes conversations
+        cela permet de gerer la continuite de la conversation avec
+        une certaine profondeur (à la discrétions de l'utilisateur) tout
+        en évitant d'engorger la mémoire et les tokens utilisé
+        """
+        prompt = question[:499] if len(question) >= 500 else question
+        _response = ai_response[:499] if len(ai_response) >= 500 else ai_response
+        longueur = len(self.get_prompts_history())
+
+        # A partir de 15 conversations,
+        ## on fait un résumé des 10 anciennes conversations (MAX_HISTORY=15)
+        if longueur >= MAX_HISTORY:
+            conversation_resumee = ask_to_resume(
+                agent_appel=Groq(api_key=GROQ_API_KEY),
+                prompt="".join(map(str, self.get_prompts_history())),
+                model_to_use=LLAMA370B,
+            )
+
+            # on les efface
+            self.get_prompts_history().clear()
+
+            # on insère le résumé des conversations
+            self.get_prompts_history().append(
+                {
+                    "fenetre_name": fenetre_name,
+                    "prompt": "Résumé des conversations précédente",
+                    "response": conversation_resumee,
+                },
+            )
+            lire_haute_voix("un résumé des anciennes conversations à été effectué")
+            if questionOuverte(
+                "voulez-vous que je vous lise ce résumé ?",
+            ):
+                lire_haute_voix("Résumé des conversations précédente\n"+conversation_resumee)
+
+        # Ajout de cette conversation dans la listes générale des conversations
+        self.get_prompts_history().append(
+            {
+                "fenetre_name": fenetre_name,
+                "prompt": prompt,
+                "response": str(ai_response),
+            },
+        )
+
+    async def check_before_read(self, response_to_read):
+        """
+        demande une confirmation avant de lire le résultat de la requette à haute voix
+        """
+        if self.get_ok_to_Read():
+            lire_haute_voix(response_to_read)
+        else:
+            lire_haute_voix("voici !")
 
     # bubble aitable make workflow
+
+    def recup_inf(self):
+
+        this_thread = StoppableThread(
+            target=lambda: create_asyncio_task(
+                async_function=self.recup_informations(20)
+            )
+        )
+        this_thread.name = "recup_infos"
+        this_thread.start()
+        threads_outils.append(this_thread)
 
     def attentif(self):
         """
@@ -1064,7 +1284,7 @@ class FenetrePrincipale(tk.Frame):
         * récupération du resultat et encapsulation dans un objet JSON
         * retourne la partie text de l'objet JSON pour traitement ou un texte VIDE
         """
-        
+
         try:
             data_real_pre_vocal_command = self.get_stream().read(
                 num_frames=8192, exception_on_overflow=False
@@ -1093,15 +1313,6 @@ class FenetrePrincipale(tk.Frame):
                 or ""
             )
 
-    async def check_before_read(self, response_to_read):
-        """
-        demande une confirmation avant de lire le résultat de la requette à haute voix
-        """
-        if self.get_ok_to_Read():
-            lire_haute_voix(response_to_read)
-        else:
-            lire_haute_voix("voici !")
-
     def delete_last_discussion(self):
         """
         efface la dérnière discussion
@@ -1122,21 +1333,21 @@ class FenetrePrincipale(tk.Frame):
         """
         affiche une fenetre d'aide
         """
-        frame = tk.Toplevel()
+        frame = tk.Toplevel(name="fenetre_aide")
 
-        help_infos = SimpleMarkdownText(
+        self.help_infos = SimpleMarkdownText(
             master=frame,
             width=len(max(LIST_COMMANDS, key=len)),
         )
         scrollbar_listbox = tk.Scrollbar(frame)
-        scrollbar_listbox.configure(command=help_infos.yview)
+        scrollbar_listbox.configure(command=self.help_infos.yview)
 
-        help_infos.pack(side=tk.LEFT, fill="both")
+        self.help_infos.pack(side=tk.LEFT, fill="both")
 
         for item in LIST_COMMANDS:
-            help_infos.insert_markdown(item)
+            self.help_infos.insert_markdown(item)
 
-        help_infos.configure(
+        self.help_infos.configure(
             background=from_rgb_to_tkColors((40, 0, 40)),
             foreground=from_rgb_to_tkColors(LIGHT2),
             yscrollcommand=scrollbar_listbox.set,
@@ -1148,7 +1359,7 @@ class FenetrePrincipale(tk.Frame):
 
         scrollbar_listbox.pack(side=tk.RIGHT, fill="both")
 
-        _sortie = help_infos.bind("<<ListboxSelect>>", func=self.lire_commande)
+        _sortie = self.help_infos.bind("<<ListboxSelect>>", func=self.lire_commande)
         return _sortie
 
     def display_listbox_actus(self, final_list):
@@ -1158,7 +1369,7 @@ class FenetrePrincipale(tk.Frame):
         retourn self.get_submission() initialisée auparavant dans demander_actu()
         """
         try:
-            frame = tk.Toplevel()
+            frame = tk.Toplevel(name="list_actu")
             _list_box = tk.Listbox(master=frame, width=len(max(final_list, key=len)))
             scrollbar_listbox = tk.Scrollbar(frame)
             scrollbar_listbox.configure(command=_list_box.yview)
@@ -1181,13 +1392,14 @@ class FenetrePrincipale(tk.Frame):
         except:
             lire_haute_voix("oups problème de liste d'information")
         finally:
-            _, _, text_vocal_command, _ = initialise_conversation_audio()
+            text_vocal_command = str()
         return self.get_submission(), text_vocal_command
-    
-    def lancement_infos(self,evt):
-        _thread=StoppableThread(self.demander_actu(evt))
+
+    def lancement_infos(self, evt):
+        _thread = StoppableThread(target=lambda:create_asyncio_task(self.demander_actu(evt)))
+        _thread.name = "demande_actu"
         _thread.start()
-        self.threads.append(_thread)
+        threads_outils.append(_thread)
 
     def marge_text(self, texte):
         long_text = len(texte)
@@ -1241,17 +1453,23 @@ class FenetrePrincipale(tk.Frame):
         return response if necessite_ai else content_discussion
 
     def demander_ai_groq(self) -> Tuple[str, float]:
-        response, timing = self.ask_to_Groq(
+        response, timing = ask_to_ai(
             agent_appel=self.get_client(),
             prompt=self.get_submission(),
             model_to_use=self.get_model(),
+            motcle=self.get_motcles(),
+            p_history=self.get_prompts_history(),
         )
-        return response, timing
+        return str(response), timing
 
     def demander_ai(self) -> Tuple[str, float]:
         """vérifie aussi le texte pour faire des recherches web"""
-        response, timing = self.ask_to_ai(
-            self.get_client(), self.get_submission(), self.get_model()
+        response, timing = ask_to_ai(
+            self.get_client(),
+            self.get_submission(),
+            model_to_use=self.get_model(),
+            motcle=self.get_motcles(),
+            p_history=self.get_prompts_history(),
         )
 
         return str(response), timing
@@ -1279,297 +1497,16 @@ class FenetrePrincipale(tk.Frame):
             )
         return sortie
 
-    def lancer_chrome(self, word_to_search: str) -> subprocess.Popen[str]:
-        link_search = "https://www.google.fr/search?q="
-
-        return subprocess.Popen(
-            GOOGLECHROME_APP + link_search + word_to_search,
-            text=True,
-            shell=False,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-    def websearching(self, term: str):
-        """
-        ### make a litle web-search
-
-        récupérer le mot dans le prompt directement
-        en isolant la ligne et en récupérant tout ce qu'il y a après
-        avoir identifier les mots clés "recherche web : "
-        expression_found = (term.split(" : ")[1]).replace(" ", "+")
-        resultat_de_recherche = str(self.lancer_chrome(expression_found))
-
-        on execute cette recherche sur le web
-        avec l'agent de recherche search.main()
-        """
-
-        # TODO : récupérer le mot dans le prompt directement
-        # en isolant la ligne et en récupérant tout ce qu'il y a après
-        # avoir identifier les mots clés "recherche web : "
-        expression_found = (term.split(" : ")[1]).replace(" ", "+")
-        # resultat_de_recherche = str(self.lancer_chrome(expression_found))
-
-        # on execute cette recherche sur le web
-        # avec l'agent de recherche search.main()
-        lire_haute_voix("recherche web " + term.split(" : ")[1])
-        search_results: list = search.main(expression_found)
-
-        goodlist = "\n".join(
-            [
-                str(element["snippet"] + "\n" + element["formattedUrl"] + "\n")
-                for element in search_results
-            ]
-        )
-        return goodlist
-
-    def check_content(self, content: str) -> tuple:
-        """
-        content (str) : content to check
-
-        str : content augmented with potentialy web-searches
-        bool : isAskToDebride wich notify to débride AI
-        float : timing
-        Exemple :
-            >>> a, b, c = check_content(content)"""
-        result_recherche = []
-        isAskToDebride = False
-        for line in [line for line in content.splitlines() if line.strip()]:
-            # si on a trouvé la phrase << rechercher sur le web : >>
-            if "rechercher sur le web : " in line:
-
-                goodlist = self.websearching(line)
-
-                # TODO : PAS SUR DE l'UTILITE
-                super_result, _ = self.ask_to_ai(
-                    self.get_client(), goodlist, self.model_to_use
-                )
-
-                result_recherche.append(
-                    {
-                        "resultat_de_recherche": line.split(" : ")[1]
-                        + "\n"
-                        + str(super_result)
-                    }
-                )
-
-                bonne_liste = "Recherche sur le Web : \n"
-                for recherche in [
-                    element["resultat_de_recherche"] for element in result_recherche
-                ]:
-                    bonne_liste += recherche + "\n\n"
-
-                content += "\nRésultat des recherches : \n" + str(
-                    bonne_liste if len(str(recherche)) else ""
-                )
-
-            if not isAskToDebride and "en mode débridé" in line:
-                isAskToDebride = True
-
-        timing: float = (time.perf_counter_ns() - self.get_timer()) / TIMING_COEF
-
-        return content, isAskToDebride, timing
-
-    def ask_to_ai(self, agent_appel, prompt: str, model_to_use):
-        self.set_timer(time.perf_counter_ns())
-        letexte, isAskToDebride, timing = self.check_content(content=prompt)
-        self.set_timer(time.perf_counter_ns())
-
-        if isinstance(agent_appel, ollama.Client):
-            try:
-                llm: ollama.Client = agent_appel.chat(  # type: ignore
-                    model=model_to_use,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": str(letexte),
-                            "num_ctx": 2048,
-                            "num_predict": 40,
-                            "keep_alive": -1,
-                        },
-                    ],  # type: ignore
-                )
-                ai_response = llm["message"]["content"]  # type: ignore
-
-            except ollama.RequestError as requestError:
-                print("OOps aucun model chargé : ", requestError)
-            except ollama.ResponseError as responseError:
-                print("OOps la requête ne s'est pas bien déroulée", responseError)
-        elif isinstance(agent_appel, Groq):
-
-            this_message = [
-                {
-                    "role": "system",
-                    "content": (
-                        TODAY_WE_ARE + TEXTE_DEBRIDE
-                        if isAskToDebride
-                        else (
-                            TEXTE_PREPROMPT_GENERAL
-                            + (
-                                ("\nYou are an expert in : " + str(self.get_motcles()))
-                                if len(self.get_motcles())
-                                else ""
-                            )
-                        )
-                    ),
-                },
-                {
-                    "role": "assistant",
-                    "content": (
-                        # prend tout l'historique des prompts
-                        str(self.get_prompts_history())
-                        if len(self.get_prompts_history())
-                        else ""
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": letexte,
-                },
-            ]
-
-            try:
-                llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
-                    messages=this_message,
-                    model=model_to_use,
-                    temperature=1,
-                    max_tokens=4060,
-                    n=1,
-                    stream=False,
-                    stop=None,
-                    timeout=10,
-                )
-
-                ai_response = llm.choices[0].message.content  # type: ignore
-
-            except:
-                messagebox.Message("OOps, ")
-
-        elif isinstance(agent_appel, Ola.__class__):
-            try:
-                llm: Ola = agent_appel(
-                    base_url="http://localhost:11434",
-                    model=model_to_use,
-                    request_timeout=REQUEST_TIMEOUT_DEFAULT,
-                    additional_kwargs={
-                        "num_ctx": 2048,
-                        "num_predict": 40,
-                        "keep_alive": -1,
-                    },
-                )
-
-                ai_response = llm.chat(letexte).message.content
-
-            except:
-                messagebox.Message("OOps, ")
-
-        # TODO
-        try:
-            # calcul le temps écoulé par la thread
-            timing: float = (
-                timing + (time.perf_counter_ns() - self.get_timer()) / TIMING_COEF
-            )
-            print(ai_response)
-            append_response_to_file(RESUME_WEB, ai_response)
-            actualise_index_html(
-                texte=str(ai_response),
-                question=letexte,
-                timing=timing,
-                model=self.get_model(),
-            )
-
-            return ai_response, timing
-        except:
-            print("problème de de délais de réponse")
-            return "problème de délais de réponse", timing
-
-    def ask_to_Groq(
-        self,
-        prompt: str,
-        agent_appel=Groq(api_key=GROQ_API_KEY),
-        model_to_use=LLAMA370B,
-    ):
-        """peut s'executer en mode chat_audio"""
-        self.info_web_status.flash()
-        self.set_timer(time.perf_counter_ns())
-        letexte, isAskToDebride, timing = self.check_content(content=prompt)
-        self.set_timer(time.perf_counter_ns())
-
-        if isinstance(agent_appel, Groq):
-
-            this_message = [
-                {
-                    "role": "system",
-                    "content": (
-                        TODAY_WE_ARE + TEXTE_DEBRIDE
-                        if isAskToDebride
-                        else (
-                            TEXTE_PREPROMPT_GENERAL
-                            + (
-                                ("\nYou are an expert in : " + str(self.get_motcles()))
-                                if len(self.get_motcles())
-                                else ""
-                            )
-                        )
-                    ),
-                },
-                {
-                    "role": "assistant",
-                    "content": (
-                        # prend tout l'historique des prompts
-                        str(self.get_prompts_history())
-                        if len(self.get_prompts_history())
-                        else ""
-                    ),
-                },
-                {
-                    "role": "user",
-                    "content": letexte,
-                },
-            ]
-
-            try:
-                llm: ChatCompletion = agent_appel.chat.completions.create(
-                    messages=this_message,
-                    model=model_to_use,
-                    temperature=1,
-                    max_tokens=4060,
-                    n=1,
-                    stream=False,
-                    stop=None,
-                    timeout=10,
-                )
-
-                ai_response = llm.choices[0].message.content
-
-                timing: float = (
-                    time.perf_counter_ns() - self.get_timer()
-                ) / TIMING_COEF
-                print(ai_response)
-                append_response_to_file(RESUME_WEB, ai_response)
-                actualise_index_html(
-                    texte=ai_response,
-                    question=prompt,
-                    timing=timing,
-                    model=self.get_model(),
-                )
-
-                return ai_response, timing
-
-            except:
-                messagebox.Message("OOps, ")
-
-        else:
-            messagebox.Message("Ne fonctionne qu'avec groq")
-
-        return "pas de réponse", timing
-
     async def asking(self) -> str:
+        if self.get_debride():
+            self.set_submission(" \n en mode débridé \n" + self.get_submission())
 
-        response_ai, _timing = self.ask_to_ai(
+        response_ai, _timing = ask_to_ai(
             agent_appel=self.get_client(),
-            model_to_use=self.get_model(),
             prompt=self.get_submission(),
+            model_to_use=self.get_model(),
+            motcle=self.get_motcles(),
+            p_history=self.get_prompts_history(),
         )
         readable_ai_response = str(response_ai)
         self.set_ai_response(readable_ai_response)
@@ -1857,7 +1794,7 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_commencer_diction = tk.Button(
             self.frame_actual_prompt,
             bg=from_rgb_to_tkColors(DARK3),
-            image=self.image_button_diction,  # type: ignore
+            image=self.image_button_diction1,  # type: ignore
             command=self.lance_thread_ecoute,
         )
         self.bouton_commencer_diction.pack(side=tk.LEFT, fill="x", expand=True)
@@ -2091,7 +2028,7 @@ class FenetrePrincipale(tk.Frame):
         finally:
             w.focus_get().destroy()  # type: ignore
 
-    def demander_actu(self, evt: tk.Event):
+    async def demander_actu(self, evt: tk.Event):
         """
         **Flux-rss** : Méthode appelée par la listbox des catégories d'actualités.
         elle va récupérer les flux rss conrrespondants pour les envoyer en questionnement à l'AI
@@ -2106,26 +2043,30 @@ class FenetrePrincipale(tk.Frame):
             value = w.get(index)
             print('You selected item %d: "%s"' % (index, value))
             content_selected = [
-                item["content"] for item in RULS_RSS if item["title"] == value
+                item["content"] for item in RULS_RSS if item["title"].lower() == value.lower() 
             ].pop()
 
+            print(content_selected)
             if "le monde informatique" in value.lower():
-                feed_rss = my_feedparser_rss.le_monde_informatique(
+                feed_rss:list = my_feedparser_rss.le_monde_informatique(
                     content_selected.split(" | ")
                 )
-           
+
             elif "global_search" in value.lower():
-                feed_rss = my_feedparser_rss.linforme(nombre_items=10)
+                feed_rss:list = my_feedparser_rss.linforme(nombre_items=10)
             else:
-                feed_rss = my_feedparser_rss.lemonde(content_selected.split(" | "))
+                feed_rss:list = my_feedparser_rss.lemonde(content_selected.split(" | "))
 
-            response = self.send_prompt(
-                content_discussion=make_resume(feed_rss),
-                necessite_ai=True,
-                grorOrNot=True,
-            )
+            for subject in feed_rss:
+                response = self.send_prompt(
+                    content_discussion=make_resume(subject),
+                    necessite_ai=True,
+                    grorOrNot=True,
+                )
 
-            self.set_submission(response)
+                self.set_submission(response)
+            
+            lire_haute_voix("Récupération terminée")
 
         except Exception as e:
             lire_haute_voix("Aïe !! demande d'actualité :  ")
@@ -2189,13 +2130,24 @@ class FenetrePrincipale(tk.Frame):
             submit=submit_func,
             agent_appel=agent_appel,
             model_to_use=model,
+            nb_conversation=self.responses.__len__(),
         )
         fenetre_response.pack(fill="x", expand=True)
         self.history.append(fenetre_response)
 
         self.responses.append(fenetre_response.id)
 
-        self.save_to_history(fenetre_response.id, simple_text, ai_response)
+        this_thread: StoppableThread = StoppableThread(
+            target=lambda: create_asyncio_task(
+                async_function=self.save_to_history(
+                    fenetre_response.id, simple_text, ai_response
+                )
+            )
+        )
+        this_thread.name = "save_to_history"
+        this_thread.start()
+        threads_outils.append(this_thread)
+
         fenetre_response.bind(
             "<Destroy>",
             func=self.supprimer_conversation,
@@ -2247,45 +2199,3 @@ class FenetrePrincipale(tk.Frame):
                 + str(julia[:59] + "...\n" if len(julia) >= 60 else julia + "\n")
             )
         print("************************************")
-
-    def save_to_history(self, fenetre_name, question, ai_response):
-        """
-        #### crée une sauvegarde des anciens échanges:
-        Lorsque les conversations sont effacées de la fenêtre scrollable,
-        la conversation correspondande est effacée aussi de la liste.
-        cela permet de gerer la continuite de la conversation avec
-        une certaie profondeur (à la discrétions de l'utilisateur) tout
-        en évitant d'engorger la mémoire et les tokens utilisé
-        """
-        prompt = question[:499] if len(question) >= 500 else question
-        response = ai_response[:499] if len(ai_response) >= 500 else ai_response
-        longueur = len(self.get_prompts_history())
-
-        if longueur >= MAX_HISTORY:
-            # on fait un résumé des 10 anciennes conversations (MAX_HISTORY=15)
-            conversation_resumee = ask_to_resume(
-                agent_appel=Groq(api_key=GROQ_API_KEY),
-                prompt="".join(map(str, self.get_prompts_history())),
-                model_to_use=LLAMA370B,
-            )
-
-            # on les efface
-            self.get_prompts_history().clear()
-
-            # on insère le résumé des conversations
-            self.get_prompts_history().append(
-                {
-                    "fenetre_name": fenetre_name,
-                    "prompt": "Résumé des conversations précédente",
-                    "response": conversation_resumee,
-                },
-            )
-            lire_haute_voix("un résumé des anciennes conversations à été effectué")
-
-        self.get_prompts_history().append(
-            {
-                "fenetre_name": fenetre_name,
-                "prompt": prompt,
-                "response": response,
-            },
-        )

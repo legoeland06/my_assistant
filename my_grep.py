@@ -1,7 +1,6 @@
 import re
 from tkinter import simpledialog
 
-# import GrandeFenetre
 from StoppableThread import StoppableThread
 from outils import load_txt
 

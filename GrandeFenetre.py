@@ -1,13 +1,12 @@
-import asyncio
-import threading
 import tkinter as tk
 from tkinter import font
 from tkinter import simpledialog
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2
 from PdfMaker import makePdfFromTtext
 from SimpleMarkdownText import SimpleMarkdownText
+from StoppableThread import StoppableThread
 import my_grep
-from outils import from_rgb_to_tkColors, lire_text_from_object, load_txt, reformateText
+from outils import create_asyncio_task, from_rgb_to_tkColors, lire_text_from_object, load_txt, reformateText,threads_outils
 
 
 class GrandeFenetre(tk.Frame):
@@ -26,6 +25,7 @@ class GrandeFenetre(tk.Frame):
         self.btn_font = font.nametofont("TkTextFont")
         self.btn_font.configure(size=14)
         self.fontConversation = font.nametofont("TkTextFont")
+        self.configure(height=40)
 
         self.frame_of_cnv = tk.Frame(self)
         self.frame_of_cnv.pack(side="top", fill="x")
@@ -143,14 +143,16 @@ class GrandeFenetre(tk.Frame):
             initialvalue="Yeux",
         )
         if pattern:
-            t = threading.Thread(target=lambda: self.goSearch(pattern))
+            t = StoppableThread(target=lambda: create_asyncio_task(self.ok_pati(pattern)))
+            t.name="ok_parti_article"
             t.daemon = True
+            threads_outils.append(t)
             t.start()
 
-    def goSearch(self, pattern: str):
-        loop = asyncio.new_event_loop()
-        task = loop.create_task(self.ok_pati(pattern))  # type: ignore
-        loop.run_until_complete(task)
+    # def goSearch(self, pattern: str):
+    #     loop = asyncio.new_event_loop()
+    #     task = loop.create_task(self.ok_pati(pattern))  # type: ignore
+    #     loop.run_until_complete(task)
 
     async def ok_pati(self, pattern: str):
         _ = my_grep.lance_grep(textFile=load_txt(None), pattern=pattern)
@@ -165,10 +167,10 @@ class GrandeFenetre(tk.Frame):
         self.master.destroy()
 
     def augmenteHeight(self):
-        self.area_info.configure(height=self.area_info.cget("height") + 2)
+        self.configure(height=self.cget("height") + 2)
 
     def diminueHeight(self):
-        self.area_info.configure(height=self.area_info.cget("height") - 2)
+        self.configure(height=self.cget("height") - 2)
 
     def transferer(self):
         self.area_info.tag_add("sel", "1.0", "end")

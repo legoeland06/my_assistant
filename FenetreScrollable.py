@@ -1,6 +1,5 @@
 import tkinter as tk
-from Constants import BANNIERE_WIDTH, DARK2, LIGHT0
-from Decorators import singleton
+from Constants import LIGHT0
 from outils import (
     from_rgb_to_tkColors,
 )

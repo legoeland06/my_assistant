@@ -7,11 +7,14 @@ class StoppableThread(threading.Thread):
     def __init__(self, *args, **kwargs):
         threading.Thread.__init__(self, *args, **kwargs)
         self._stop_event = threading.Event()
+        print(f"NouvelleThread::{self.name}")
 
     def stop(self):
         self._stop_event.set()
-        print(f"thread {self.getName()} stopped")
+        if not self.daemon:
+            print(f"thread {self.getName()} stopped")
 
     def stopped(self):
         return self._stop_event.is_set()
+    
     

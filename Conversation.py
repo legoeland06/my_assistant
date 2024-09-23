@@ -4,7 +4,6 @@ from tkinter import simpledialog
 from GrandeFenetre import GrandeFenetre
 from PdfMaker import makePdfFromTtext
 from outils import (
-    askToAi,
     from_rgb_to_tkColors,
     lire_haute_voix,
     lire_text_from_object,
@@ -27,8 +26,9 @@ class Conversation(tk.Frame):
     le prompt et le résultat attendu
     """
 
-    id:str
-    grande_fenetre:GrandeFenetre
+    id: str
+    grande_fenetre: GrandeFenetre
+
     def __init__(
         self,
         master: tk.Frame,
@@ -38,6 +38,7 @@ class Conversation(tk.Frame):
         submit,
         agent_appel,
         model_to_use,
+        nb_conversation:int
     ):
         super().__init__(master)
         self.fontdict = font.Font(
@@ -47,6 +48,7 @@ class Conversation(tk.Frame):
             weight=ZEFONT[3],
         )
 
+        self.nb_conversation=nb_conversation
         self.fontConversation = font.Font(
             family=ZEFONT[0],
             size=ZEFONT[1],
@@ -69,7 +71,7 @@ class Conversation(tk.Frame):
             master=master,
             relief="flat",
         )
-        self.canvas_edition.pack(fill="x",expand=True)
+        self.canvas_edition.pack(fill="x", expand=True)
 
         self.canvas_boutons_conversation = tk.Frame(self.canvas_edition)
         self.cnv_global_conversation = tk.Frame(self.canvas_edition)
@@ -86,7 +88,6 @@ class Conversation(tk.Frame):
             font=self.btn_font,
             text="❌",
             command=self.supprimer_conversation,
-            
         )
 
         self.bouton_supprimer_question_response.configure(
@@ -180,11 +181,12 @@ class Conversation(tk.Frame):
         scrollbar_question.pack(side=tk.RIGHT, fill="both")
 
         self.entree_response = SimpleMarkdownText(
-            self.cnv_response, font=self.default_font,
+            self.cnv_response,
+            font=self.default_font,
         )
         self.entree_response.configure(
             bg=from_rgb_to_tkColors(LIGHT3),
-            fg=from_rgb_to_tkColors((0,0,153)),
+            fg=from_rgb_to_tkColors((0, 0, 153)),
             height=3,
             width=100,
             wrap="word",
@@ -197,7 +199,7 @@ class Conversation(tk.Frame):
 
         self.entree_question.configure(
             bg=from_rgb_to_tkColors(LIGHT2),
-            fg=from_rgb_to_tkColors((128,0,0)),
+            fg=from_rgb_to_tkColors((128, 0, 0)),
             height=4,
             width=100,
             wrap="word",
@@ -205,7 +207,7 @@ class Conversation(tk.Frame):
             padx=6,
             yscrollcommand=scrollbar_question.set,
         )
-        self.entree_question.bind("<Control-Return>", func=lambda: self.submit())  # type: ignore
+
         self.entree_response.pack(fill="x", expand=True)
         self.entree_question.pack(fill="x", expand=True)
 
@@ -216,12 +218,11 @@ class Conversation(tk.Frame):
             command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
         )
 
-        self.id=str(self.__str__())
+        self.id = str(self.__str__())
 
     def supprimer_conversation(self):
         self.destroy()
         self.canvas_edition.destroy()
-        
 
     def transferer(self):
         self.get_entree_response().tag_add("sel", "1.0", "end")
@@ -229,15 +230,6 @@ class Conversation(tk.Frame):
         self.get_entree_response().clipboard_append(
             self.get_entree_response().get_text()
         )
-
-    def submission(self, evt):
-        submission_texte = self.entree_question.get_text()
-        response_ai, _timing = askToAi(
-            agent_appel=self.agent_appel,
-            prompt=submission_texte,
-            model_to_use=self.model_to_use,
-        )
-        self.entree_response.insert_markdown(response_ai)
 
     def maximize_me(self):
         self.entree_response.configure(
@@ -274,10 +266,11 @@ class Conversation(tk.Frame):
         )
 
     def affiche_fenetre_agrandie(self):
-        self.grande_fenetre = GrandeFenetre(tk.Toplevel(None))
-        self.grande_fenetre.area_info.configure(bg=from_rgb_to_tkColors((0x01,0x2a,0x4a)))
+        self.grande_fenetre = GrandeFenetre(tk.Toplevel(name=self.widgetName))
+        self.grande_fenetre.area_info.configure(
+            bg=from_rgb_to_tkColors((0x01, 0x2A, 0x4A))
+        )
         self.grande_fenetre.area_info.insert_markdown(self.get_ai_response())
-
 
     def normalize_me(self):
         self.entree_response.configure(
@@ -315,6 +308,4 @@ class Conversation(tk.Frame):
         self.entree_question.clear_text()
 
     def lire(self):
-        lire_haute_voix(self.entree_response.get_text())
-
-
+        lire_haute_voix(f"Conversation numéro: {self.nb_conversation} \n"+self.entree_response.get_text())
