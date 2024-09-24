@@ -1251,8 +1251,8 @@ class FenetrePrincipale(tk.Frame):
         self.get_prompts_history().append(
             {
                 "fenetre_name": fenetre_name,
-                "prompt": prompt,
-                "response": str(ai_response),
+                "prompt": ask_to_resume(self.get_client(),prompt,self.get_model()),
+                "response": ask_to_resume(self.get_client(),ai_response,self.get_model()),
             },
         )
 

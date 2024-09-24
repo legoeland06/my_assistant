@@ -649,6 +649,7 @@ def ask_to_resume(agent_appel, prompt: str, model_to_use):
         model_to_use=model_to_use,
         motcle=str(),
         p_history=str(),
+        
     )
 
     return str(ai_response)
@@ -696,7 +697,7 @@ def websearching(term: str):
     return goodlist
 
 
-def check_content(content: str, client, model_to_use) -> tuple:
+def check_content(content: str, client, model_to_use,ok_persistance=False) -> tuple:
     """
     content (str) : content to check
 
@@ -708,6 +709,7 @@ def check_content(content: str, client, model_to_use) -> tuple:
     time0 = time.perf_counter_ns()
     result_recherche = []
     isAskToDebride = False
+    ok_persistance=False
     for line in [line for line in content.splitlines() if line.strip()]:
         # si on a trouvé la phrase << rechercher sur le web : >>
         if "rechercher sur le web : " in line:
@@ -739,14 +741,16 @@ def check_content(content: str, client, model_to_use) -> tuple:
         # si on a trouvé la phrase << en mode débridé >>
         if not isAskToDebride and "en mode débridé" in line:
             isAskToDebride = True
+        if "[persistance]" in line:
+            ok_persistance=True
 
     timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
 
-    return content, isAskToDebride, timing
+    return content, isAskToDebride, timing, ok_persistance
 
 
-def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history) -> tuple:
-    letexte, isAskToDebride, timing = check_content(
+def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history,ok_persistance:bool=False) -> tuple:
+    letexte, isAskToDebride, timing, ok_persistance = check_content(
         content=prompt, client=agent_appel, model_to_use=model_to_use
     )
     time0 = time.perf_counter_ns()
@@ -793,8 +797,8 @@ def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history) -> tupl
                 "content": TODAY_WE_ARE
                 + (
                     # prend tout l'historique des prompts
-                    str(p_history)
-                    if len(str(p_history))
+                    ask_to_resume(agent_appel,str(p_history),model_to_use)
+                    if len(str(p_history)) and ok_persistance
                     else ""
                 ),
             },
@@ -857,58 +861,6 @@ def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history) -> tupl
         return ai_response, timing
     except:
         print("problème de de délais de réponse")
+        print(prompt)
+        print(ai_response)
         return "problème de délais de réponse", timing
-
-
-def askToAi(agent_appel, prompt, model_to_use) -> tuple:
-
-    time0 = time.perf_counter_ns()
-
-    if isinstance(agent_appel, ollama.Client):
-        try:
-            llm: ollama.Client = agent_appel.chat(  # type: ignore
-                model=model_to_use,
-                messages=[
-                    {
-                        "role": ROLE_TYPE,  # type: ignore
-                        "content": prompt,
-                        "num_ctx": 4096,
-                        "num_predict": 40,
-                        "keep_alive": -1,
-                    },
-                ],
-            )
-            ai_response = llm["message"]["content"]  # type: ignore
-        except ollama.RequestError as requestError:
-            print("OOps aucun model chargé : ", requestError)
-        except ollama.ResponseError as responseError:
-            print("OOps la requête ne s'est pas bien déroulée", responseError)
-
-    elif isinstance(agent_appel, Ola.__class__):
-        try:
-            llm: Ola = agent_appel(
-                base_url="http://localhost:11434",
-                model=model_to_use,
-                request_timeout=REQUEST_TIMEOUT_DEFAULT,
-                additional_kwargs={
-                    "num_ctx": 4096,
-                    "num_predict": 40,
-                    "keep_alive": -1,
-                },
-            )
-            ai_response = llm.chat(prompt).message.content
-        except:
-            messagebox.Message("OOps, ")
-
-    # calcul le temps écoulé
-    timing: float = (time.perf_counter_ns() - time0) / 1_000_000_000.0
-    print(ai_response)
-    print("Type_agent_appel::" + str(type(agent_appel)))
-    print("Type_ai_réponse::" + str(type(ai_response)))
-
-    append_response_to_file(RESUME_WEB, ai_response)
-    actualise_index_html(
-        texte=str(ai_response), question=prompt, timing=timing, model=model_to_use
-    )
-
-    return ai_response, timing
