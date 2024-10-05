@@ -1,9 +1,7 @@
 import feedparser
 
-from outils import translate_it
 
-
-def lemonde(rss_url:list):
+def lemonde(rss_url: list):
     rubrique = []
     for item in rss_url:
         resultat = ""
@@ -11,7 +9,7 @@ def lemonde(rss_url:list):
 
         for entry in feed.entries:
             resultat += entry.title_detail["value"] + "\n"
-        rubrique.append(translate_it(resultat))
+        rubrique.append(resultat)
 
     return rubrique
 
@@ -26,9 +24,10 @@ def lemondeAfrique(rss_url):
             resultat += entry.title_detail["value"] + "\n"
             resultat += str(entry.description) + "\n"
             # resultat += str(entry.content)+ "\n"
-        rubrique.append(translate_it(resultat))
+        rubrique.append(resultat)
 
     return rubrique
+
 
 def le_monde_informatique(rss_url):
     rubrique = []
@@ -40,12 +39,12 @@ def le_monde_informatique(rss_url):
 
         for entry in feed.entries:
             resultat += entry.title_detail["value"] + "\n"
-        rubrique.append(translate_it(resultat))
+        rubrique.append(resultat)
 
     return rubrique
 
 
-def generic_search_rss(rss_url: list,nombre_items:int):
+def generic_search_rss(rss_url: list, nombre_items: int):
     rubrique = []
     for search_item in rss_url:
         resultat = ""
@@ -55,9 +54,7 @@ def generic_search_rss(rss_url: list,nombre_items:int):
             + search_item.replace(" ", "+")
             + "&hl=fr&gl=FR&ceid=FR:fr"
         )
-        liks=(
-            "https://www.linforme.com/rss/all_headline.xml"
-        )
+        liks = "https://www.linforme.com/rss/all_headline.xml"
         feed = feedparser.parse(link_to_rss)
 
         # pour le moment on ne prend que les 10 premières news
@@ -70,32 +67,34 @@ def generic_search_rss(rss_url: list,nombre_items:int):
         #     + resultat
         #     + "\n"
         # )
-        rubrique.append(search_item.replace("+", " ")
+        rubrique.append(
+            search_item.replace("+", " ")
             + ":\n*************************************\n"
             + resultat
-            + "\n")
+            + "\n"
+        )
 
     return rubrique
 
 
-def linforme(nombre_items:int):
+def linforme(nombre_items: int):
     rubrique = []
-    
-    links=(
-        "https://www.linforme.com/rss/all_headline.xml"
-    )
-    links2=("https://zoesagan.ghost.io/rss/")
+    links = "https://www.linforme.com/rss/all_headline.xml"
+    links2 = "https://zoesagan.ghost.io/rss/"
 
-    feed = feedparser.parse(links+links2)
-    print(f"FEED::{feed}")
-    # pour le moment on ne prend que les 10 premières news
-    for entry in feed.entries:
-        resultat += entry.title + "\n"
+    for lien in [links, links2]:
+        resultat = str()
+        feed = feedparser.parse(lien)
 
-    # rubrique += (
-    #         "L'informé.com:\n*************************************\n" + resultat + "\n"
-    #     )
-    rubrique.append(
+        print(f"FEED::{feed}")
+        # pour le moment on ne prend que les 10 premières news
+        for entry in feed.entries:
+            resultat += entry.title + "\n"
+
+        # rubrique += (
+        #         "L'informé.com:\n*************************************\n" + resultat + "\n"
+        #     )
+        rubrique.append(
             "L'informé.com:\n*************************************\n" + resultat + "\n"
         )
 

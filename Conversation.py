@@ -5,7 +5,7 @@ from GrandeFenetre import GrandeFenetre
 from PdfMaker import makePdfFromTtext
 from outils import (
     from_rgb_to_tkColors,
-    lire_haute_voix,
+    lire,
     lire_text_from_object,
     reformateText,
 )
@@ -38,7 +38,7 @@ class Conversation(tk.Frame):
         submit,
         agent_appel,
         model_to_use,
-        nb_conversation:int
+        nb_conversation: int,
     ):
         super().__init__(master)
         self.fontdict = font.Font(
@@ -48,7 +48,7 @@ class Conversation(tk.Frame):
             weight=ZEFONT[3],
         )
 
-        self.nb_conversation=nb_conversation
+        self.nb_conversation = nb_conversation
         self.fontConversation = font.Font(
             family=ZEFONT[0],
             size=ZEFONT[1],
@@ -308,4 +308,7 @@ class Conversation(tk.Frame):
         self.entree_question.clear_text()
 
     def lire(self):
-        lire_haute_voix(f"Conversation numéro: {self.nb_conversation} \n"+self.entree_response.get_text())
+        lire(
+            f"Conversation numéro: {self.nb_conversation} \n"
+            + self.entree_response.get_text()
+        )

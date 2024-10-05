@@ -6,7 +6,14 @@ from PdfMaker import makePdfFromTtext
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 import my_grep
-from outils import create_asyncio_task, from_rgb_to_tkColors, lire_text_from_object, load_txt, reformateText,threads_outils
+from outils import (
+    create_asyncio_task,
+    from_rgb_to_tkColors,
+    lire_text_from_object,
+    load_txt,
+    reformateText,
+    threads_outils,
+)
 
 
 class GrandeFenetre(tk.Frame):
@@ -143,8 +150,10 @@ class GrandeFenetre(tk.Frame):
             initialvalue="Yeux",
         )
         if pattern:
-            t = StoppableThread(target=lambda: create_asyncio_task(self.ok_pati(pattern)))
-            t.name="ok_parti_article"
+            t = StoppableThread(
+                target=lambda: create_asyncio_task(self.ok_pati(pattern))
+            )
+            t.name = "ok_parti_article"
             t.daemon = True
             threads_outils.append(t)
             t.start()

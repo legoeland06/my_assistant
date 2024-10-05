@@ -203,11 +203,11 @@ LIENS_CHROME = {
 URL_ACTU_GLOBAL_RSS = [
     {
         "title": "global_search",
-        "content": "BRICS | France | afrique CEDAO | Paris2024",
+        "content": "BRICS | France | AES",
     },
     {
-        "title": "Sciences",
-        "content": "sciences | espace | biologie | medecine | physique | sante",
+        "title": "sciences",
+        "content": "sciences | espace | sante",
     },
     {
         "title": "Le monde Informatique",
@@ -256,19 +256,20 @@ DICT_NUMBERS = [
         "number": 9,
     },
 ]
-
+SEPARATION_MD = """\n===============================================================
+===============================================================\n"""
 
 RULS_RSS = [
     {
         "title": "global_search",
-        "content": "actualités géo-politiques | actualités Afrique | actualités africaines CDAO | actualités Paris2024",
+        "content": "actualités géo-politiques | actualités Afrique | actualités africaines CDAO ",
     },
     {
         "title": "Actualités",
         "content": "une | en_continu | videos | photo | plus-lus | plus-partages",
     },
     {
-        "title": "International",
+        "title": "international",
         "content": "international | europe | ameriques | afrique | asie-Pacifique | proche-orient | royaume-Uni | etats-Unis",
     },
     {
@@ -301,7 +302,7 @@ RULS_RSS = [
     },
     {
         "title": "Sciences",
-        "content": "sciences | espace | biologie | medecine | physique | sante",
+        "content": "sciences | espace | biologie | medecine",
     },
     {
         "title": "M le mag",

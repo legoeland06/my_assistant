@@ -1,4 +1,5 @@
 import asyncio
+from asyncio.log import logger
 import io
 import random
 import subprocess
@@ -36,7 +37,7 @@ from Constants import (
     RAPIDITE_VOIX,
     REQUEST_TIMEOUT_DEFAULT,
     RESUME_WEB,
-    ROLE_TYPE,
+    SEPARATION_MD,
     STARS,
     TEXTE_DEBRIDE,
     TEXTE_PREPROMPT_GENERAL,
@@ -45,18 +46,39 @@ from Constants import (
     WIDTH_TERM,
 )
 from StoppableThread import StoppableThread
+import my_feedparser_rss
 import my_search_engine
-from secret import NEWS_API_KEY
+from secret import GROQ_API_KEY, NEWS_API_KEY
 
 threads_outils = []
-myengine:vosk.KaldiRecognizer=vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
-mystream=pyaudio.PyAudio().open(
+
+
+def charge_vosk_kaldi():
+    return vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+
+
+def charge_pyaudio():
+    return pyaudio.PyAudio().open(
         format=pyaudio.paInt16,
         channels=1,
         rate=16_000,
         input=True,
         frames_per_buffer=8_192,
     )
+
+
+def create_asyncio_task(async_function):
+    """
+    méthode générique asynchrone
+    """
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(loop.create_task(async_function))
+    loop.close()
+
+
+init_engine = charge_vosk_kaldi()
+init_stream = charge_pyaudio()
 
 
 def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
@@ -78,28 +100,28 @@ NB: Be careful to archive key information as you will need it to continue a smoo
     )
 
 
-def lire_haute_voix(text: str):
+def lire(text: str):
     if threading.current_thread().getName() == "mode_veille":
         # on est déjà dans une thread donc inutile de surcharger ici
         # on peut se permettre de laissier finir une lecture avant de passer
         # à la suivante
         lecteur = pyttsx3.Engine()
         texte_reformate = (
-        text.replace("**", " ")
-        .replace("--", " ")
-        .replace("+", " ")
-        .replace("=", " ")
-        .replace("#", " ")
-        .replace("|", " ")
-        .replace("/", " ")
-        .replace(":", " ")
-        .replace("https", " ")
-    )
+            text.replace("**", " ")
+            .replace("--", " ")
+            .replace("+", " ")
+            .replace("=", " ")
+            .replace("#", " ")
+            .replace("|", " ")
+            .replace("/", " ")
+            .replace(":", " ")
+            .replace("https", " ")
+        )
         lecteur.say(text=texte_reformate)
         lecteur.runAndWait()
 
     else:
-        the_thread:StoppableThread = StoppableThread(
+        the_thread: StoppableThread = StoppableThread(
             target=lambda: create_asyncio_task(async_function=say_txt(text))
         )
 
@@ -108,11 +130,6 @@ def lire_haute_voix(text: str):
         threads_outils.append(the_thread)
         if the_thread.ident and not the_thread.daemon:
             return True
-        
-        # _=create_asyncio_task(async_function=say_txt(text))
-        # return True
-        
-
 
 def random_je_vous_ecoute() -> str:
     random_expression = [
@@ -133,48 +150,61 @@ def random_je_vous_ecoute() -> str:
     ]
 
 
-def questionOuiouNon(
-    question: str
-) -> bool | str:
-    lire_haute_voix(question)
-    mystream.start_stream()
+def recup_infos_rss_feed(content_selected: str, value):
+    print(content_selected)
+    if "le monde informatique" in value.lower():
+        feed_rss: list = my_feedparser_rss.le_monde_informatique(
+            content_selected.split(" | ")
+        )
 
+    elif "global_search" in value.lower():
+        feed_rss: list = my_feedparser_rss.linforme(nombre_items=10)
+    else:
+        feed_rss: list = my_feedparser_rss.lemonde(content_selected.split(" | "))
+    return feed_rss
+
+def questionOuiouNon(question: str) -> bool | str:
+    response=str(questionOuverte(question=question,choix=["oui", "non", "annulé"]))
+
+    if "annulé" in response:
+        getStream().stop_stream()
+        return "annulé"
+
+    elif "oui" in response:
+        getStream().stop_stream()
+        return True
+
+    elif "non" in response:
+        getStream().stop_stream()
+        return False
+    else:
+        return "annulé"
+
+def questionOuverte(question: str, choix: list=[]) -> str:
+    lire(question)
+    if choix.__len__():
+        lire(f"Les choix possibles sont : {str(choix)}")
+        
+    now = time.perf_counter()
     while True:
-        # engine.SetWords(enable_words=["oui", "non", "annulé"])
-        if myengine.AcceptWaveform(
-            mystream.read(
-                num_frames=8192, exception_on_overflow=False
-            )  # read in chunks of 4096 bytes
-        ):  # accept waveform of input voice
-            response = json.loads(myengine.Result())["text"].lower()
-            if "annulé" in response:
-                mystream.stop_stream()
-                return "annulé"
+        getStream().start_stream() if getStream().is_stopped() else None
 
-            elif "oui" in response:
-                mystream.stop_stream()
-                return True
+        data_real_pre_vocal_command = getStream().read(
+            num_frames=8192, exception_on_overflow=False
+        )
 
-            elif "non" in response:
-                mystream.stop_stream()
-                return False
+        if getEngine().AcceptWaveform(data_real_pre_vocal_command):
 
-
-def questionOuverte(
-    question: str
-) -> str:
-    lire_haute_voix(question)
-    mystream.start_stream()
-    while True:
-        if myengine.AcceptWaveform(
-            mystream.read(
-                num_frames=8192, exception_on_overflow=False
-            )  # read in chunks of 4096 bytes
-        ):  # accept waveform of input voice
-            response = str(json.loads(myengine.Result())["text"]).lower()
-            if len(response.split()) >= 1:
-                lire_haute_voix("merci")
+            response = str(json.loads(getEngine().Result())["text"]).lower()
+            print(time.perf_counter()-now)
+            if choix.__len__() and any(keywords in response for keywords in choix):
                 return response
+            elif len(response) >= 2:
+                return response
+            if time.perf_counter()-now >= 5.0:
+                lire("je n'ai pas compris votre réponse, ma question était: ")
+                break
+    return questionOuverte(question=question,choix=choix)
 
 
 async def say_txt(alire: str):
@@ -182,12 +212,15 @@ async def say_txt(alire: str):
     lit le texte passé en paramètre
     """
     texte_reformate = (
-        alire.replace("*", " ")
+        alire.replace("**", "")
+        .replace("*", " ")
         .replace("-", " ")
         .replace("+", " ")
         .replace("=", " ")
+        .replace("##", "")
         .replace("#", " ")
         .replace("|", " ")
+        .replace("//", "")
         .replace("/", " ")
         .replace(":", " ")
         .replace("https", " ")
@@ -217,13 +250,14 @@ def read_text_file(file) -> list:
     return content
 
 
-def load_txt(parent):
+def load_txt(parent) -> str:
     """
     Ouvre une boite de dialogue pour charger un fichier texte,
     appelle la méthode de lecture qui renvois le résultat
     sous forme de liste et retourne cette liste reformattée sous
     forme de texte
     """
+    error_msg = f"Problème pour charger le fichier texte"
     try:
         file_to_read = filedialog.askopenfile(
             parent=parent,
@@ -243,11 +277,14 @@ def load_txt(parent):
             # transforme list[str] -> str
             resultat_reformater = str().join(resultat_txt)
 
-            return str(resultat_reformater)
+            return resultat_reformater
 
-    except:
-        messagebox.Message("Problème avec ce fichier txt")
-        return ""
+    except Exception as e:
+        messagebox.showerror("OOps, ", error_msg)
+        logger.exception(msg=error_msg, exc_info=e)
+        logger.error("OOps, ", error_msg)
+        # raise e
+    return error_msg
 
 
 def load_pdf(parent) -> str:
@@ -259,13 +296,13 @@ def load_pdf(parent) -> str:
             mode="r",
             initialdir=".",
         )
-        lire_haute_voix("Extraction du PDF")
+        lire("Extraction du PDF")
         if not file_to_read is None:
             resultat_txt = read_pdf(file_to_read.name)
-            lire_haute_voix("Fin de l'extraction")
+            lire("Fin de l'extraction")
         else:
             resultat_txt = "rien à lire, fichier vide"
-            lire_haute_voix(resultat_txt)
+            lire(resultat_txt)
 
         return resultat_txt
     except:
@@ -318,27 +355,27 @@ def getEngine() -> vosk.KaldiRecognizer:
     initialise le reconnaisseur vocal
     et retourne son instance
     """
-    # initialise a voice recognizer
-    lire_haute_voix("initialisation du micro")
-    # if myengine.__init__:
-    #     return myengine
-    # rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
-    lire_haute_voix("micro initialisé")
-    # set verbosity of vosk to NO-VERBOSE
-    vosk.SetLogLevel(-1)
-    # Initialize the model and return an instance
-    return myengine
+    if isinstance(init_engine, vosk.KaldiRecognizer):
+        return init_engine
+    else:
+        # initialise a voice recognizer
+        lire("initialisation du micro")
+        rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+        lire("micro initialisé")
+        # set verbosity of vosk to NO-VERBOSE
+        vosk.SetLogLevel(-1)
+        # Initialize the model and return an instance
+        return rec
 
 
 def getStream() -> pyaudio.Stream:
-    return mystream
-    # return pyaudio.PyAudio().open(
-    #     format=pyaudio.paInt16,
-    #     channels=1,
-    #     rate=16_000,
-    #     input=True,
-    #     frames_per_buffer=8_192,
-    # )
+    return pyaudio.PyAudio().open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16_000,
+        input=True,
+        frames_per_buffer=8_192,
+    )
 
 
 def traitement_du_texte(texte: str) -> list[Any | str]:
@@ -374,14 +411,9 @@ def getNewsApi(subject):
     news_api = requests.request(
         "GET",
         "https://newsapi.org/v2/everything?q=" + subject +
-        # + datetime.today().strftime("%d/%m/%Y, %H:%M:%S")
         "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
         + NEWS_API_KEY,
     )
-
-    # lemonde = requests.request(
-    #     "GET", "https://www.lemonde.fr/" + subject + "/rss_full.xml"
-    # )
 
     return news_api
 
@@ -450,7 +482,6 @@ def translate_it(
         text=reformat_translated
     )  # output -> Weiter so, du bist großartig
 
-    # print(translated)
     return translated
 
 
@@ -478,16 +509,6 @@ def actualise_index_html(texte: str, question: str, timing: float, model: str):
             + "\n"
             + "</div>"
         )
-
-
-def create_asyncio_task(async_function):
-    """
-    méthode générique asynchrone
-    """
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    loop.run_until_complete(loop.create_task(async_function))
-    loop.close()
 
 
 def call_article_link(url):
@@ -525,7 +546,7 @@ def lire_text_from_object(object: Any):
     except:
         texte_to_talk = object.get("1.0", tk.END)
     finally:
-        lire_haute_voix(texte_to_talk)
+        lire(texte_to_talk)
 
 
 def get_pre_prompt(rubrique: str, prompt_name: str):
@@ -649,7 +670,6 @@ def ask_to_resume(agent_appel, prompt: str, model_to_use):
         model_to_use=model_to_use,
         motcle=str(),
         p_history=str(),
-        
     )
 
     return str(ai_response)
@@ -681,11 +701,10 @@ def websearching(term: str):
     # en isolant la ligne et en récupérant tout ce qu'il y a après
     # avoir identifier les mots clés "recherche web : "
     expression_found = (term.split(" : ")[1]).replace(" ", "+")
-    # resultat_de_recherche = str(lancer_chrome(expression_found))
 
     # on execute cette recherche sur le web
     # avec l'agent de recherche search.main()
-    lire_haute_voix("recherche web " + term.split(" : ")[1])
+    lire("recherche web " + term.split(" : ")[1])
     search_results: list = my_search_engine.main(expression_found)
 
     goodlist = "\n".join(
@@ -697,7 +716,7 @@ def websearching(term: str):
     return goodlist
 
 
-def check_content(content: str, client, model_to_use,ok_persistance=False) -> tuple:
+def check_content(content: str, client, model_to_use, ok_persistance=False) -> tuple:
     """
     content (str) : content to check
 
@@ -709,7 +728,6 @@ def check_content(content: str, client, model_to_use,ok_persistance=False) -> tu
     time0 = time.perf_counter_ns()
     result_recherche = []
     isAskToDebride = False
-    ok_persistance=False
     for line in [line for line in content.splitlines() if line.strip()]:
         # si on a trouvé la phrase << rechercher sur le web : >>
         if "rechercher sur le web : " in line:
@@ -742,18 +760,191 @@ def check_content(content: str, client, model_to_use,ok_persistance=False) -> tu
         if not isAskToDebride and "en mode débridé" in line:
             isAskToDebride = True
         if "[persistance]" in line:
-            ok_persistance=True
+            ok_persistance = True
 
     timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
 
     return content, isAskToDebride, timing, ok_persistance
 
 
-def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history,ok_persistance:bool=False) -> tuple:
+async def traitement_rapide(
+    texte: str, min: str, max: str, talking: bool
+) -> list:
+    groq_client = Groq(api_key=GROQ_API_KEY)
+
+    ai_response, _timing = await generate_response(
+        client=groq_client, prompt=texte, min=min, max=max
+    )
+    readable_ai_response = ai_response
+    if talking:
+        lire(" ".join(readable_ai_response))
+
+    return readable_ai_response
+
+
+async def term_response(prompt: str, min: str, max: str, talk: bool):
+    total_response = await traitement_rapide(
+        str(prompt),
+        min=min,
+        max=max,
+        talking=False,
+    )
+    result = str()
+    for line in total_response:
+        etape, content, timming = line
+        # print(f"\n## {etape}")
+        result += f"\n## {etape}"
+        # print(f"\n\t{content}")
+        result += f"\n\t{content}"
+        # print(f"{timming}\n")
+        result += f"\n{timming}\n"
+
+    append_response_to_file(
+        RESUME_WEB,
+        SEPARATION_MD + prompt + SEPARATION_MD + result,
+    )
+
+    print(result)
+
+    if talk and result.__len__():
+        lire(result)
+
+
+async def make_api_call(client, messages, max_tokens, is_final_answer=False):
+    for attempt in range(5):
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.1-70b-versatile",
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.2,
+                response_format={"type": "json_object"},
+            )
+            return json.loads(response.choices[0].message.content)
+        except Exception as e:
+            if attempt == 2:
+                if is_final_answer:
+                    return {
+                        "title": "Error",
+                        "content": f"Failed to generate final answer after 3 attempts. Error: {str(e)}",
+                    }
+                else:
+                    return {
+                        "title": "Error",
+                        "content": f"Failed to generate step after 3 attempts. Error: {str(e)}",
+                        "next_action": "final_answer",
+                    }
+            time.sleep(3)  # Wait for 1 second before retrying
+
+
+async def generate_response(client, prompt, min: str = "3", max: str = "5"):
+    messages = [
+        {
+            "role": "system",
+            "content": f"""You are an expert AI assistant that explains your reasoning step by step. For each step, provide a title that describes what you're doing in that step, along with the content.
+            Decide if you need another step or if you're ready to give the final answer.
+            Respond in JSON format with 'title', 'content', and 'next_action' (either 'continue' or 'final_answer') keys.
+            Use as many reasoning steps as possible: at least {min} and at most {max}.
+            IN YOUR REASONING, INCLUDE EXPLORATION OF ALTERNATIVE ANSWERS.
+            Be aware of your limitations as an LLM and what you can and can't do.
+            Consider you may be wrong and if you are wrong in your reasoning, where it would be.
+            Fully test all others possibilities because you can be wrong.
+            Do not just say that you are re-examining but use at least 3 methods to derive the answer.
+            When you say you are re-examining, actually re-examine, and use another approach to do so.
+            USE BEST PRACTICES."""
+            + """
+            Example of a valid JSON response:
+            ```json
+            {
+              "title": "Identifying Key Information",
+              "content": "To begin solving this problem, we need to carefully examine the given information and identify the crucial elements that will guide our solution process. This involves...",
+              "next_action": "continue"
+              }
+            ```
+            """,
+        },
+        {"role": "user", "content": prompt},
+        {
+            "role": "assistant",
+            "content": "Thank you! I will now think step by step following my instructions, starting at the beginning after decomposing the problem.",
+        },
+    ]
+
+    steps = []
+    step_count = 1
+    total_thinking_time = 0
+
+    while True:
+        start_time = time.time()
+        step_data = await make_api_call(client, messages, 300)
+        end_time = time.time()
+        thinking_time = end_time - start_time
+        total_thinking_time += thinking_time
+
+        if step_data:
+            # Handle potential errors
+            if step_data.get("title") == "Error":
+                steps.append(
+                    (
+                        f"Etape {step_count}: {step_data.get('title')}",
+                        step_data.get("content"),
+                        thinking_time,
+                    )
+                )
+                break
+
+            step_title = f"Etape {step_count}: {step_data.get('title', 'No Title')}"
+            step_content = step_data.get("content", "No Content")
+            steps.append((step_title, step_content, thinking_time))
+
+            messages.append({"role": "assistant", "content": json.dumps(step_data)})
+
+            if step_data.get("next_action") == "final_answer":
+                break
+
+            step_count += 1
+
+        else:
+            break
+
+    # Generate final answer
+    messages.append(
+        {
+            "role": "user",
+            "content": "Please provide the final answer based on your reasoning above.",
+        }
+    )
+
+    start_time = time.time()
+    final_data = await make_api_call(client, messages, 2000, is_final_answer=True)
+    end_time = time.time()
+    thinking_time = end_time - start_time
+    total_thinking_time += thinking_time
+
+    if final_data:
+        if final_data.get("title") == "Error":
+            steps.append(("Final Answer", final_data.get("content"), thinking_time))
+        else:
+            steps.append(
+                ("Final Answer", final_data.get("content", "No Content"), thinking_time)
+            )
+
+    return steps, total_thinking_time
+
+
+def ask_to_ai(
+    agent_appel: Groq | ollama.Client | Ola.__class__,
+    prompt: str,
+    model_to_use,
+    motcle,
+    p_history,
+    ok_persistance: bool = False,
+) -> tuple:
     letexte, isAskToDebride, timing, ok_persistance = check_content(
         content=prompt, client=agent_appel, model_to_use=model_to_use
     )
     time0 = time.perf_counter_ns()
+    ai_response = str()
     if isinstance(agent_appel, ollama.Client):
         try:
             llm: ollama.Client = agent_appel.chat(  # type: ignore
@@ -768,7 +959,7 @@ def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history,ok_persi
                     },
                 ],  # type: ignore
             )
-            ai_response = llm["message"]["content"]  # type: ignore
+            ai_response = str(llm["message"]["content"])  # type: ignore
 
         except ollama.RequestError as requestError:
             print("OOps aucun model chargé : ", requestError)
@@ -797,7 +988,7 @@ def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history,ok_persi
                 "content": TODAY_WE_ARE
                 + (
                     # prend tout l'historique des prompts
-                    ask_to_resume(agent_appel,str(p_history),model_to_use)
+                    ask_to_resume(agent_appel, str(p_history), model_to_use)
                     if len(str(p_history)) and ok_persistance
                     else ""
                 ),
@@ -822,10 +1013,13 @@ def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history,ok_persi
                 timeout=10,
             )
 
-            ai_response = llm.choices[0].message.content  # type: ignore
+            ai_response = str(llm.choices[0].message.content)  # type: ignore
 
-        except:
-            messagebox.Message("OOps, ")
+        except Exception as e:
+            msg = f"Problème de délais avec l'agent Groq : {this_message.__len__()} tokens"
+            # messagebox.showerror("OOps, ", msg)
+            logger.exception(msg=msg, exc_info=e)
+            logger.error("OOps, ", msg)
 
     elif isinstance(agent_appel, Ola.__class__):
         try:
@@ -840,27 +1034,49 @@ def ask_to_ai(agent_appel, prompt: str, model_to_use, motcle, p_history,ok_persi
                 },
             )
 
-            ai_response = llm.chat(letexte).message.content
+            ai_response = str(llm.chat(letexte).message.content)
 
-        except:
-            messagebox.Message("OOps, ")
+        except Exception as e:
+            msg = f"tentative d'utiliser l'agent Ola {agent_appel.__name__} sans succès"
+            messagebox.showerror("OOps, ", msg)
+            logger.exception(msg=msg, exc_info=e)
+            logger.error("OOps, ", msg)
 
     # TODO
     try:
         # calcul le temps écoulé
-        timing: float = timing + (time.perf_counter_ns() - time0) / TIMING_COEF
+        timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
         print(ai_response)
-        append_response_to_file(RESUME_WEB, ai_response)
+        append_response_to_file(
+            RESUME_WEB,
+            SEPARATION_MD + prompt + SEPARATION_MD + ai_response,
+        )
         actualise_index_html(
             texte=str(ai_response),
             question=letexte,
             timing=timing,
             model=model_to_use,
         )
+        print(
+            f"[tokens_question:{len(letexte.split())},token_response:{len(ai_response.split())}]"
+        )
+        print(f"[tokens_total:{len(letexte.split())+len(ai_response.split())}]")
 
         return ai_response, timing
-    except:
-        print("problème de de délais de réponse")
-        print(prompt)
-        print(ai_response)
-        return "problème de délais de réponse", timing
+
+    except Exception as e:
+        msg = f"problème lors de la sauvegarde des {RESUME_WEB}"
+        messagebox.showerror("OOps, ", msg)
+        logger.exception(msg=msg, exc_info=e)
+        logger.error("OOps, ", msg)
+
+        return msg, timing
+
+
+async def loadimage(path: str) -> str:
+    import base64
+
+    # encoded_image:bytes
+    with open(path, "rb") as image:
+        encoded_image = base64.b64encode(image.read())
+        return encoded_image.decode("utf-8")
