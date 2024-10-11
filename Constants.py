@@ -49,6 +49,17 @@ INDEX_HEAD = """
 <body class="container">
     """
 
+
+CLICK_LIST="<<ListboxSelect>>"
+C_NOTE="c'est noté"
+YOU_SELECT_VALUE='You selected item %d: "%s"'
+RESPONSE = "Response:: "
+OUI="oui"
+NON="non"
+ANNULE="annulé"
+ATTENTION="Attention"
+
+
 FICHE_DE_POSTE = "fiche_de_poste"
 SCRAP_CONTENT = "content_scrapped"
 BROWSE_WITH_BING = "browse"
@@ -166,10 +177,10 @@ en mode recherche newsAPI
 ### Accéder au web:
 **faire une recherche web sur**
 
-**ouvrir une application web**
+**lancer une application web**
 donner le texte à rechercher sur google-chrome
 
-**ouvrir une application **
+**lancer une application **
 Via google-chrome
 netflix, gmail, messages,...
 

@@ -50,12 +50,12 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
         root = tk.Tk(className="YourAssistant")
         root.title = "AssIstant - "  # type: ignore
 
-        fenetrePrincipale = FenetrePrincipale(
+        fenetre_principale = FenetrePrincipale(
             master=root, title="AssIstant", model_to_use=model_used
         )
 
-        fenetrePrincipale.title = "MyApp"
-        fenetrePrincipale.mainloop()
+        fenetre_principale.title = "MyApp"
+        fenetre_principale.mainloop()
 
 
 if __name__ == "__main__":

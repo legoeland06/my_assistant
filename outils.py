@@ -26,12 +26,16 @@ from llama_index.llms.ollama import Ollama as Ola
 import markdown
 import requests
 from Constants import (
+    ANNULE,
+    ATTENTION,
     BYEBYE,
     DICT_NUMBERS,
     GOOGLECHROME_APP,
     INFOS_PROMPTS,
     LIENS_CHROME,
     MODEL_PATH,
+    NON,
+    OUI,
     PREPROMPTS,
     PROMPTS_SYSTEMIQUES,
     RAPIDITE_VOIX,
@@ -50,7 +54,7 @@ import my_feedparser_rss
 import my_search_engine
 from secret import GROQ_API_KEY, NEWS_API_KEY
 
-threads_outils = []
+threads_outils: list[StoppableThread | threading.Thread] = []
 
 
 def charge_vosk_kaldi():
@@ -131,6 +135,7 @@ def lire(text: str):
         if the_thread.ident and not the_thread.daemon:
             return True
 
+
 def random_je_vous_ecoute() -> str:
     random_expression = [
         "...",
@@ -163,48 +168,48 @@ def recup_infos_rss_feed(content_selected: str, value):
         feed_rss: list = my_feedparser_rss.lemonde(content_selected.split(" | "))
     return feed_rss
 
-def questionOuiouNon(question: str) -> bool | str:
-    response=str(questionOuverte(question=question,choix=["oui", "non", "annulé"]))
+
+def question_fermee(question: str) -> bool | str:
+    response = str(question_ouverte(question=question, choix=[OUI, NON, ANNULE]))
 
     if "annulé" in response:
-        getStream().stop_stream()
+        get_stream().stop_stream()
         return "annulé"
 
-    elif "oui" in response:
-        getStream().stop_stream()
+    elif OUI in response:
+        get_stream().stop_stream()
         return True
 
-    elif "non" in response:
-        getStream().stop_stream()
+    elif NON in response:
+        get_stream().stop_stream()
         return False
     else:
-        return "annulé"
+        return ANNULE
 
-def questionOuverte(question: str, choix: list=[]) -> str:
+
+def question_ouverte(question: str, choix: list = [], is_not_understood:bool=False) -> str:
     lire(question)
-    if choix.__len__():
+    if choix.__len__() and is_not_understood:
         lire(f"Les choix possibles sont : {str(choix)}")
-        
+
     now = time.perf_counter()
     while True:
-        getStream().start_stream() if getStream().is_stopped() else None
+        get_stream().start_stream() if get_stream().is_stopped() else None
 
-        data_real_pre_vocal_command = getStream().read(
+        data_real_pre_vocal_command = get_stream().read(
             num_frames=8192, exception_on_overflow=False
         )
 
-        if getEngine().AcceptWaveform(data_real_pre_vocal_command):
+        if get_engine().AcceptWaveform(data_real_pre_vocal_command):
 
-            response = str(json.loads(getEngine().Result())["text"]).lower()
-            print(time.perf_counter()-now)
-            if choix.__len__() and any(keywords in response for keywords in choix):
+            response = str(json.loads(get_engine().Result())["text"]).lower()
+            print(time.perf_counter() - now)
+            if response.__len__()>=2 or choix.__len__() and any(keywords in response for keywords in choix):
                 return response
-            elif len(response) >= 2:
-                return response
-            if time.perf_counter()-now >= 5.0:
+            if time.perf_counter() - now >= 5.0:
                 lire("je n'ai pas compris votre réponse, ma question était: ")
                 break
-    return questionOuverte(question=question,choix=choix)
+    return question_ouverte(question=question, choix=choix,is_not_understood=True)
 
 
 async def say_txt(alire: str):
@@ -236,7 +241,7 @@ async def say_txt(alire: str):
     return True
 
 
-def from_rgb_to_tkColors(rgb):
+def from_rgb_to_tkcolors(rgb):
     """translates an rgb tuple of int to a tkinter friendly color code
     You must give a tuplet (r,g,b) like _from_rgb((125,125,125))"""
     r, g, b = rgb
@@ -257,7 +262,7 @@ def load_txt(parent) -> str:
     sous forme de liste et retourne cette liste reformattée sous
     forme de texte
     """
-    error_msg = f"Problème pour charger le fichier texte"
+    error_msg = "Problème pour charger le fichier texte"
     try:
         file_to_read = filedialog.askopenfile(
             parent=parent,
@@ -280,10 +285,9 @@ def load_txt(parent) -> str:
             return resultat_reformater
 
     except Exception as e:
-        messagebox.showerror("OOps, ", error_msg)
+        messagebox.showerror(f"{error_msg} {e}")
         logger.exception(msg=error_msg, exc_info=e)
-        logger.error("OOps, ", error_msg)
-        # raise e
+        logger.error(f"{error_msg} {e}")
     return error_msg
 
 
@@ -297,7 +301,7 @@ def load_pdf(parent) -> str:
             initialdir=".",
         )
         lire("Extraction du PDF")
-        if not file_to_read is None:
+        if file_to_read is not None:
             resultat_txt = read_pdf(file_to_read.name)
             lire("Fin de l'extraction")
         else:
@@ -305,15 +309,15 @@ def load_pdf(parent) -> str:
             lire(resultat_txt)
 
         return resultat_txt
-    except:
-        messagebox.Message("Problème avec ce fichier pdf")
+    except Exception as e:
+        logger.warning(f"Problème avec ce fichier pdf : {e}")
         return "None"
 
 
 def read_pdf(book: str):
     text = str()
-    pdf_Reader = PyPDF2.PdfReader(book)
-    pages = pdf_Reader.pages
+    _ = PyPDF2.PdfReader(book)
+    pages = _.pages
     for page in pages:
         text += page.extract_text() + "\n"
     return text
@@ -350,7 +354,7 @@ def append_saved_texte(file_to_append, readable_ai_response):
         )
 
 
-def getEngine() -> vosk.KaldiRecognizer:
+def get_engine() -> vosk.KaldiRecognizer:
     """
     initialise le reconnaisseur vocal
     et retourne son instance
@@ -368,7 +372,7 @@ def getEngine() -> vosk.KaldiRecognizer:
         return rec
 
 
-def getStream() -> pyaudio.Stream:
+def get_stream() -> pyaudio.Stream:
     return pyaudio.PyAudio().open(
         format=pyaudio.paInt16,
         channels=1,
@@ -402,7 +406,7 @@ def _traitement_du_texte(text: str, n: int) -> list:
     return [text_list[i : i + n] for i in range(0, len(text_list), n)]
 
 
-def getNewsApi(subject):
+def get_news_api(subject):
     """
     ### Récupére les titres du jour
     **_autour du subject_ donné en parametre de méthode**
@@ -410,8 +414,9 @@ def getNewsApi(subject):
     """
     news_api = requests.request(
         "GET",
-        "https://newsapi.org/v2/everything?q=" + subject +
-        "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
+        "https://newsapi.org/v2/everything?q="
+        + subject
+        + "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
         + NEWS_API_KEY,
     )
 
@@ -447,7 +452,7 @@ def splittextintochunks(text: str, maxcharsperchunk: int) -> list[str]:
     return chunks
 
 
-def reformateText(text: str, n: int) -> list[str]:
+def reformat_text(text: str, n: int) -> list[str]:
     reservoir = []
     for line in text.splitlines():
         if len(line) > n:
@@ -529,11 +534,12 @@ async def downloadimage(url_or_path: str, taille: int) -> ImageTk.PhotoImage | N
                 )
             )
             return kikispec
-    except:
+    except Exception as e:
+        logger.error(f"Problème de chargement du fichier image : {e}")
         return None
 
 
-def chargeImage(filename: str, taille: int):
+def charge_image(filename: str, taille: int):
     img = Image.open(filename)
     return ImageTk.PhotoImage(
         image=img.resize((taille, int(taille * (float(img.height) / float(img.width)))))
@@ -543,8 +549,9 @@ def chargeImage(filename: str, taille: int):
 def lire_text_from_object(object: Any):
     try:
         texte_to_talk = object.get(tk.SEL_FIRST, tk.SEL_LAST)
-    except:
+    except Exception as e:
         texte_to_talk = object.get("1.0", tk.END)
+        logger.info(f"Rien n'est sélectionné : {e}")
     finally:
         lire(texte_to_talk)
 
@@ -564,7 +571,7 @@ def lire_ligne(evt: tk.Event):
     )  # type: ignore
 
 
-def textToNumber(text: str) -> int:
+def text_to_number(text: str) -> int:
     for item in DICT_NUMBERS:
         if item["letter"] in text.lower():
             return item["number"]
@@ -677,9 +684,10 @@ def ask_to_resume(agent_appel, prompt: str, model_to_use):
 
 def letters_to_number(letters: str, lang: str = "fr") -> int | bool:
     try:
-        result = w2n.word_to_num(translate_it(letters, initial="fr", target="en"))
+        result = w2n.word_to_num(translate_it(letters, initial=lang, target="en"))
         return int(result)
-    except:
+    except Exception as e:
+        logger.error(f"Problème de transcritption du nombre donné : {letters}\n{e}")
         return False
 
 
@@ -697,7 +705,7 @@ def websearching(term: str):
     avec l'agent de recherche search.main()
     """
 
-    # TODO : récupérer le mot dans le prompt directement
+    # récupérer le mot dans le prompt directement
     # en isolant la ligne et en récupérant tout ce qu'il y a après
     # avoir identifier les mots clés "recherche web : "
     expression_found = (term.split(" : ")[1]).replace(" ", "+")
@@ -727,13 +735,12 @@ def check_content(content: str, client, model_to_use, ok_persistance=False) -> t
         >>> a, b, c = check_content(content)"""
     time0 = time.perf_counter_ns()
     result_recherche = []
-    isAskToDebride = False
+    wanted_to_debride = False
     for line in [line for line in content.splitlines() if line.strip()]:
         # si on a trouvé la phrase << rechercher sur le web : >>
         if "rechercher sur le web : " in line:
             goodlist = websearching(line)
 
-            # TODO : PAS SUR DE l'UTILITE
             super_result, _ = ask_to_ai(
                 client, goodlist, model_to_use, motcle=str(), p_history=str()
             )
@@ -757,19 +764,17 @@ def check_content(content: str, client, model_to_use, ok_persistance=False) -> t
             )
 
         # si on a trouvé la phrase << en mode débridé >>
-        if not isAskToDebride and "en mode débridé" in line:
-            isAskToDebride = True
+        if not wanted_to_debride and "en mode débridé" in line:
+            wanted_to_debride = True
         if "[persistance]" in line:
             ok_persistance = True
 
     timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
 
-    return content, isAskToDebride, timing, ok_persistance
+    return content, wanted_to_debride, timing, ok_persistance
 
 
-async def traitement_rapide(
-    texte: str, min: str, max: str, talking: bool
-) -> list:
+async def traitement_rapide(texte: str, min: str, max: str, talking: bool) -> list:
     groq_client = Groq(api_key=GROQ_API_KEY)
 
     ai_response, _timing = await generate_response(
@@ -938,9 +943,9 @@ def ask_to_ai(
     model_to_use,
     motcle,
     p_history,
-    ok_persistance: bool = False,
+    must_be_persistant: bool = False,
 ) -> tuple:
-    letexte, isAskToDebride, timing, ok_persistance = check_content(
+    letexte, wanted_to_debride, timing, must_be_persistant = check_content(
         content=prompt, client=agent_appel, model_to_use=model_to_use
     )
     time0 = time.perf_counter_ns()
@@ -972,15 +977,8 @@ def ask_to_ai(
                 "role": "system",
                 "content": (
                     TEXTE_DEBRIDE
-                    if isAskToDebride
-                    else (
-                        TEXTE_PREPROMPT_GENERAL
-                        + (
-                            ("\nYou are an expert in : " + str(motcle))
-                            if len(str(motcle).strip())
-                            else ""
-                        )
-                    )
+                    if wanted_to_debride
+                    else (TEXTE_PREPROMPT_GENERAL + assign_expertise(motcle))
                 ),
             },
             {
@@ -989,7 +987,7 @@ def ask_to_ai(
                 + (
                     # prend tout l'historique des prompts
                     ask_to_resume(agent_appel, str(p_history), model_to_use)
-                    if len(str(p_history)) and ok_persistance
+                    if len(str(p_history)) and must_be_persistant
                     else ""
                 ),
             },
@@ -1005,7 +1003,6 @@ def ask_to_ai(
                 model=model_to_use,
                 temperature=1,
                 max_tokens=4060,
-                # response_format="{type:jsonformat}"
                 n=1,
                 function_call="auto",
                 stream=False,
@@ -1019,7 +1016,7 @@ def ask_to_ai(
             msg = f"Problème de délais avec l'agent Groq : {this_message.__len__()} tokens"
             # messagebox.showerror("OOps, ", msg)
             logger.exception(msg=msg, exc_info=e)
-            logger.error("OOps, ", msg)
+            logger.error(f"{ATTENTION} {e}", msg)
 
     elif isinstance(agent_appel, Ola.__class__):
         try:
@@ -1038,11 +1035,10 @@ def ask_to_ai(
 
         except Exception as e:
             msg = f"tentative d'utiliser l'agent Ola {agent_appel.__name__} sans succès"
-            messagebox.showerror("OOps, ", msg)
+            messagebox.showerror(ATTENTION, msg)
             logger.exception(msg=msg, exc_info=e)
-            logger.error("OOps, ", msg)
+            logger.error(f"{ATTENTION} {e}", msg)
 
-    # TODO
     try:
         # calcul le temps écoulé
         timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
@@ -1071,6 +1067,12 @@ def ask_to_ai(
         logger.error("OOps, ", msg)
 
         return msg, timing
+
+
+def assign_expertise(motcle)->str:
+    return str(
+        ("\nYou are an expert in : " + str(motcle)) if len(str(motcle).strip()) else ""
+    )
 
 
 async def loadimage(path: str) -> str:

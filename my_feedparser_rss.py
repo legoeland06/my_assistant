@@ -80,7 +80,10 @@ def generic_search_rss(rss_url: list, nombre_items: int):
 def linforme(nombre_items: int):
     rubrique = []
     links = "https://www.linforme.com/rss/all_headline.xml"
-    links2 = "https://zoesagan.ghost.io/rss/"
+    links2 = (
+            "https://news.google.com/rss/search?q="
+            + "&hl=fr&gl=FR&ceid=FR:fr"
+        )
 
     for lien in [links, links2]:
         resultat = str()
@@ -97,5 +100,7 @@ def linforme(nombre_items: int):
         rubrique.append(
             "L'informé.com:\n*************************************\n" + resultat + "\n"
         )
+        if len(rubrique)>=nombre_items:
+            return rubrique
 
     return rubrique

@@ -1,9 +1,10 @@
+from asyncio.log import logger
 import re
 import tkinter
 import tkinter.font as tkfont
 
-from Constants import LIGHT2
-from outils import from_rgb_to_tkColors
+from Constants import ATTENTION, LIGHT2
+from outils import from_rgb_to_tkcolors
 
 
 class SimpleMarkdownText(tkinter.Text):
@@ -15,7 +16,6 @@ class SimpleMarkdownText(tkinter.Text):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.default_font = tkfont.nametofont("TkTextFont")
-        # self.default_font = tkfont.nametofont("TkDefaultFont")
         self.default_font.configure(size=14)
         self.em = self.default_font.measure("m")
         self.default_size = self.default_font.cget("size")
@@ -75,7 +75,7 @@ class SimpleMarkdownText(tkinter.Text):
 
         self.tag_configure(
             "date_font",
-            foreground=from_rgb_to_tkColors((0x90, 0xE0, 0xEF)),
+            foreground=from_rgb_to_tkcolors((0x90, 0xE0, 0xEF)),
             font=date_font,
             spacing3=date_font.cget("size"),
         )
@@ -103,14 +103,15 @@ class SimpleMarkdownText(tkinter.Text):
     def get_text(self) -> str:
         return self.get("1.0", tkinter.END)
 
-    def get_selection(self) -> str | None:
+    def get_selection(self) -> str:
         """
         récupère le contenu de la sélection
         """
         try:
             return self.get(tkinter.SEL_FIRST, tkinter.SEL_LAST)
-        except:
-            return None
+        except Exception as e:
+            logger.warning(f"{ATTENTION} {e}")
+            return str()
 
     def insert_bullet(self, position, text):
         self.insert(position, f"- {text}", "bullet")
@@ -127,7 +128,7 @@ class SimpleMarkdownText(tkinter.Text):
         support then use a real parser.
         """
         in_code = False
-        boldIt=False
+        _bold_it = False
         for line in mkd_text.split("\n"):
             if line == str():
                 # Blank lines reset numbering

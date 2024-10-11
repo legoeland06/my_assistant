@@ -4,36 +4,34 @@ from GrandeFenetre import GrandeFenetre
 import tkinter as tk
 from PIL import Image, ImageTk
 
-from outils import call_article_link, from_rgb_to_tkColors, translate_it
+from outils import call_article_link, from_rgb_to_tkcolors, translate_it
 
 
 class RechercheArticles:
     status: bool
-    totalResults: int
+    total_results: int
     articles: list[Article]
 
     def __init__(
-        self, status: bool, totalResults: int, articles: list[Article]
+        self, status: bool, total_results: int, articles: list[Article]
     ) -> None:
         self.status = status
-        self.totalResults = totalResults
+        self.total_results = total_results
         self.articles = articles
 
-    def initGrandeFenetre(self):
+    def get_instance(self):
         return GrandeFenetre()
 
-    async def insertContentToGrandeFentre(
-        self, motcles: str, grandeFenetre: GrandeFenetre
-    ):
+    async def insert_content(self, motcles: str, grande_fenetre: GrandeFenetre):
         """
         récupère contenus images et liens et remplie la grande fenetre
         contenant les informations
         """
-        _a = grandeFenetre.area_info
+        _a = grande_fenetre.area_info
         _a.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
         for n, article in enumerate(self.articles):
             _a.tag_bind(
-                "hyperlink", "<Button-1>", lambda e: call_article_link(article.url)
+                "hyperlink", "<Button-1>", lambda e: call_article_link(url=article.url)
             )
             _a.insert(tk.END, f"Visitez :: {article.url[:30]}...", "hyperlink")
             _a.insert_markdown(f"\n## :: {n+1} :: {translate_it(article.title)}\n")
@@ -53,7 +51,7 @@ class RechercheArticles:
                     0,
                     img.width(),
                     img.height(),
-                    outline=from_rgb_to_tkColors(LIGHT2),
+                    outline=from_rgb_to_tkcolors(LIGHT2),
                     width=2,
                 )
                 _a.window_create(tk.END, window=canvas, padx=10, pady=10)

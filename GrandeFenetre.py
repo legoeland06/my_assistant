@@ -8,10 +8,10 @@ from StoppableThread import StoppableThread
 import my_grep
 from outils import (
     create_asyncio_task,
-    from_rgb_to_tkColors,
+    from_rgb_to_tkcolors,
     lire_text_from_object,
     load_txt,
-    reformateText,
+    reformat_text,
     threads_outils,
 )
 
@@ -111,8 +111,8 @@ class GrandeFenetre(tk.Frame):
             font=font.Font(size=self.btn_font.cget("size") + 4),
             text="🔀",
             command=self.transferer,
-            bg=from_rgb_to_tkColors(LIGHT1),
-            fg=from_rgb_to_tkColors(DARK3),
+            bg=from_rgb_to_tkcolors(LIGHT1),
+            fg=from_rgb_to_tkcolors(DARK3),
         )
 
         self.boutQuit.pack(side="left")
@@ -129,8 +129,8 @@ class GrandeFenetre(tk.Frame):
         self.area_info = SimpleMarkdownText(
             self,
             font=self.fontConversation,
-            bg=from_rgb_to_tkColors(DARK2),
-            fg=from_rgb_to_tkColors(LIGHT2),
+            bg=from_rgb_to_tkcolors(DARK2),
+            fg=from_rgb_to_tkcolors(LIGHT2),
             wrap="word",
         )
 
@@ -139,7 +139,7 @@ class GrandeFenetre(tk.Frame):
 
         self.area_info.configure(padx=20, pady=10, yscrollcommand=self.scrlbar.set)
         self.scrlbar.configure(
-            command=self.area_info.yview, bg=from_rgb_to_tkColors(DARK2)
+            command=self.area_info.yview, bg=from_rgb_to_tkcolors(DARK2)
         )
         self.area_info.pack(fill="both", expand=True)
 
@@ -158,15 +158,10 @@ class GrandeFenetre(tk.Frame):
             threads_outils.append(t)
             t.start()
 
-    # def goSearch(self, pattern: str):
-    #     loop = asyncio.new_event_loop()
-    #     task = loop.create_task(self.ok_pati(pattern))  # type: ignore
-    #     loop.run_until_complete(task)
-
     async def ok_pati(self, pattern: str):
-        _ = my_grep.lance_grep(textFile=load_txt(None), pattern=pattern)
+        _ = my_grep.lance_grep(text_file=load_txt(None), pattern=pattern)
         self.area_info.clear_text()
-        self.area_info.configure(bg=from_rgb_to_tkColors((0x4F, 0x0D, 0x12)))
+        self.area_info.configure(bg=from_rgb_to_tkcolors((0x4F, 0x0D, 0x12)))
         self.area_info.insert_markdown(mkd_text="# Pattern : " + pattern)
         print(_)
         if len(_):
@@ -210,10 +205,10 @@ class GrandeFenetre(tk.Frame):
                 )
                 or "myPdf"
             ),
-            text_list=reformateText(
+            text_list=reformat_text(
                 (
                     self.area_info.get_text()
-                    if not self.area_info is None
+                    if self.area_info is not None
                     else "texte vide"
                 ),
                 n=115,
