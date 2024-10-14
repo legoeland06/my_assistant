@@ -30,13 +30,11 @@ class RechercheArticles:
         _a = grande_fenetre.area_info
         _a.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
         for n, article in enumerate(self.articles):
-            _a.tag_bind(
-                "hyperlink", "<Button-1>", lambda e: call_article_link(url=article.url)
-            )
+            _a.tag_bind("hyperlink", "<Button-1>", call_article_link(url=article.url))
             _a.insert(tk.END, f"Visitez :: {article.url[:30]}...", "hyperlink")
             _a.insert_markdown(f"\n## :: {n+1} :: {translate_it(article.title)}\n")
             _a.insert_markdown(
-                f"CreatedAt: Date de publication:: {translate_it(article.publishedAt)}"
+                f"CreatedAt: Date de publication:: {translate_it(article.published_at)}"
             )
             _a.insert_markdown(
                 f"**Description::** {translate_it(article.description)}\n"
@@ -56,7 +54,7 @@ class RechercheArticles:
                 )
                 _a.window_create(tk.END, window=canvas, padx=10, pady=10)
             else:
-                _a.insert_markdown(f"**aucuneImage** {article.urlToImage}")
+                _a.insert_markdown(f"**aucuneImage** {article.url_to_image}")
 
             _a.insert_markdown(f"\n**Contenu::** {translate_it(article.content)}")
             _a.insert_markdown(f"**Auteur::** {translate_it(article.author)}**\n")

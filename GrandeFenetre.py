@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import font
 from tkinter import simpledialog
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2
-from PdfMaker import makePdfFromTtext
+from PdfMaker import make_pdf_from_text
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 import my_grep
@@ -196,7 +196,7 @@ class GrandeFenetre(tk.Frame):
         self.btn_font.configure(size=(self.fontConversation.cget("size") - 2))
 
     def create_pdf(self):
-        makePdfFromTtext(
+        make_pdf_from_text(
             filename=(
                 simpledialog.askstring(
                     parent=self,

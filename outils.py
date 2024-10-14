@@ -34,6 +34,7 @@ from Constants import (
     INFOS_PROMPTS,
     LIENS_CHROME,
     MODEL_PATH,
+    NO_RESPONSE,
     NON,
     OUI,
     PREPROMPTS,
@@ -130,8 +131,8 @@ def lire(text: str):
         )
 
         the_thread.name = "lire_haute_voix"
-        the_thread.start()
         threads_outils.append(the_thread)
+        the_thread.start()
         if the_thread.ident and not the_thread.daemon:
             return True
 
@@ -787,7 +788,7 @@ async def traitement_rapide(texte: str, min: str, max: str, talking: bool) -> li
     return readable_ai_response
 
 
-async def term_response(prompt: str, min: str, max: str, talk: bool):
+async def term_response(prompt: str, min: str, max: str, talk: bool)->bool:
     total_response = await traitement_rapide(
         str(prompt),
         min=min,
@@ -813,6 +814,8 @@ async def term_response(prompt: str, min: str, max: str, talk: bool):
 
     if talk and result.__len__():
         lire(result)
+    
+    return True
 
 
 async def make_api_call(client, messages, max_tokens, is_final_answer=False):
@@ -940,39 +943,74 @@ async def generate_response(client, prompt, min: str = "3", max: str = "5"):
 def ask_to_ai(
     agent_appel: Groq | ollama.Client | Ola.__class__,
     prompt: str,
-    model_to_use,
-    motcle,
-    p_history,
-    must_be_persistant: bool = False,
+    model_to_use:str,
+    motcle:str|list,
+    p_history:str|list,
 ) -> tuple:
+    """
+    Dispatch le fonctionnement du questionnement en fonction de l'objet agent_appel choisi au paravent
+    """
     letexte, wanted_to_debride, timing, must_be_persistant = check_content(
         content=prompt, client=agent_appel, model_to_use=model_to_use
     )
-    time0 = time.perf_counter_ns()
+    time_init = time.perf_counter_ns()
     ai_response = str()
     if isinstance(agent_appel, ollama.Client):
-        try:
-            llm: ollama.Client = agent_appel.chat(  # type: ignore
-                model=model_to_use,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": str(letexte),
-                        "num_ctx": 2048,
-                        "num_predict": 40,
-                        "keep_alive": -1,
-                    },
-                ],  # type: ignore
-            )
-            ai_response = str(llm["message"]["content"])  # type: ignore
-
-        except ollama.RequestError as requestError:
-            print("OOps aucun model chargé : ", requestError)
-        except ollama.ResponseError as responseError:
-            print("OOps la requête ne s'est pas bien déroulée", responseError)
+        ai_response =ask_by_ollama(agent_appel, model_to_use, letexte)
     elif isinstance(agent_appel, Groq):
 
-        this_message = [
+        ai_response =ask_by_groq(agent_appel, model_to_use, motcle, p_history, letexte, wanted_to_debride, must_be_persistant)
+
+    elif isinstance(agent_appel, Ola.__class__):
+        ai_response = ask_by_ola(agent_appel, model_to_use, letexte)
+
+    if len(ai_response):
+        # calcul le temps écoulé
+        timing: float = (time.perf_counter_ns() - time_init) / TIMING_COEF
+        print(ai_response)
+        append_response_to_file(
+            RESUME_WEB,
+            SEPARATION_MD + prompt + SEPARATION_MD + ai_response,
+        )
+        actualise_index_html(
+            texte=str(ai_response),
+            question=letexte,
+            timing=timing,
+            model=model_to_use,
+        )
+        print(
+            f"[tokens_question:{len(letexte.split())},token_response:{len(ai_response.split())}]"
+        )
+        print(f"[tokens_total:{len(letexte.split())+len(ai_response.split())}]")
+
+        return ai_response, timing
+    else :
+        return NO_RESPONSE,0
+
+def ask_by_ola(agent_appel, model_to_use, letexte):
+    try:
+        llm: Ola = agent_appel(
+                base_url="http://localhost:11434",
+                model=model_to_use,
+                request_timeout=REQUEST_TIMEOUT_DEFAULT,
+                additional_kwargs={
+                    "num_ctx": 2048,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            )
+
+        ai_response = str(llm.chat(letexte).message.content)
+
+    except Exception as e:
+        msg = f"tentative d'utiliser l'agent Ola {agent_appel.__name__} sans succès"
+        messagebox.showerror(ATTENTION, msg)
+        logger.exception(msg=msg, exc_info=e)
+        logger.error(f"{ATTENTION} {e}", msg)
+    return ai_response
+
+def ask_by_groq(agent_appel, model_to_use, motcle, p_history, letexte, wanted_to_debride, must_be_persistant):
+    this_message = [
             {
                 "role": "system",
                 "content": (
@@ -997,8 +1035,8 @@ def ask_to_ai(
             },
         ]
 
-        try:
-            llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
+    try:
+        llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
                 messages=this_message,
                 model=model_to_use,
                 temperature=1,
@@ -1010,64 +1048,38 @@ def ask_to_ai(
                 timeout=10,
             )
 
-            ai_response = str(llm.choices[0].message.content)  # type: ignore
-
-        except Exception as e:
-            msg = f"Problème de délais avec l'agent Groq : {this_message.__len__()} tokens"
-            # messagebox.showerror("OOps, ", msg)
-            logger.exception(msg=msg, exc_info=e)
-            logger.error(f"{ATTENTION} {e}", msg)
-
-    elif isinstance(agent_appel, Ola.__class__):
-        try:
-            llm: Ola = agent_appel(
-                base_url="http://localhost:11434",
-                model=model_to_use,
-                request_timeout=REQUEST_TIMEOUT_DEFAULT,
-                additional_kwargs={
-                    "num_ctx": 2048,
-                    "num_predict": 40,
-                    "keep_alive": -1,
-                },
-            )
-
-            ai_response = str(llm.chat(letexte).message.content)
-
-        except Exception as e:
-            msg = f"tentative d'utiliser l'agent Ola {agent_appel.__name__} sans succès"
-            messagebox.showerror(ATTENTION, msg)
-            logger.exception(msg=msg, exc_info=e)
-            logger.error(f"{ATTENTION} {e}", msg)
-
-    try:
-        # calcul le temps écoulé
-        timing: float = (time.perf_counter_ns() - time0) / TIMING_COEF
-        print(ai_response)
-        append_response_to_file(
-            RESUME_WEB,
-            SEPARATION_MD + prompt + SEPARATION_MD + ai_response,
-        )
-        actualise_index_html(
-            texte=str(ai_response),
-            question=letexte,
-            timing=timing,
-            model=model_to_use,
-        )
-        print(
-            f"[tokens_question:{len(letexte.split())},token_response:{len(ai_response.split())}]"
-        )
-        print(f"[tokens_total:{len(letexte.split())+len(ai_response.split())}]")
-
-        return ai_response, timing
+        ai_response = str(llm.choices[0].message.content)  # type: ignore
 
     except Exception as e:
-        msg = f"problème lors de la sauvegarde des {RESUME_WEB}"
-        messagebox.showerror("OOps, ", msg)
+        msg = f"Problème de délais avec l'agent Groq : {this_message.__len__()} tokens"
+            # messagebox.showerror("OOps, ", msg)
         logger.exception(msg=msg, exc_info=e)
-        logger.error("OOps, ", msg)
+        logger.error(f"{ATTENTION} {e}", msg)
 
-        return msg, timing
+    return ai_response
 
+def ask_by_ollama(agent_appel, model_to_use, letexte):
+    try:
+        llm: ollama.Client = agent_appel.chat(  # type: ignore
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": str(letexte),
+                        "num_ctx": 2048,
+                        "num_predict": 40,
+                        "keep_alive": -1,
+                    },
+                ],  # type: ignore
+            )
+        ai_response = str(llm["message"]["content"])  # type: ignore
+
+    except ollama.RequestError as requestError:
+        print("OOps aucun model chargé : ", requestError)
+    except ollama.ResponseError as responseError:
+        print("OOps la requête ne s'est pas bien déroulée", responseError)
+
+    return ai_response
 
 def assign_expertise(motcle)->str:
     return str(

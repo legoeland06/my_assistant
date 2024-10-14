@@ -61,23 +61,21 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="Create a ArcHydro schema")
+    parser = argparse.ArgumentParser(description="Parser d'options")
+    parser.add_argument("-p", metavar="p", required=False, help="the prompt to ask")
     parser.add_argument(
-        "--prompt", metavar="prompt", required=False, help="the prompt to ask"
+        "-a", metavar="ahghg", required=False, help="the min of steps before answering"
     )
     parser.add_argument(
-        "--min", metavar="min", required=False, help="the min to ask"
+        "-b", metavar="b", required=False, help="the max of steps before answering"
     )
-    parser.add_argument(
-        "--max", metavar="max", required=False, help="the max to ask"
-    )
-    parser.add_argument("--talk", metavar="talk", required=False, help="the talker")
+    parser.add_argument("-t", metavar="t", required=False, help="ask to read responses")
     args: Namespace = parser.parse_args()
 
     # Début du programme
     main(
-        prompt=args.prompt,
-        min=args.min,
-        max=args.max,
-        talk=args.talk,
+        prompt=args.p,
+        min=args.a,
+        max=args.b,
+        talk=args.t,
     )

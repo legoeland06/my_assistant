@@ -58,6 +58,7 @@ OUI="oui"
 NON="non"
 ANNULE="annulé"
 ATTENTION="Attention"
+NO_RESPONSE="**Pas de reponse**"
 
 
 FICHE_DE_POSTE = "fiche_de_poste"

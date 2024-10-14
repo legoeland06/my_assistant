@@ -127,70 +127,79 @@ class SimpleMarkdownText(tkinter.Text):
         Helpful to easily set formatted text in tk. If you want actual markdown
         support then use a real parser.
         """
+
+        # teste si on ne se trouve pas dans un code
+        # avant de formater la ligne avec des # par exemple
         in_code = False
-        _bold_it = False
+
+        def tester_line(line:str):
+             
+            if line.startswith("### "):
+                    line = line[3:]
+                    self.insert("end", line, "###") 
+
+            elif line.startswith("## "):
+                line = line[2:]
+                self.insert("end", line, "##") 
+
+            elif line.startswith("# "):
+                line = line[1:]
+                self.insert("end", line, "#") 
+
+            elif line.startswith("* "):
+                line = line[2:]
+                self.insert_bullet("end", line)
+
+            elif line.startswith("1. "):
+                line = line[2:]
+                self.insert_numbered("end", line)
+
+            elif line.startswith("CreatedAt: "):
+                line = line[10:]
+                self.insert("end", line, "date_font")
+
+            elif not self.tag_char_re.search(line):
+                self.insert("end", line)
+
+            else:
+                tag = None
+                accumulated = []
+                skip_next = False
+                for i, c in enumerate(line):
+                    if skip_next:
+                        skip_next = False
+                        continue
+                    if c in self.tag_chars and (not tag or c == tag[0]):
+                        if tag:
+                            self.insert("end", "".join(accumulated), tag)
+                            accumulated = []
+                            tag = None
+                        else:
+                            self.insert("end", "".join(accumulated))
+                            accumulated = []
+                            tag = c
+                            next_i = i + 1
+                            if len(line) > next_i and line[next_i] == tag:
+                                tag = line[i : next_i + 1]
+                                skip_next = True
+
+                    else:
+                        accumulated.append(c)
+                self.insert("end", "".join(accumulated), tag)  # type: ignore
+
         for line in mkd_text.split("\n"):
             if line == str():
                 # Blank lines reset numbering
                 self.numbered_index = 1
                 self.insert("end", line)
 
-            if line.startswith("```"):
+            elif line.startswith("```"):
                 in_code = not in_code
 
-            if in_code == False:
-                if line.startswith("### "):
-                    line = line[3:]
-                    self.insert("end", line, "###")  # type: ignore
-
-                elif line.startswith("## "):
-                    line = line[2:]
-                    self.insert("end", line, "##")  # type: ignore
-
-                elif line.startswith("# "):
-                    line = line[1:]
-                    self.insert("end", line, "#")  # type: ignore
-
-                elif line.startswith("* "):
-                    line = line[2:]
-                    self.insert_bullet("end", line)
-
-                elif line.startswith("1. "):
-                    line = line[2:]
-                    self.insert_numbered("end", line)
-
-                elif line.startswith("CreatedAt: "):
-                    line = line[10:]
-                    self.insert("end", line, "date_font")
-
-                elif not self.tag_char_re.search(line):
-                    self.insert("end", line)
-
-                else:
-                    tag = None
-                    accumulated = []
-                    skip_next = False
-                    for i, c in enumerate(line):
-                        if skip_next:
-                            skip_next = False
-                            continue
-                        if c in self.tag_chars and (not tag or c == tag[0]):
-                            if tag:
-                                self.insert("end", "".join(accumulated), tag)
-                                accumulated = []
-                                tag = None
-                            else:
-                                self.insert("end", "".join(accumulated))
-                                accumulated = []
-                                tag = c
-                                next_i = i + 1
-                                if len(line) > next_i and line[next_i] == tag:
-                                    tag = line[i : next_i + 1]
-                                    skip_next = True
-
-                        else:
-                            accumulated.append(c)
-                    self.insert("end", "".join(accumulated), tag)  # type: ignore
+            elif in_code == False:
+                tester_line(line)
+                
             else:
-                self.insert("end", line)
-            self.insert("end", "\n")
+                self.insert(tkinter.END, line)
+                
+            self.insert(tkinter.END, "\n")

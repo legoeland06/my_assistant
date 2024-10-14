@@ -12,7 +12,29 @@ import ollama
 from openai import ChatCompletion  # type: ignore
 import pyaudio
 from Article import Article
-from Constants import *
+from Constants import (
+    LLAMA3,
+    ZEFONT,
+    LLAMA370B,
+    DARK2,
+    DARK3,
+    RULS_RSS,
+    BANNIERE_HEIGHT,
+    LIENS_CHROME,
+    LIGHT0,
+    LIGHT3,
+    URL_ACTU_GLOBAL_RSS,
+    C_NOTE,
+    MAX_HISTORY,
+    CLICK_LIST,
+    LIST_COMMANDS,
+    LIGHT2,
+    DARK1,
+    RESPONSE,
+    TIMING_COEF,
+    YOU_SELECT_VALUE,
+)
+
 import tkinter.font as tkfont
 import tkinter as tk
 import vosk
@@ -488,6 +510,8 @@ class FenetrePrincipale(tk.Frame):
         return True
 
     def debride_switch(self, status):
+        """
+        initialise le status du mode débridé"""
         self.set_debride(status=status)
         if self.get_debride():
             self.bouton_desactive_debride.pack(side=tk.LEFT)
@@ -495,7 +519,6 @@ class FenetrePrincipale(tk.Frame):
         else:
             self.bouton_active_debride.pack(side=tk.LEFT)
             self.bouton_desactive_debride.pack_forget()
-
 
     def ask_before_quit(self):
         # Afficher une boîte de message de confirmation
@@ -505,21 +528,21 @@ class FenetrePrincipale(tk.Frame):
             print("L'utilisateur a annulé.")
 
     def quitter(self):
-            self.get_stream().close()
-            lire("au revoir !")
-            self.delete_all_threads()
-            time.sleep(2)
-            self.master.destroy()
-            time.sleep(2)
-            self.quit()
-            time.sleep(2)
-            exit()
+        self.get_stream().close()
+        lire("au revoir !")
+        self.delete_all_threads()
+        time.sleep(2)
+        self.master.destroy()
+        time.sleep(2)
+        self.quit()
+        time.sleep(2)
+        exit()
 
     def delete_all_threads(self):
         self.save_to_submission()
         mainthread = threading.main_thread()
         for i in threading.enumerate():
-            if i!=mainthread:
+            if i != mainthread:
                 print(f"ThreadThreading::{i.getName()}")
                 i.stop()  # type: ignore
 
@@ -711,47 +734,38 @@ class FenetrePrincipale(tk.Frame):
                 "\n" + "*" * 40 + "\n" + "==> " + check_ecoute + "\n" + "*" * 40 + "\n"
             )
 
-            if "afficher de l'aide" in check_ecoute:
-                _ = self.display_help()
-
-            elif "quitter le programme" in check_ecoute:
-                if question_fermee("Êtes vous sûr ?"):
-                    self.fermer_application(content_commandes_vocales)
-                    self.quitter()
-
-            elif "quel est le mode actuel" in check_ecoute:
-                self.get_stream().stop_stream()
-                lire("nous sommes actuellement dans le mode veille")
-
-            elif any(keyword in check_ecoute for keyword in ["fermer", "ferme"]):
+            if any(keyword in check_ecoute for keyword in ["fermer", "ferme"]):
                 if "l'application" in check_ecoute:
+                    self.get_stream().stop_stream()
                     self.fermer_application(content_commandes_vocales)
                     break
 
+            elif "afficher de l'aide" in check_ecoute:
+                _ = self.display_help()
+
+            if "quitter le programme" in check_ecoute:
+                if True == question_fermee("Êtes vous sûr ?"):
+                    self.fermer_application(content_commandes_vocales)
+                    self.quitter()
+
+            if "quel est le mode actuel" in check_ecoute:
+                self.get_stream().stop_stream()
+                lire("nous sommes actuellement dans le mode veille")
+
+            if check_ecoute.__contains__("zizi"):
+                lire("Elle te manque n'est-ce pas ?")
+
             elif any(keyword in check_ecoute for keyword in ["active", "passe"]):
+                self.get_stream().stop_stream()
                 if any(
                     keyword in check_ecoute
                     for keyword in ["mode audio", "commande vocale"]
                 ):
 
-                    self.get_stream().stop_stream()
-                    self.bouton_commencer_diction.configure(
-                        image=self.image_button_diction3,  # type: ignore
+                    content_commandes_vocales = await self.call_vocals_commands(
+                        content_commandes_vocales
                     )
 
-                    self.entree_prompt_principal.configure(
-                        bg=from_rgb_to_tkcolors((DARK3)),
-                        fg=from_rgb_to_tkcolors((182, 78, 20)),
-                    )
-
-                    self.bouton_commencer_diction.update()
-                    lire("pour sortir, dites : fin de la session")
-                    self.get_stream().start_stream()
-
-                    # entrez dans le mode commandes vocale
-                    content_commandes_vocales = str(content_commandes_vocales) + (
-                        " " + str(await self.mode_commandes_vocales())
-                    )
                 elif "mode débridé" in check_ecoute:
                     self.debride_switch(True)
                     lire("mode débridé activé")
@@ -765,22 +779,44 @@ class FenetrePrincipale(tk.Frame):
 
         return content_commandes_vocales
 
-    def fermer_application(self, content_commandes_vocales):
-        self.get_stream().stop_stream()
+    async def call_vocals_commands(self, content_commandes_vocales):
+        """
+        appel le mode commandes vocales"""
         self.bouton_commencer_diction.configure(
-                        image=self.image_button_diction1,  # type: ignore
-                    )
+            image=self.image_button_diction3,  # type: ignore
+        )
+
         self.entree_prompt_principal.configure(
-                        bg=from_rgb_to_tkcolors(LIGHT0)
-                    )
+            bg=from_rgb_to_tkcolors((DARK3)),
+            fg=from_rgb_to_tkcolors((182, 78, 20)),
+        )
+
+        self.bouton_commencer_diction.update()
+        lire("pour sortir, dites : fin de la session")
+        self.get_stream().start_stream()
+
+        # entrez dans le mode commandes vocale
+        content_commandes_vocales = str(content_commandes_vocales) + (
+            " " + str(await self.mode_commandes_vocales())
+        )
+
+        return content_commandes_vocales
+
+    def fermer_application(self, content_commandes_vocales):
+        """
+        repasse en mode normal"""
+        self.bouton_commencer_diction.configure(
+            image=self.image_button_diction1,  # type: ignore
+        )
+        self.entree_prompt_principal.configure(bg=from_rgb_to_tkcolors(LIGHT0))
         self.bouton_commencer_diction.update()
         append_saved_texte(
-                        file_to_append="saved_text",
-                        readable_ai_response=content_commandes_vocales,
-                    )
+            file_to_append="saved_text",
+            readable_ai_response=content_commandes_vocales,
+        )
         lire(
-                        "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
-                    )
+            "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
+        )
         self.set_thread(None)
 
     async def mode_commandes_vocales(self):
@@ -814,27 +850,20 @@ class FenetrePrincipale(tk.Frame):
                 _ = self.display_help()
                 lire(
                     f"Bonjour {self.get_pseudo()}, état des lieux de la configuration du tchat intéractif"
-                )
-                lire(
-                    (
+                    + (
                         "je vous lis systématiquement les réponses"
                         if self.get_ok_to_Read()
                         else "les réponses ne sont pas lues"
                     )
-                )
-                lire(
-                    (
+                    + (
                         "à la fin de votre question ou prompt valide, je vous demande si vous avez terminé"
                         if self.getValide()
                         else "dès lors que votre prompte est valide, je déclenche ma réponse."
                     )
-                )
-                lire(
-                    (
+                    + (
                         f"un prompt est valide dès lors qu'il contient au moins {str(self.nb_mots)} mots"
                     )
                 )
-
             if "quel est le mode actuel" in ck_ecoute:
                 self.get_stream().stop_stream()
                 self.set_mode_prompt_off()
@@ -1282,8 +1311,8 @@ class FenetrePrincipale(tk.Frame):
                     title=article["title"],
                     description=article["description"],
                     url=article["url"],
-                    urlToImage=article["urlToImage"],
-                    publishedAt=article["publishedAt"],
+                    url_to_image=article["urlToImage"],
+                    published_at=article["publishedAt"],
                     content=article["content"],
                     image=await downloadimage(article["urlToImage"], 600),
                 )
