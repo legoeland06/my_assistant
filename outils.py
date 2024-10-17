@@ -117,7 +117,9 @@ def lire(text: str):
 
     else:
         the_thread: StoppableThread = StoppableThread(
-            target=lambda: create_asyncio_task(async_function=say_txt(text))
+            target=lambda: create_asyncio_task(
+                async_function=say_txt("\n".join(prepare_to_read(text)))
+            )
         )
 
         the_thread.name = "lire_haute_voix"
@@ -127,7 +129,7 @@ def lire(text: str):
             return True
 
 
-def prepare_to_read(text):
+def prepare_to_read(text: str):
     """
     Préparation avant lecture.
     si la ligne commence par do_not_read, elle n'est pas lue"""
@@ -142,9 +144,16 @@ def prepare_to_read(text):
         .replace("/", " ")
         .replace(":", " ")
         .replace("https", " ")
-        for line in str(text).splitlines()
-        if not line.startswith(DO_NOT_READ)
+        for line in text.splitlines()
+        if not (
+            line.startswith(DO_NOT_READ)
+            or any(keyword in line for keyword in ["ne pas lire", "secret"])
+        )
     ]
+
+    diff_lenght = text.splitlines().__len__() - strip_list.__len__()
+    if strip_list.__len__() != text.splitlines().__len__():
+        print(f"Attention :  {diff_lenght} lignes n'ont pas été lues")
 
     return strip_list
 
@@ -199,7 +208,9 @@ def question_ouverte(
 ) -> str:
     lire(question)
     if choix.__len__() and is_not_understood:
-        lire(f"Les choix possibles sont : {str(choix)}")
+        lire(
+            f"Les choix possibles sont : {str([chx.split(" :: ")[0] for chx in choix])}"
+        )
 
     now = time.perf_counter()
     while True:
@@ -680,7 +691,7 @@ def get_groq_ia_list(api_key):
 
 
 def ask_to_resume(agent_appel, prompt: str, model_to_use):
-    if prompt.strip()!=str():
+    if prompt.strip() != str():
         ai_response, _timing = ask_to_ai(
             agent_appel=agent_appel,
             prompt=make_resume(prompt),
@@ -1063,6 +1074,7 @@ def ask_to_ai(
 
 
 def delais_to_re_ask(agent_appel, model_to_use, this_message):
+    llm=False
     try:
         llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
             messages=this_message,

@@ -13,6 +13,7 @@ import pyaudio
 from Article import Article
 from Constants import (
     LLAMA3,
+    CATEGORY_SEPARATOR,
     ZEFONT,
     LLAMA370B,
     DARK2,
@@ -445,7 +446,11 @@ class FenetrePrincipale(tk.Frame):
             font=self.btn_font,
             text="Liste Actu",
             command=lambda: self.display_listbox_actus(
-                [f"{item['title']}" for item in RULS_RSS], mode_audio=False
+                [
+                    f"{item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
+                    for item in RULS_RSS
+                ],
+                mode_audio=False,
             ),
             relief="flat",
             highlightthickness=3,
@@ -994,7 +999,8 @@ class FenetrePrincipale(tk.Frame):
                     self.get_all_news()
                 else:
                     final_list = [
-                        f"{n}. {item['title']}" for n, item in enumerate(RULS_RSS)
+                        f"{n}. {item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
+                        for n, item in enumerate(RULS_RSS)
                     ]
                     _c, _t = self.display_listbox_actus(final_list, mode_audio=True)
 
@@ -1172,12 +1178,13 @@ class FenetrePrincipale(tk.Frame):
                 print(nerr)
 
     def get_all_news(self):
+        self.calice = []
         for liste_rss in URL_ACTU_GLOBAL_RSS:
             lire(
                 "\nSujet: "
-                + str(liste_rss["content"])
+                + liste_rss["title"]
                 + "\nRubriques: "
-                + str(liste_rss["content"])
+                + liste_rss["content"].replace(CATEGORY_SEPARATOR, ", ")
             )
 
             lire("recupérations des actualités en cours...")
@@ -1197,13 +1204,45 @@ class FenetrePrincipale(tk.Frame):
             self.set_mode_prompt_off()
             for category in map(translate_it, feed_rss):
                 if category.__len__():
-                    lire("contenu " + str(category))
                     _response = self.send_prompt(
                         content_discussion=make_resume(category),
                         necessite_ai=True,
                         needed_groq=False,
                     )
+                    self.calice.append(_response)
+                    # lire(_response)
                 time.sleep(4)
+        if self.calice != [] :
+            if question_oui_non(
+                f"nous avons archivé {self.calice.__len__()} news, voulez-vous que je vous les présente"
+            ):
+                def lire_calice_news(evt:tk.Event):
+                    w: tk.Listbox = evt.widget
+                    idx = w.curselection()
+                    print(f"idx={str(idx)}")
+                    index = idx[0]
+                    value: str = w.get(index)
+
+                    print('You selected item : "%s"' % value)
+
+                    lire(self.calice[index])
+
+                _list = [f"{n}:: {element}" for n, element in enumerate(self.calice)]
+                _list_good = [
+                    f"{n}:: {str(", ").join(element.split(":: ")[1].split()[:5])}"
+                    for n, element in enumerate(_list)
+                ]
+                _listbox = self.traite_listbox(_list_good, "actu_news")
+                lire(
+                    self.calice[
+                        letters_to_number(
+                            question_ouverte(f"faites votre choix : {_list_good}")
+                        )
+                    ]
+                )
+                
+                _listbox.bind(CLICK_LIST, func=lire_calice_news)
+
 
     async def recup_infos(self):
         await self.recup_informations(20)
@@ -1463,8 +1502,22 @@ class FenetrePrincipale(tk.Frame):
             frame = tk.Toplevel(name="list_actu")
             _list_box = tk.Listbox(
                 master=frame,
-                width=len(max(final_list, key=len)),
-                height=final_list.__len__(),
+                # on doit retirer le " | " autant de fois qu'il est présent
+                # dans la ligne
+                width=min(
+                    100,
+                    max(
+                        map(
+                            len,
+                            [
+                                str(element).replace(CATEGORY_SEPARATOR, ", ")
+                                for element in final_list
+                            ],
+                        )
+                    ),
+                ),
+                justify="left",
+                height=min(final_list.__len__(), 15),
             )
             scrollbar_listbox = tk.Scrollbar(frame)
             scrollbar_listbox.configure(command=_list_box.yview)
@@ -1522,16 +1575,16 @@ class FenetrePrincipale(tk.Frame):
             lire(f"Il y aura {len(translated_feeds)} intitulés à récupérer")
 
             for i, subject in enumerate(feed_rss):
-                    lire(f"Sujet {i}:   {str(subject)}")
-                    if subject.__len__():
-                        kiki = self.send_prompt(
-                            content_discussion=make_resume(subject),
-                            necessite_ai=True,
-                            needed_groq=True,
-                        )
-                        self.set_submission(self.get_submission() + kiki)
+                lire(f"Sujet {i}:   {str(subject)}")
+                if subject.__len__():
+                    kiki = self.send_prompt(
+                        content_discussion=make_resume(subject),
+                        necessite_ai=True,
+                        needed_groq=True,
+                    )
+                    self.set_submission(self.get_submission() + kiki)
 
-                    time.sleep(4)
+                time.sleep(4)
 
         else:
             lire("Pardons, veuillez continuez")
@@ -1702,8 +1755,8 @@ class FenetrePrincipale(tk.Frame):
     def clear_entree_prompt_principal(self):
         self.entree_prompt_principal.clear_text()
 
-    def traite_listbox(self, list_to_check: list) -> tk.Listbox:
-        frame = tk.Toplevel(name="list_ia")
+    def traite_listbox(self, list_to_check: list, name: str = "list_ia") -> tk.Listbox:
+        frame = tk.Toplevel(name=name)
         frame.grid_location(self.winfo_x() + 150, self.winfo_y() + 130)
         _list_box = tk.Listbox(
             master=frame,
@@ -2147,7 +2200,9 @@ class FenetrePrincipale(tk.Frame):
         feed_rss = []
         try:
             index = w.curselection()[0]
-            value = str(w.get(index))
+
+            value = str(w.get(index)).split(" :: ")[0]
+
             print('You selected item %d: "%s"' % (index, value))
             content_selected = [
                 item["content"]

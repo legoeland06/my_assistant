@@ -23,6 +23,7 @@ ZEFONT = (
     "roman",
     "normal",
 )
+CATEGORY_SEPARATOR = " | "
 
 
 # CONSTANTS
@@ -32,7 +33,7 @@ RESPONSE_FILE = "ai_response"
 RESUME_FILE = "ai_resume"
 RESUME_WEB = "ai.resume_web"
 RESUME_IMAGE = "ai.resume_image"
-FINAL_ANSWER="Final Answer"
+FINAL_ANSWER = "Final Answer"
 WIDTH_TERM = 80
 RAPIDITE_VOIX = 150
 STOP_TALKING: bool = False
@@ -49,16 +50,16 @@ INDEX_HEAD = """
 <body class="container">
     """
 
-CLICK_LIST="<<ListboxSelect>>"
-C_NOTE="c'est noté"
-YOU_SELECT_VALUE='You selected item %d: "%s"'
+CLICK_LIST = "<<ListboxSelect>>"
+C_NOTE = "c'est noté"
+YOU_SELECT_VALUE = 'You selected item %d: "%s"'
 RESPONSE = "Response:: "
-OUI="oui"
-NON="non"
-ANNULE="annulé"
-ATTENTION="Attention"
-NO_RESPONSE="**Pas de reponse**"
-DO_NOT_READ="do_not_read"
+OUI = "oui"
+NON = "non"
+ANNULE = "annulé"
+ATTENTION = "Attention"
+NO_RESPONSE = "**Pas de reponse**"
+DO_NOT_READ = f"{CATEGORY_SEPARATOR}ne pas lire{CATEGORY_SEPARATOR}"
 FICHE_DE_POSTE = "fiche_de_poste"
 SCRAP_CONTENT = "content_scrapped"
 BROWSE_WITH_BING = "browse"
@@ -213,15 +214,15 @@ LIENS_CHROME = {
 URL_ACTU_GLOBAL_RSS = [
     {
         "title": "global_search",
-        "content": "BRICS | France | AES",
+        "content": f"BRICS{CATEGORY_SEPARATOR}France{CATEGORY_SEPARATOR}AES",
     },
     {
         "title": "sciences",
-        "content": "sciences | espace | sante",
+        "content": f"sciences{CATEGORY_SEPARATOR}espace{CATEGORY_SEPARATOR}sante",
     },
     {
         "title": "Le monde Informatique",
-        "content": "toutes-les-actualites",
+        "content": f"toutes-les-actualites{CATEGORY_SEPARATOR}hitech",
     },
 ]
 DICT_NUMBERS = [
@@ -269,74 +270,75 @@ DICT_NUMBERS = [
 SEPARATION_MD = """\n===============================================================
 ===============================================================\n"""
 
+
 RULS_RSS = [
     {
         "title": "global_search",
-        "content": "actualités géo-politiques | actualités Afrique | actualités africaines CDAO ",
+        "content": f"actualités géo-politiques{CATEGORY_SEPARATOR}actualités Afrique{CATEGORY_SEPARATOR}actualités africaines CDAO ",
     },
     {
         "title": "Actualités",
-        "content": "une | en_continu | videos | photo | plus-lus | plus-partages",
+        "content": f"une{CATEGORY_SEPARATOR}en_continu{CATEGORY_SEPARATOR}videos{CATEGORY_SEPARATOR}photo{CATEGORY_SEPARATOR}plus-lus{CATEGORY_SEPARATOR}plus-partages",
     },
     {
         "title": "international",
-        "content": "international | europe | ameriques | afrique | asie-Pacifique | proche-orient | royaume-Uni | etats-Unis",
+        "content": f"international{CATEGORY_SEPARATOR}europe{CATEGORY_SEPARATOR}ameriques{CATEGORY_SEPARATOR}afrique{CATEGORY_SEPARATOR}asie-Pacifique{CATEGORY_SEPARATOR}proche-orient{CATEGORY_SEPARATOR}royaume-Uni{CATEGORY_SEPARATOR}etats-Unis",
     },
     {
         "title": "Afrique",
-        "content": "afrique | CEDEAO | AES | guinee | conakry | senegal | RDC | congo | liban | israel | gaza",
+        "content": f"afrique{CATEGORY_SEPARATOR}CEDEAO{CATEGORY_SEPARATOR}AES{CATEGORY_SEPARATOR}guinee{CATEGORY_SEPARATOR}conakry{CATEGORY_SEPARATOR}senegal{CATEGORY_SEPARATOR}RDC{CATEGORY_SEPARATOR}congo{CATEGORY_SEPARATOR}liban{CATEGORY_SEPARATOR}israel{CATEGORY_SEPARATOR}gaza",
     },
     {
         "title": "France",
-        "content": "politique | societe | les-decodeurs | justice | police | campus | education",
+        "content": f"politique{CATEGORY_SEPARATOR}societe{CATEGORY_SEPARATOR}les-decodeurs{CATEGORY_SEPARATOR}justice{CATEGORY_SEPARATOR}police{CATEGORY_SEPARATOR}campus{CATEGORY_SEPARATOR}education",
     },
     {
         "title": "Economie",
-        "content": "economie | entreprises | argent | economie-française | industrie | emploi | immobilier | medias",
+        "content": f"economie{CATEGORY_SEPARATOR}entreprises{CATEGORY_SEPARATOR}argent{CATEGORY_SEPARATOR}economie-française{CATEGORY_SEPARATOR}industrie{CATEGORY_SEPARATOR}emploi{CATEGORY_SEPARATOR}immobilier{CATEGORY_SEPARATOR}medias",
     },
     {
         "title": "Culture",
-        "content": "culture | cinema | musiques | televisions-radio | livres | arts | scenes",
+        "content": f"culture{CATEGORY_SEPARATOR}cinema{CATEGORY_SEPARATOR}musiques{CATEGORY_SEPARATOR}televisions-radio{CATEGORY_SEPARATOR}livres{CATEGORY_SEPARATOR}arts{CATEGORY_SEPARATOR}scenes",
     },
     {
         "title": "Sport",
-        "content": "sport | football | rugby | tennis | cyclisme | basket",
+        "content": f"sport{CATEGORY_SEPARATOR}football{CATEGORY_SEPARATOR}rugby{CATEGORY_SEPARATOR}tennis{CATEGORY_SEPARATOR}cyclisme{CATEGORY_SEPARATOR}basket",
     },
     {
         "title": "Planète",
-        "content": "planete | climat | agriculture | environnement",
+        "content": f"planete{CATEGORY_SEPARATOR}climat{CATEGORY_SEPARATOR}agriculture{CATEGORY_SEPARATOR}environnement",
     },
     {
         "title": "Pixels",
-        "content": "pixels | jeux-video | cultures-web",
+        "content": f"pixels{CATEGORY_SEPARATOR}jeux-video{CATEGORY_SEPARATOR}cultures-web",
     },
     {
         "title": "Sciences",
-        "content": "sciences | espace | biologie | medecine",
+        "content": f"sciences{CATEGORY_SEPARATOR}espace{CATEGORY_SEPARATOR}biologie{CATEGORY_SEPARATOR}medecine",
     },
     {
         "title": "M le mag",
-        "content": "m-le-mag | m-perso | m-styles | gastronomie | les-recettes-du-monde | sexo",
+        "content": f"m-le-mag{CATEGORY_SEPARATOR}m-perso{CATEGORY_SEPARATOR}m-styles{CATEGORY_SEPARATOR}gastronomie{CATEGORY_SEPARATOR}les-recettes-du-monde{CATEGORY_SEPARATOR}sexo",
     },
     {
         "title": "Guide d'achat",
-        "content": "guides-d-achat",
+        "content": f"guides-d-achat{CATEGORY_SEPARATOR}cadeaux",
     },
     {
         "title": "Le monde Informatique",
-        "content": "toutes-les-actualites",
+        "content": f"toutes-les-actualites{CATEGORY_SEPARATOR}hitech",
     },
     {
         "title": "Le monde Informatique - 1",
-        "content": "business | le-monde-du-cloud-computing | datacenter | internet | emploi | grh",
+        "content": f"business{CATEGORY_SEPARATOR}le-monde-du-cloud-computing{CATEGORY_SEPARATOR}datacenter{CATEGORY_SEPARATOR}internet{CATEGORY_SEPARATOR}emploi{CATEGORY_SEPARATOR}grh",
     },
     {
         "title": "Le monde Informatique - 2",
-        "content": "harware | juridique | logiciel | mobilite | os | pme | poste-de-travail",
+        "content": f"harware{CATEGORY_SEPARATOR}juridique{CATEGORY_SEPARATOR}logiciel{CATEGORY_SEPARATOR}mobilite{CATEGORY_SEPARATOR}os{CATEGORY_SEPARATOR}pme{CATEGORY_SEPARATOR}poste-de-travail",
     },
     {
         "title": "Le monde Informatique - 3",
-        "content": "reseaux | securite | services-it | stockage | telecom | virtualisation",
+        "content": f"reseaux{CATEGORY_SEPARATOR}securite{CATEGORY_SEPARATOR}services-it{CATEGORY_SEPARATOR}stockage{CATEGORY_SEPARATOR}telecom{CATEGORY_SEPARATOR}virtualisation",
     },
 ]
 
