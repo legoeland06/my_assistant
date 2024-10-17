@@ -63,21 +63,21 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Create a ArcHydro schema")
     parser.add_argument(
-        "--prompt", metavar="prompt", required=False, help="the prompt to ask"
+        "-p", metavar="prompt", required=False, help="the prompt to ask"
     )
     parser.add_argument(
-        "--min", metavar="min", required=False, help="the min to ask"
+        "-m", metavar="min", required=False, help="the min of steps"
     )
     parser.add_argument(
-        "--max", metavar="max", required=False, help="the max to ask"
+        "-x", metavar="max", required=False, help="the max of steps"
     )
-    parser.add_argument("--talk", metavar="talk", required=False, help="the talker")
+    parser.add_argument("-t", metavar="talk", required=False, help="the talker")
     args: Namespace = parser.parse_args()
 
     # Début du programme
     main(
-        prompt=args.prompt,
-        min=args.min,
-        max=args.max,
-        talk=args.talk,
+        prompt=args.p,
+        min=args.m,
+        max=args.x,
+        talk=args.t,
     )

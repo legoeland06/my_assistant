@@ -4,32 +4,32 @@ from GrandeFenetre import GrandeFenetre
 import tkinter as tk
 from PIL import Image, ImageTk
 
-from outils import call_article_link, from_rgb_to_tkColors, translate_it
+from outils import call_article_link, from_rgb_to_tkcolors, reformat_text, translate_it
 
 
 class RechercheArticles:
     status: bool
-    totalResults: int
+    total_results: int
     articles: list[Article]
 
     def __init__(
-        self, status: bool, totalResults: int, articles: list[Article]
+        self, status: bool, total_results: int, articles: list[Article]
     ) -> None:
         self.status = status
-        self.totalResults = totalResults
+        self.total_results = total_results
         self.articles = articles
 
-    def initGrandeFenetre(self):
+    def get_instance(self):
         return GrandeFenetre()
 
-    async def insertContentToGrandeFentre(
-        self, motcles: str, grandeFenetre: GrandeFenetre
+    async def insert_content_in_grande_fenetre(
+        self, motcles: str, grande_fenetre: GrandeFenetre
     ):
         """
         récupère contenus images et liens et remplie la grande fenetre
         contenant les informations
         """
-        _a = grandeFenetre.area_info
+        _a = grande_fenetre.area_info
         _a.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
         for n, article in enumerate(self.articles):
             _a.tag_bind(
@@ -38,7 +38,7 @@ class RechercheArticles:
             _a.insert(tk.END, f"Visitez :: {article.url[:30]}...", "hyperlink")
             _a.insert_markdown(f"\n## :: {n+1} :: {translate_it(article.title)}\n")
             _a.insert_markdown(
-                f"CreatedAt: Date de publication:: {translate_it(article.publishedAt)}"
+                f"CreatedAt: Date de publication:: {translate_it(article.published_at)}"
             )
             _a.insert_markdown(
                 f"**Description::** {translate_it(article.description)}\n"
@@ -53,12 +53,14 @@ class RechercheArticles:
                     0,
                     img.width(),
                     img.height(),
-                    outline=from_rgb_to_tkColors(LIGHT2),
+                    outline=from_rgb_to_tkcolors(LIGHT2),
                     width=2,
                 )
                 _a.window_create(tk.END, window=canvas, padx=10, pady=10)
             else:
-                _a.insert_markdown(f"**aucuneImage** {article.urlToImage}")
+                _a.insert_markdown(f"**aucuneImage** {article.url_to_image}")
 
             _a.insert_markdown(f"\n**Contenu::** {translate_it(article.content)}")
             _a.insert_markdown(f"**Auteur::** {translate_it(article.author)}**\n")
+
+        

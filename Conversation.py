@@ -4,10 +4,10 @@ from tkinter import simpledialog
 from GrandeFenetre import GrandeFenetre
 from PdfMaker import makePdfFromTtext
 from outils import (
-    from_rgb_to_tkColors,
+    from_rgb_to_tkcolors,
     lire,
     lire_text_from_object,
-    reformateText,
+    reformat_text,
 )
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2, LIGHT3, ZEFONT
 from SimpleMarkdownText import SimpleMarkdownText
@@ -32,7 +32,6 @@ class Conversation(tk.Frame):
     def __init__(
         self,
         master: tk.Frame,
-        # TODO : passer plutot une str au lieu de l'objet
         text: str,
         ai_response: str,
         submit,
@@ -91,7 +90,7 @@ class Conversation(tk.Frame):
         )
 
         self.bouton_supprimer_question_response.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK2), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.bouton_supprimer_question_response.pack(side="left")
 
@@ -102,7 +101,7 @@ class Conversation(tk.Frame):
             command=self.maximize_me,
         )
         self.bouton_maximize_me.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK2), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.bouton_agrandir_fenetre = tk.Button(
             self.canvas_boutons_conversation,
@@ -111,7 +110,7 @@ class Conversation(tk.Frame):
             command=self.affiche_fenetre_agrandie,
         )
         self.bouton_agrandir_fenetre.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK2), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.bouton_maximize_me.pack(side="left")
         self.bouton_agrandir_fenetre.pack(side="left")
@@ -122,7 +121,7 @@ class Conversation(tk.Frame):
             command=self.normalize_me,
         )
         self.bouton_normalize_me.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK2), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.bouton_normalize_me.pack(side="left")
 
@@ -133,7 +132,7 @@ class Conversation(tk.Frame):
             command=self.minimize_me,
         )
         self.bouton_minimize_me.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK2), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.bouton_minimize_me.pack(side="left")
 
@@ -145,7 +144,7 @@ class Conversation(tk.Frame):
         )
 
         self.boutton_effacer_contenu.configure(
-            bg=from_rgb_to_tkColors(DARK2), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK2), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.boutton_effacer_contenu.pack(side="right")
 
@@ -156,7 +155,7 @@ class Conversation(tk.Frame):
             command=lambda: lire_text_from_object(self.entree_response),
         )
         self.bouton_lire_conversation.configure(
-            bg=from_rgb_to_tkColors(DARK3), fg=from_rgb_to_tkColors(LIGHT3)
+            bg=from_rgb_to_tkcolors(DARK3), fg=from_rgb_to_tkcolors(LIGHT3)
         )
         self.bouton_lire_conversation.pack(side=tk.RIGHT)
 
@@ -171,8 +170,8 @@ class Conversation(tk.Frame):
             font=self.btn_font,
             text="🔀",
             command=self.transferer,
-            bg=from_rgb_to_tkColors(LIGHT1),
-            fg=from_rgb_to_tkColors(DARK3),
+            bg=from_rgb_to_tkcolors(LIGHT1),
+            fg=from_rgb_to_tkcolors(DARK3),
         )
         self.bouton_transfere.pack(side=tk.RIGHT, fill="both")
         scrollbar_response = tk.Scrollbar(self.cnv_response)
@@ -185,8 +184,8 @@ class Conversation(tk.Frame):
             font=self.default_font,
         )
         self.entree_response.configure(
-            bg=from_rgb_to_tkColors(LIGHT3),
-            fg=from_rgb_to_tkColors((0, 0, 153)),
+            bg=from_rgb_to_tkcolors(LIGHT3),
+            fg=from_rgb_to_tkcolors((0, 0, 153)),
             height=3,
             width=100,
             wrap="word",
@@ -198,8 +197,8 @@ class Conversation(tk.Frame):
         )
 
         self.entree_question.configure(
-            bg=from_rgb_to_tkColors(LIGHT2),
-            fg=from_rgb_to_tkColors((128, 0, 0)),
+            bg=from_rgb_to_tkcolors(LIGHT2),
+            fg=from_rgb_to_tkcolors((128, 0, 0)),
             height=4,
             width=100,
             wrap="word",
@@ -212,10 +211,10 @@ class Conversation(tk.Frame):
         self.entree_question.pack(fill="x", expand=True)
 
         scrollbar_response.configure(
-            command=self.entree_response.yview, bg=from_rgb_to_tkColors(DARK2)
+            command=self.entree_response.yview, bg=from_rgb_to_tkcolors(DARK2)
         )
         scrollbar_question.configure(
-            command=self.entree_question.yview, bg=from_rgb_to_tkColors(DARK2)
+            command=self.entree_question.yview, bg=from_rgb_to_tkcolors(DARK2)
         )
 
         self.id = str(self.__str__())
@@ -255,10 +254,10 @@ class Conversation(tk.Frame):
                 )
                 or "myPdf"
             ),
-            text_list=reformateText(
+            text_list=reformat_text(
                 (
                     self.grande_fenetre.area_info.get_text()
-                    if not self.grande_fenetre is None
+                    if self.grande_fenetre is not None
                     else "texte vide"
                 ),
                 n=115,
@@ -268,7 +267,7 @@ class Conversation(tk.Frame):
     def affiche_fenetre_agrandie(self):
         self.grande_fenetre = GrandeFenetre(tk.Toplevel(name=self.widgetName))
         self.grande_fenetre.area_info.configure(
-            bg=from_rgb_to_tkColors((0x01, 0x2A, 0x4A))
+            bg=from_rgb_to_tkcolors((0x01, 0x2A, 0x4A))
         )
         self.grande_fenetre.area_info.insert_markdown(self.get_ai_response())
 

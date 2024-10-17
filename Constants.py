@@ -32,7 +32,7 @@ RESPONSE_FILE = "ai_response"
 RESUME_FILE = "ai_resume"
 RESUME_WEB = "ai.resume_web"
 RESUME_IMAGE = "ai.resume_image"
-
+FINAL_ANSWER="Final Answer"
 WIDTH_TERM = 80
 RAPIDITE_VOIX = 150
 STOP_TALKING: bool = False
@@ -49,6 +49,16 @@ INDEX_HEAD = """
 <body class="container">
     """
 
+CLICK_LIST="<<ListboxSelect>>"
+C_NOTE="c'est noté"
+YOU_SELECT_VALUE='You selected item %d: "%s"'
+RESPONSE = "Response:: "
+OUI="oui"
+NON="non"
+ANNULE="annulé"
+ATTENTION="Attention"
+NO_RESPONSE="**Pas de reponse**"
+DO_NOT_READ="do_not_read"
 FICHE_DE_POSTE = "fiche_de_poste"
 SCRAP_CONTENT = "content_scrapped"
 BROWSE_WITH_BING = "browse"
@@ -274,7 +284,7 @@ RULS_RSS = [
     },
     {
         "title": "Afrique",
-        "content": "afrique | CEDEAO",
+        "content": "afrique | CEDEAO | AES | guinee | conakry | senegal | RDC | congo | liban | israel | gaza",
     },
     {
         "title": "France",
@@ -333,7 +343,7 @@ RULS_RSS = [
 BANNIERE_WIDTH = 770
 BANNIERE_HEIGHT = 160
 FENETRE_WIDTH = 850
-FENETRE_HEIGHT = 800
+FENETRE_HEIGHT = 1400
 RESPONSES_HEIGHT = 450
 DARK3 = (10, 10, 10)
 DARK2 = (40, 40, 40)
