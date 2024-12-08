@@ -871,116 +871,32 @@ class FenetrePrincipale(tk.Frame):
                 )
 
             elif "lancer une application" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                if any(keyw in ck_ecoute for keyw in ["internet", "chrome", "google"]):
-                    lancer_search_chrome(
-                        question_ouverte(
-                            "Que voulez vous chercher ?",
-                        ).replace(" ", "+")
-                    )
-                else:
-                    lancer_chrome(
-                        tester_appelation(
-                            question_ouverte(
-                                "laquelle ?",
-                            )
-                        )
-                        or str()
-                    )
+                self.lancer_application(ck_ecoute)
 
-            elif "décrire une image" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
+            # elif "décrire une image" in ck_ecoute:
+            #     get_stream().stop_stream()
+            #     self.set_mode_prompt_off()
 
-                image_to_describe = self.get_motcles()[0]
-                if image_to_describe.__len__() != 0:
-                    print(f"ImagePath::{image_to_describe}")
-                    _response = self.send_prompt(
-                        "Décris cette image : " + await loadimage(image_to_describe),
-                        necessite_ai=True,
-                        needed_groq=True,
-                    )
+            #     image_to_describe = self.get_motcles()[0]
+            #     if image_to_describe.__len__() != 0:
+            #         print(f"ImagePath::{image_to_describe}")
+            #         _response = self.send_prompt(
+            #             "Décris cette image : " + await loadimage(image_to_describe),
+            #             necessite_ai=True,
+            #             needed_groq=True,
+            #         )
 
             elif any(
                 keyword in ck_ecoute for keyword in ["effacer", "supprimer"]
             ) and any(
                 keyword in ck_ecoute for keyword in ["conversation", "discussion"]
             ):
-                if "historique" in ck_ecoute:
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-                    self.delete_history()
-
-                elif "la dernière" in ck_ecoute:
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-                    self.delete_last_discussion()
-
-                elif "les dernières" in ck_ecoute:
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-                    for _ in range(letters_to_number(question_ouverte("combien ?"))):
-                        self.delete_last_discussion()
+                self.effacer_discussion(ck_ecoute)
 
             elif any(
                 keyword in ck_ecoute for keyword in ["conversation", "discussion"]
             ):
-                if any(
-                    keyword in ck_ecoute for keyword in ["la liste des", "historique"]
-                ):
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-                    lire("Voici")
-                    self.display_history()
-
-                elif "la dernière" in ck_ecoute:
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-
-                    _conversation = self.responses[len(self.responses) - 1]
-                    _last_discussion: Conversation = self.nametowidget(_conversation)
-
-                    if "affiche" in ck_ecoute:
-                        _last_discussion.affiche_fenetre_agrandie()
-                    if "archive" in ck_ecoute:
-                        _last_discussion.create_pdf()
-                    elif any(
-                        keyword in ck_ecoute for keyword in ["lis-moi", "lis moi"]
-                    ):
-                        lire(
-                            f"Contenu de la dernière conversation sur un total de {self.responses.__len__()} conversations enregistrées. "
-                            + _last_discussion.get_ai_response()
-                        )
-
-                elif "une" in ck_ecoute:
-                    zenumber: int = letters_to_number(
-                        question_ouverte(
-                            "laquelle ?",
-                        )
-                    )
-                    nb_conversations = len(self.responses)
-                    if zenumber <= nb_conversations:
-                        if "affiche" in ck_ecoute:
-                            _conversation = self.responses[zenumber - 1]
-                            _discussion: Conversation = self.nametowidget(_conversation)
-                            _discussion.affiche_fenetre_agrandie()
-                        elif "archive" in ck_ecoute:
-                            _discussion.create_pdf()
-                        elif any(
-                            keyword in ck_ecoute
-                            for keyword in ["lis-moi", "lis moi", "dis-moi", "dis moi"]
-                        ):
-                            _last_discussion.lire()
-                        self.set_mode_prompt_off()
-
-                    else:
-                        self.set_mode_prompt_off()
-                        lire(
-                            "je suis désolé mais il n'y a pas plus de "
-                            + str(nb_conversations)
-                            + " conversations en mémoire"
-                        )
+                self.afficher_conversations(ck_ecoute)
 
             elif (
                 any(
@@ -989,22 +905,7 @@ class FenetrePrincipale(tk.Frame):
                 )
                 and "affiche" in ck_ecoute
             ):
-                get_stream().stop_stream()
-
-                if "toutes" in ck_ecoute:
-                    self.get_all_news()
-                elif "africaines" in ck_ecoute:
-                    self.get_all_africa_news()
-                else:
-                    final_list = [
-                        f"{n}. {item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
-                        for n, item in enumerate(RULS_RSS)
-                    ]
-                    _c, _t = await self.display_listbox_actus(
-                        final_list, mode_audio=True
-                    )
-
-                self.set_mode_prompt_off()
+                await self.affiche_actualites(ck_ecoute)
 
             elif " propos d'un livre" in ck_ecoute:
                 get_stream().stop_stream()
@@ -1016,57 +917,10 @@ class FenetrePrincipale(tk.Frame):
                 _response, _timer = await about_this_book(book, question)
                 lire(_response)
             elif "donne-moi les infos" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                _motcle, articles = await self.recup_informations(
-                    letters_to_number(
-                        question_ouverte(
-                            "combien d'articles souhaitez vous que je tente de récupèrer ?",
-                        )
-                    )
-                )
-                if (
-                    question_oui_non(
-                        "voulez-vous que je lise ce que j'ai trouvé sur la recherche ?",
-                    )
-                    and isinstance(articles, list)
-                    and articles.__len__()
-                ):
-                    for article in articles:
-                        print(article.title)
-                        print(article.description)
-                        print(article.content)
-
-                        self.entree_prompt_principal.insert_markdown(
-                            "# " + article.title
-                        )
-                        self.entree_prompt_principal.insert_markdown(
-                            "## " + article.description
-                        )
-                        self.entree_prompt_principal.insert_markdown(article.content)
-
-                    for article in articles:
-                        lire(
-                            translate_it(
-                                article.title
-                                + " "
-                                + article.description
-                                + " "
-                                + article.content
-                            )
-                        )
+                await self.get_informations()
 
             elif "faire une recherche web sur " in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                ck_ecoute = ck_ecoute.replace(
-                    " faire une recherche web sur", "\nrechercher sur le web : "
-                )
-
-                _websearching = await self.send_prompt(
-                    ck_ecoute, necessite_ai=True, needed_groq=False
-                )
-                await self.check_before_read(_websearching)
+                ck_ecoute = await self.recherche_web(ck_ecoute)
 
             elif any(
                 keyword in ck_ecoute for keyword in ["fin de", "ferme", "termine"]
@@ -1092,33 +946,7 @@ class FenetrePrincipale(tk.Frame):
 
             elif "gérer les préférences" in ck_ecoute:
                 # get_stream().stop_stream()
-                nbmot: int | bool = letters_to_number(
-                    question_ouverte(
-                        "à partir de combien de mots dois je déclencher ma réponse ?",
-                    )
-                )
-                if not nbmot:
-                    self.nb_mots = 4
-                elif isinstance(nbmot, int):
-                    self.nb_mots = nbmot
-
-                self.set_pseudo(question_ouverte("Quel est votre pseudo ?"))
-                lire("merci")
-
-                _question_validation = question_oui_non(
-                    "souhaitez vous une validation orale de vos prompt ?",
-                )
-                _question_ok_to_read = question_oui_non(
-                    "souhaitez vous une réponse orale de vos prompt ?",
-                )
-                self.setValide(valide=True if _question_validation else False)
-                self.set_ok_to_Read(ok_to_read=True if _question_ok_to_read else False)
-
-                self.set_mode_prompt_off()
-                lire(
-                    f"c'est noté  {self.pseudo}: je récupère les prompts à partir de {str(self.nb_mots)} mots \
-                     {"et je demande validation" if _question_validation else str() } avant de vous {"lire" if _question_ok_to_read else "afficher"} ma réponse."
-                )
+                self.gerer_prefs()
 
             elif "la validation orale" in ck_ecoute:
                 if any(
@@ -1138,40 +966,7 @@ class FenetrePrincipale(tk.Frame):
                     self.setValide(False)
                     lire(C_NOTE)
             if self.get_mode_prompt() and ck_ecoute.split().__len__() >= self.nb_mots:
-                get_stream().stop_stream()
-
-                if self.getValide():
-                    result = question_oui_non_annule(
-                        "avez vous terminé ?",
-                    )
-
-                    if ANNULE == result:
-                        get_engine().Reset()
-                        lire("ok, j'efface votre phrase précédente")
-
-                    elif result:
-                        _response = await self.send_prompt(
-                            multi_line + "\n" + ck_ecoute,
-                            necessite_ai=True,
-                            needed_groq=True,
-                        )
-                        await self.check_before_read(_response)
-                        multi_line = str()
-
-                    elif not result:
-                        multi_line += "\n" + ck_ecoute
-                        ck_ecoute = str()
-
-                        lire("continuez")
-
-                    del result
-
-                else:
-                    _response = await self.send_prompt(
-                        ck_ecoute, necessite_ai=True, needed_groq=True
-                    )
-
-                    await self.check_before_read(_response)
+                multi_line = await self.valider_prompt(multi_line, ck_ecoute)
 
             try:
                 get_stream().start_stream()
@@ -1179,6 +974,246 @@ class FenetrePrincipale(tk.Frame):
                 print(nerr)
 
         return multi_line
+
+    async def valider_prompt(self, multi_line, ck_ecoute):
+        get_stream().stop_stream()
+
+        if self.getValide():
+            result = question_oui_non_annule(
+                        "avez vous terminé ?",
+                    )
+
+            if ANNULE == result:
+                get_engine().Reset()
+                lire("ok, j'efface votre phrase précédente")
+
+            elif result:
+                _response = await self.send_prompt(
+                            multi_line + "\n" + ck_ecoute,
+                            necessite_ai=True,
+                            needed_groq=True,
+                        )
+                await self.check_before_read(_response)
+                multi_line = str()
+
+            elif not result:
+                multi_line += "\n" + ck_ecoute
+
+                lire("continuez")
+
+            del result
+
+        else:
+            _response = await self.send_prompt(
+                        ck_ecoute, necessite_ai=True, needed_groq=True
+                    )
+
+            await self.check_before_read(_response)
+        return multi_line
+
+    def gerer_prefs(self):
+        nbmot: int | bool = letters_to_number(
+                    question_ouverte(
+                        "à partir de combien de mots dois je déclencher ma réponse ?",
+                    )
+                )
+        if not nbmot:
+            self.nb_mots = 4
+        elif isinstance(nbmot, int):
+            self.nb_mots = nbmot
+
+        self.set_pseudo(question_ouverte("Quel est votre pseudo ?"))
+        lire("merci")
+
+        _question_validation = question_oui_non(
+                    "souhaitez vous une validation orale de vos prompt ?",
+                )
+        _question_ok_to_read = question_oui_non(
+                    "souhaitez vous une réponse orale de vos prompt ?",
+                )
+        self.setValide(valide=True if _question_validation else False)
+        self.set_ok_to_Read(ok_to_read=True if _question_ok_to_read else False)
+
+        self.set_mode_prompt_off()
+        lire(
+                    f"c'est noté  {self.pseudo}: je récupère les prompts à partir de {str(self.nb_mots)} mots \
+                     {"et je demande validation" if _question_validation else str() } avant de vous {"lire" if _question_ok_to_read else "afficher"} ma réponse."
+                )
+
+    async def recherche_web(self, ck_ecoute):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        ck_ecoute = ck_ecoute.replace(
+                    " faire une recherche web sur", "\nrechercher sur le web : "
+                )
+
+        _websearching = await self.send_prompt(
+                    ck_ecoute, necessite_ai=True, needed_groq=False
+                )
+        await self.check_before_read(_websearching)
+        return ck_ecoute
+
+    async def get_informations(self):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        _motcle, articles = await self.recup_informations(
+                    letters_to_number(
+                        question_ouverte(
+                            "combien d'articles souhaitez vous que je tente de récupèrer ?",
+                        )
+                    )
+                )
+        if (
+                    question_oui_non(
+                        "voulez-vous que je lise ce que j'ai trouvé sur la recherche ?",
+                    )
+                    and isinstance(articles, list)
+                    and articles.__len__()
+                ):
+            for article in articles:
+                print(article.title)
+                print(article.description)
+                print(article.content)
+
+                self.entree_prompt_principal.insert_markdown(
+                            "# " + article.title
+                        )
+                self.entree_prompt_principal.insert_markdown(
+                            "## " + article.description
+                        )
+                self.entree_prompt_principal.insert_markdown(article.content)
+
+            for article in articles:
+                lire(
+                            translate_it(
+                                article.title
+                                + " "
+                                + article.description
+                                + " "
+                                + article.content
+                            )
+                        )
+
+    async def affiche_actualites(self, ck_ecoute):
+        get_stream().stop_stream()
+
+        if "toutes" in ck_ecoute:
+            self.get_all_news()
+        elif "africaines" in ck_ecoute:
+            self.get_all_africa_news()
+        else:
+            final_list = [
+                        f"{n}. {item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
+                        for n, item in enumerate(RULS_RSS)
+                    ]
+            _c, _t = await self.display_listbox_actus(
+                        final_list, mode_audio=True
+                    )
+
+        self.set_mode_prompt_off()
+
+    def afficher_conversations(self, ck_ecoute):
+        if any(
+                    keyword in ck_ecoute for keyword in ["la liste des", "historique"]
+                ):
+            self.affiche_liste()
+
+        elif "la dernière" in ck_ecoute:
+            self.affiche_derniere(ck_ecoute)
+
+        elif "une" in ck_ecoute:
+            self.affiche_une(ck_ecoute)
+
+    def affiche_liste(self):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        lire("Voici")
+        self.display_history()
+
+    def affiche_derniere(self, ck_ecoute):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        _discussion: Conversation
+        _conversation = self.responses[len(self.responses) - 1]
+        _last_discussion: Conversation = self.nametowidget(_conversation)
+
+        if "affiche" in ck_ecoute:
+            _last_discussion.affiche_fenetre_agrandie()
+        if "archive" in ck_ecoute:
+            _last_discussion.create_pdf()
+        elif any(
+                        keyword in ck_ecoute for keyword in ["lis-moi", "lis moi"]
+                    ):
+            lire(
+                            f"Contenu de la dernière conversation sur un total de {self.responses.__len__()} conversations enregistrées. "
+                            + _last_discussion.get_ai_response()
+                        )
+
+    def affiche_une(self, ck_ecoute):
+        zenumber: int = letters_to_number(
+                        question_ouverte(
+                            "laquelle ?",
+                        )
+                    )
+        nb_conversations = len(self.responses)
+        if zenumber <= nb_conversations:
+            _conversation = self.responses[zenumber - 1]
+            _discussion: Conversation = self.nametowidget(_conversation)
+            _last_discussion: Conversation = self.nametowidget(_conversation)
+            if "affiche" in ck_ecoute:
+                _discussion.affiche_fenetre_agrandie()
+            elif "archive" in ck_ecoute:
+                _discussion.create_pdf()
+            elif any(
+                            keyword in ck_ecoute
+                            for keyword in ["lis-moi", "lis moi", "dis-moi", "dis moi"]
+                        ):
+                _last_discussion.lire()
+            self.set_mode_prompt_off()
+
+        else:
+            self.set_mode_prompt_off()
+            lire(
+                            "je suis désolé mais il n'y a pas plus de "
+                            + str(nb_conversations)
+                            + " conversations en mémoire"
+                        )
+
+    def effacer_discussion(self, ck_ecoute):
+        if "historique" in ck_ecoute:
+            get_stream().stop_stream()
+            self.set_mode_prompt_off()
+            self.delete_history()
+
+        elif "la dernière" in ck_ecoute:
+            get_stream().stop_stream()
+            self.set_mode_prompt_off()
+            self.delete_last_discussion()
+
+        elif "les dernières" in ck_ecoute:
+            get_stream().stop_stream()
+            self.set_mode_prompt_off()
+            for _ in range(letters_to_number(question_ouverte("combien ?"))):
+                self.delete_last_discussion()
+
+    def lancer_application(self, ck_ecoute):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        if any(keyw in ck_ecoute for keyw in ["internet", "chrome", "google"]):
+            lancer_search_chrome(
+                        question_ouverte(
+                            "Que voulez vous chercher ?",
+                        ).replace(" ", "+")
+                    )
+        else:
+            lancer_chrome(
+                        tester_appelation(
+                            question_ouverte(
+                                "laquelle ?",
+                            )
+                        )
+                        or str()
+                    )
 
     def witch_mode(self, mode: str):
         get_stream().stop_stream()
@@ -1235,14 +1270,7 @@ class FenetrePrincipale(tk.Frame):
         recup = self.about_africa()
         print(f"longueur du resultat : {recup.__len__()}")
         print(recup[0])
-        # for n,category in enumerate(recup):
-        #     _response = ask_to_resume(agent_appel=Groq(api_key=GROQ_API_KEY),prompt=str(category),model_to_use=self.model_to_use)
-        #     time.sleep(4)
-        #     lire(f"{category} {n} sur {recup.__len__()}: {_response}")
-        # self.calice.append(translate_it(_response))
-        # lire("j'ai terminé la récupération")
-        # self.display_search_list_results(self.calice)
-
+       
     def get_all_news(self):
         self.calice = []
         for liste_rss in URL_ACTU_GLOBAL_RSS:

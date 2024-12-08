@@ -4,7 +4,7 @@ from tkinter import simpledialog
 
 from groq import Groq
 from Constants import DARK2, DARK3, LIGHT1, LIGHT2, LLAMA370B
-from PdfMaker import makePdfFromTtext
+from PdfMaker import make_pdf_from_text
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 import my_grep
@@ -15,6 +15,7 @@ from outils import (
     lire,
     lire_text_from_object,
     load_txt,
+    prepare_to_read,
     reformat_text,
     threads_outils,
 )
@@ -124,7 +125,7 @@ class GrandeFenetre(tk.Frame):
             self.frame_of_cnv,
             font=font.Font(size=self.btn_font.cget("size") + 4),
             text="RESUMER",
-            command=self.make_resume,
+            command=self.resume_it,
             bg=from_rgb_to_tkcolors(LIGHT1),
             fg=from_rgb_to_tkcolors(DARK3),
         )
@@ -174,7 +175,7 @@ class GrandeFenetre(tk.Frame):
             t.start()
 
     async def lance_recherche(self, pattern: str):
-        _ = my_grep.lance_grep(textFile=load_txt(None), pattern=pattern)
+        _ = await my_grep.lance_grep(text_file=load_txt(None), pattern=pattern)
         self.area_info.clear_text()
         self.area_info.configure(bg=from_rgb_to_tkcolors((0x4F, 0x0D, 0x12)))
         self.area_info.insert_markdown(mkd_text="# Pattern : " + pattern)
@@ -209,17 +210,20 @@ class GrandeFenetre(tk.Frame):
         self.fontConversation.configure(size=(self.fontConversation.cget("size") - 2))
         self.default_font.configure(size=(self.fontConversation.cget("size") - 2))
         self.btn_font.configure(size=(self.fontConversation.cget("size") - 2))
+    
+    def resume_it(self):
+        self.make_resume()
 
-    def make_resume(self):
-        _ = ask_to_resume(
+    async def make_resume(self):
+        _ = await ask_to_resume(
             agent_appel=Groq(api_key=GROQ_API_KEY),
             model_to_use=LLAMA370B.split(":")[0],
-            prompt=self.area_info.get_text(),
+            prompt=str(prepare_to_read(self.area_info.get_text())),
         )
-        lire(_)
+        lire(str(_))
 
     def create_pdf(self):
-        makePdfFromTtext(
+        make_pdf_from_text(
             filename=(
                 simpledialog.askstring(
                     parent=self,

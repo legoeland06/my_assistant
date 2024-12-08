@@ -163,36 +163,6 @@ def attentif(_stream=get_stream(), _engine=get_engine()) -> str:
             )
 
 
-# def lire(text: str):
-#     if threading.current_thread().getName() == "mode_veille":
-#         # on est déjà dans une thread donc inutile de surcharger ici
-#         # on peut se permettre de laissier finir une lecture avant de passer
-#         # à la suivante
-#         lecteur = pyttsx3.Engine()
-#         texte_reformate = "\n".join(prepare_to_read(text))
-#         lecteur.say(text=texte_reformate)
-#         lecteur.runAndWait()
-
-#     elif threading.current_thread().getName() == "lire_haute_voix":
-#         lecteur = pyttsx3.Engine()
-#         texte_reformate = "\n".join(prepare_to_read(text))
-#         lecteur.say(text=texte_reformate)
-#         lecteur.runAndWait()
-
-#     else:
-#         the_thread: StoppableThread = StoppableThread(
-#             target=lambda: create_asyncio_task(
-#                 async_function=say_txt("\n".join(prepare_to_read(text)))
-#             )
-#         )
-
-#         the_thread.name = "lire_haute_voix"
-#         the_thread.start()
-#         threads_outils.append(the_thread)
-#         if the_thread.ident and not the_thread.daemon:
-#             return True
-
-
 def prepare_to_read(text: str):
     """
     Préparation avant lecture.
@@ -315,9 +285,6 @@ async def say_txt(alire: str):
 
 
 def lire(text: str):
-
-    # _=ThreadLecture.ThreadLecture() # type: ignore
-    # _.lire(str(" ").join(prepare_to_read(text)))
 
     if threading.current_thread().getName().__contains__("veille"):
         lecteur = pyttsx3.Engine()
@@ -1071,81 +1038,13 @@ async def ask_to_ai(
     time0 = time.perf_counter_ns()
     ai_response = str()
     if isinstance(agent_appel, ollama.Client):
-        try:
-            llm: ollama.Client = agent_appel.chat(  # type: ignore
-                model=model_to_use,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": str(letexte),
-                        "num_ctx": 2048,
-                        "num_predict": 40,
-                        "keep_alive": -1,
-                    },
-                ],  # type: ignore
-            )
-            ai_response = str(llm["message"]["content"])  # type: ignore
-
-        except ollama.RequestError as requestError:
-            print("OOps aucun model chargé : ", requestError)
-        except ollama.ResponseError as responseError:
-            print("OOps la requête ne s'est pas bien déroulée", responseError)
+        ai_response = gestion_ollama(agent_appel, model_to_use, letexte)
     elif isinstance(agent_appel, Groq):
 
-        expertise = (
-            ("\nYou are an expert in : " + str(motcle))
-            if len(str(motcle).strip())
-            else str()
-        )
-
-        this_message = [
-            {
-                "role": "system",
-                "content": (
-                    TEXTE_DEBRIDE
-                    if is_ask_to_debride
-                    else (TEXTE_PREPROMPT_GENERAL + expertise)
-                ),
-            },
-            {
-                "role": "assistant",
-                "content": TODAY_WE_ARE
-                + "Use the supplied function_call to assist the user if necessary"
-                + (
-                    # prend tout l'historique des prompts
-                    await ask_to_resume(agent_appel, str(p_history), model_to_use)
-                    if len(str(p_history)) and ok_persistance
-                    else ""
-                ),
-            },
-            {
-                "role": "user",
-                "content": letexte,
-            },
-        ]
-
-        ai_response = delais_to_re_ask(agent_appel, model_to_use, this_message) or str()
+        ai_response = await gestion_groq(agent_appel, model_to_use, motcle, p_history, letexte, is_ask_to_debride, ok_persistance)
 
     elif isinstance(agent_appel, Ola.__class__):
-        try:
-            llm: Ola = agent_appel(
-                base_url="http://localhost:11434",
-                model=model_to_use,
-                request_timeout=REQUEST_TIMEOUT_DEFAULT,
-                additional_kwargs={
-                    "num_ctx": 2048,
-                    "num_predict": 40,
-                    "keep_alive": -1,
-                },
-            )
-
-            ai_response = str(llm.chat(letexte).message.content)
-
-        except Exception as e:
-            msg = f"tentative d'utiliser l'agent Ola {agent_appel.__name__} sans succès"
-            messagebox.showerror(f"{msg}")
-            logger.exception(msg=msg, exc_info=e)
-            logger.error(f"{msg}")
+        ai_response = gestion_ola(agent_appel, model_to_use, letexte)
 
     try:
         # calcul le temps écoulé
@@ -1176,47 +1075,89 @@ async def ask_to_ai(
 
         return msg, timing
 
+def gestion_ola(agent_appel, model_to_use, letexte):
+    try:
+        llm: Ola = agent_appel(
+                base_url="http://localhost:11434",
+                model=model_to_use,
+                request_timeout=REQUEST_TIMEOUT_DEFAULT,
+                additional_kwargs={
+                    "num_ctx": 2048,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            )
+
+        ai_response = str(llm.chat(letexte).message.content)
+
+    except Exception as e:
+        msg = f"tentative d'utiliser l'agent Ola {agent_appel.__name__} sans succès"
+        messagebox.showerror(f"{msg}")
+        logger.exception(msg=msg, exc_info=e)
+        logger.error(f"{msg}")
+    return ai_response
+
+async def gestion_groq(agent_appel, model_to_use, motcle, p_history, letexte, is_ask_to_debride, ok_persistance):
+    expertise = (
+            ("\nYou are an expert in : " + str(motcle))
+            if len(str(motcle).strip())
+            else str()
+        )
+
+    this_message = [
+            {
+                "role": "system",
+                "content": (
+                    TEXTE_DEBRIDE
+                    if is_ask_to_debride
+                    else (TEXTE_PREPROMPT_GENERAL + expertise)
+                ),
+            },
+            {
+                "role": "assistant",
+                "content": TODAY_WE_ARE
+                + "Use the supplied function_call to assist the user if necessary"
+                + (
+                    # prend tout l'historique des prompts
+                    await ask_to_resume(agent_appel, str(p_history), model_to_use)
+                    if len(str(p_history)) and ok_persistance
+                    else ""
+                ),
+            },
+            {
+                "role": "user",
+                "content": letexte,
+            },
+        ]
+
+    return delais_to_re_ask(agent_appel, model_to_use, this_message) or str()
+
+def gestion_ollama(agent_appel, model_to_use, letexte):
+    try:
+        llm: ollama.Client = agent_appel.chat(  # type: ignore
+                model=model_to_use,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": str(letexte),
+                        "num_ctx": 2048,
+                        "num_predict": 40,
+                        "keep_alive": -1,
+                    },
+                ],  # type: ignore
+            )
+        return str(llm["message"]["content"])  # type: ignore
+
+    except ollama.RequestError as requestError:
+        print("OOps aucun model chargé : ", requestError)
+        return str(requestError)
+    except ollama.ResponseError as responseError:
+        print("OOps la requête ne s'est pas bien déroulée", responseError)
+        return str(responseError)
+
 
 def delais_to_re_ask(agent_appel, model_to_use, this_message):
     llm = False
-    mytool = [
-        {
-            "name": "open_website",
-            "description": "Open a website and return the HTML as a string",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "A URL",
-                        "example_value": "https://x.ai/",
-                    },
-                },
-                "required": ["url"],
-                "optional": [],
-            },
-        },
-        # {
-        #     "name": "click",
-        #     "description": "Click any button on a website and returns the new HTML",
-        #     "parameters": {
-        #         "type": "object",
-        #         "properties": {
-        #             "html": {
-        #                 "type": "string",
-        #                 "description": "A HTML",
-        #             },
-        #             "button": {
-        #                 "type": "string",
-        #                 "description": "A text description of a button on the html page",
-        #             },
-        #         },
-        #         "required": ["html", "button"],
-        #         "optional": [],
-        #     },
-        # },
-    ]
-
     try:
         llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
             messages=this_message,
