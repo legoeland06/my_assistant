@@ -1,6 +1,5 @@
 import feedparser
 
-
 def lemonde(rss_url: list):
     rubrique = []
     for item in rss_url:
@@ -26,6 +25,28 @@ def lemonde_afrique(rss_url):
         rubrique.append(resultat)
 
     return rubrique
+
+
+# def about_africa():
+#     rubrique = []
+#     feeds = [
+#         "https://www.africanews.com/feed/rss?themes=news,"
+#         "https://feeds.feedburner.com/AfricaIntelligence",
+#         "https://feeds.feedburner.com/LaLettre-fr",
+#         "https://feeds.feedburner.com/IntelligenceOnline/",
+#     ]
+#     for item in feeds:
+#         resultat = str()
+#         feed = feedparser.parse(item)
+
+#         for entry in feed.entries:
+#             resultat += str(entry.title) + "\n"
+#             resultat += str(entry.description) + "\n"
+
+#         print("\n"+"*"*40 +"\n"+resultat+"\n"+"*"*40)
+#         rubrique.append(resultat)
+
+#     return rubrique
 
 
 def le_monde_informatique(rss_url):

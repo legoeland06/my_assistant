@@ -5,6 +5,7 @@ import random
 import subprocess
 import threading
 import time
+from tkinter import simpledialog
 from word2number import w2n
 import webbrowser
 import PyPDF2
@@ -34,6 +35,7 @@ from Constants import (
     GOOGLECHROME_APP,
     INFOS_PROMPTS,
     LIENS_CHROME,
+    LLAMA370B,
     MODEL_PATH,
     NON,
     OUI,
@@ -52,6 +54,7 @@ from Constants import (
 )
 from StoppableThread import StoppableThread
 import my_feedparser_rss
+import my_grep
 import my_search_engine
 from secret import GROQ_API_KEY, NEWS_API_KEY
 
@@ -105,37 +108,99 @@ NB: Be careful to archive key information as you will need it to continue a smoo
     )
 
 
-def lire(text: str):
-    if threading.current_thread().getName() == "mode_veille":
-        # on est déjà dans une thread donc inutile de surcharger ici
-        # on peut se permettre de laissier finir une lecture avant de passer
-        # à la suivante
-        lecteur = pyttsx3.Engine()
-        texte_reformate = "\n".join(prepare_to_read(text))
-        lecteur.say(text=texte_reformate)
-        lecteur.runAndWait()
-
+def get_engine() -> vosk.KaldiRecognizer:
+    """
+    initialise le reconnaisseur vocal
+    et retourne son instance
+    """
+    if isinstance(init_engine, vosk.KaldiRecognizer):
+        return init_engine
     else:
-        the_thread: StoppableThread = StoppableThread(
-            target=lambda: create_asyncio_task(
-                async_function=say_txt("\n".join(prepare_to_read(text)))
-            )
-        )
+        # initialise a voice recognizer
+        lire("initialisation du micro")
+        rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+        lire("micro initialisé")
+        # set verbosity of vosk to NO-VERBOSE
+        vosk.SetLogLevel(-1)
+        # Initialize the model and return an instance
+        return rec
 
-        the_thread.name = "lire_haute_voix"
-        the_thread.start()
-        threads_outils.append(the_thread)
-        if the_thread.ident and not the_thread.daemon:
-            return True
+
+def get_stream() -> pyaudio.Stream:
+    return pyaudio.PyAudio().open(
+        format=pyaudio.paInt16,
+        channels=1,
+        rate=16_000,
+        input=True,
+        frames_per_buffer=8_192,
+    )
+
+
+def attentif(_stream=get_stream(), _engine=get_engine()) -> str:
+    """
+    ### Méthode d'écoute attentive de ce qu'il se passe dans le micro
+    * récupération du resultat et encapsulation dans un objet JSON
+    * retourne la partie text de l'objet JSON pour traitement ou un texte VIDE
+    """
+    while True:
+        try:
+            data_real_pre_vocal_command = _stream.read(
+                num_frames=8192, exception_on_overflow=False
+            )
+
+            if _engine.AcceptWaveform(data_real_pre_vocal_command):
+
+                # récupération du resultat et encapsulation dans un objet JSON
+                # on renvoi la partie text de l'objet JSON
+                return json.loads(_engine.Result())["text"].lower()
+        except Exception as e:
+            print(f"{e}")
+            return (
+                simpledialog.askstring(
+                    title="pas de micro", prompt="entrez votre commande"
+                )
+                or str()
+            )
+
+
+# def lire(text: str):
+#     if threading.current_thread().getName() == "mode_veille":
+#         # on est déjà dans une thread donc inutile de surcharger ici
+#         # on peut se permettre de laissier finir une lecture avant de passer
+#         # à la suivante
+#         lecteur = pyttsx3.Engine()
+#         texte_reformate = "\n".join(prepare_to_read(text))
+#         lecteur.say(text=texte_reformate)
+#         lecteur.runAndWait()
+
+#     elif threading.current_thread().getName() == "lire_haute_voix":
+#         lecteur = pyttsx3.Engine()
+#         texte_reformate = "\n".join(prepare_to_read(text))
+#         lecteur.say(text=texte_reformate)
+#         lecteur.runAndWait()
+
+#     else:
+#         the_thread: StoppableThread = StoppableThread(
+#             target=lambda: create_asyncio_task(
+#                 async_function=say_txt("\n".join(prepare_to_read(text)))
+#             )
+#         )
+
+#         the_thread.name = "lire_haute_voix"
+#         the_thread.start()
+#         threads_outils.append(the_thread)
+#         if the_thread.ident and not the_thread.daemon:
+#             return True
 
 
 def prepare_to_read(text: str):
     """
     Préparation avant lecture.
     si la ligne commence par do_not_read, elle n'est pas lue"""
-
+    NEPASLIRE = "ne pas lire"
+    SECRET = "secret"
     strip_list = [
-        line.replace("**", " ")
+        line.replace("*", "")
         .replace("--", " ")
         .replace("+", " ")
         .replace("=", " ")
@@ -145,10 +210,7 @@ def prepare_to_read(text: str):
         .replace(":", " ")
         .replace("https", " ")
         for line in text.splitlines()
-        if not (
-            line.startswith(DO_NOT_READ)
-            or any(keyword in line for keyword in ["ne pas lire", "secret"])
-        )
+        if not (line.startswith((DO_NOT_READ, NEPASLIRE, SECRET,"// ")))
     ]
 
     diff_lenght = text.splitlines().__len__() - strip_list.__len__()
@@ -240,29 +302,40 @@ async def say_txt(alire: str):
     """
     lit le texte passé en paramètre
     """
-    texte_reformate = (
-        alire.replace("**", "")
-        .replace("*", " ")
-        .replace("-", " ")
-        .replace("+", " ")
-        .replace("=", " ")
-        .replace("##", "")
-        .replace("#", " ")
-        .replace("|", " ")
-        .replace("//", "")
-        .replace("/", " ")
-        .replace(":", " ")
-        .replace("https", " ")
-    )
+
     lecteur = lecteur_init()
     if not lecteur._inLoop:
-        lecteur.say(texte_reformate)
+        lecteur.say(alire)
         lecteur.proxy.runAndWait()
 
     if lecteur._inLoop:
         lecteur.proxy.stop()
 
     return True
+
+
+def lire(text: str):
+
+    # _=ThreadLecture.ThreadLecture() # type: ignore
+    # _.lire(str(" ").join(prepare_to_read(text)))
+
+    if threading.current_thread().getName().__contains__("veille"):
+        lecteur = pyttsx3.Engine()
+        texte_reformate = "\n".join(prepare_to_read(text))
+        lecteur.say(text=texte_reformate)
+        lecteur.runAndWait()
+    else:
+        the_thread: StoppableThread = StoppableThread(
+            target=lambda: create_asyncio_task(
+                async_function=say_txt("\n".join(prepare_to_read(text)))
+            )
+        )
+
+        the_thread.name = "lire_haute_voix_" + str(threading.enumerate().__len__())
+        the_thread.start()
+        threads_outils.append(the_thread)
+        if the_thread.ident and not the_thread.daemon:
+            return True
 
 
 def from_rgb_to_tkcolors(rgb):
@@ -376,34 +449,6 @@ def append_saved_texte(file_to_append, readable_ai_response):
             + markdown_content
             + "\n"
         )
-
-
-def get_engine() -> vosk.KaldiRecognizer:
-    """
-    initialise le reconnaisseur vocal
-    et retourne son instance
-    """
-    if isinstance(init_engine, vosk.KaldiRecognizer):
-        return init_engine
-    else:
-        # initialise a voice recognizer
-        lire("initialisation du micro")
-        rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
-        lire("micro initialisé")
-        # set verbosity of vosk to NO-VERBOSE
-        vosk.SetLogLevel(-1)
-        # Initialize the model and return an instance
-        return rec
-
-
-def get_stream() -> pyaudio.Stream:
-    return pyaudio.PyAudio().open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16_000,
-        input=True,
-        frames_per_buffer=8_192,
-    )
 
 
 def traitement_du_texte(texte: str) -> list[Any | str]:
@@ -583,13 +628,13 @@ def get_pre_prompt(rubrique: str, prompt_name: str):
 
 def lire_ligne(evt: tk.Event):
     widget_to_read: tk.Listbox = evt.widget
-    say_txt(
+    lire(
         str(
             widget_to_read.get(
                 widget_to_read.curselection(), widget_to_read.curselection() + 1
             )
         )
-    )  # type: ignore
+    )
 
 
 def text_to_number(text: str) -> int:
@@ -675,6 +720,60 @@ def merci_au_revoir(
     au_revoir()
 
 
+async def get_keywords(prompt: str):
+    result, timer = await ask_to_ai(
+        agent_appel=Groq(api_key=GROQ_API_KEY),
+        model_to_use=LLAMA370B,
+        motcle=str(),
+        p_history=str(),
+        prompt="récupère les idées principales du prompt ci-dessous, sous forme de liste de motclé simples. Attention: ne réponds que cette liste et rien d'autre \n"
+        + prompt,
+    )
+    print(f"resulst:{result}")
+    return str(result).splitlines(), timer
+
+
+async def about_this_book(bouquin: str, prompt: str) -> tuple:
+    """
+    récupère les idées de ce prompt_user de façon à les extraires du bouqin.
+    les mots clés seront passés au grep dans le bouquin et pour chaque session de grep,
+    les portions de textes ainsi récupérées seront résumées en bloc de savoir.
+    Ainsi une dizaines de bloc de savoir seront appliqués à la question du prompt et soumis à l'ai pour une réponse finale
+    """
+    response = str()
+    now = time.perf_counter_ns()
+
+    async def resume_it(text: str):
+        return await ask_to_resume(
+            agent_appel=Groq(api_key=GROQ_API_KEY),
+            model_to_use=LLAMA370B,
+            prompt=text,
+        )
+
+    _portions_texte = str()
+    _list_of_keywords, _timer_keywords = await get_keywords(prompt)
+    for keyword in _list_of_keywords:
+        resume_quest = await resume_it(await my_grep.lance_grep(bouquin, keyword))
+        if resume_quest.__len__():
+            _portions_texte += str("\n") + resume_quest
+            print(f"resume_quest:{resume_quest}")
+
+            response, _timer = await ask_to_ai(
+                agent_appel=Groq(api_key=GROQ_API_KEY),
+                model_to_use=LLAMA370B,
+                motcle=str(),
+                p_history=str(),
+                prompt=await resume_it(_portions_texte) + str("\n") + prompt,
+            )
+
+            if response.__len__():
+                print(f"REPONSE : {response}")
+        else:
+            print("VIDE")
+
+    return response, _timer - now
+
+
 def au_revoir():
     exit(0)
 
@@ -690,9 +789,9 @@ def get_groq_ia_list(api_key):
     return sortie
 
 
-def ask_to_resume(agent_appel, prompt: str, model_to_use):
+async def ask_to_resume(agent_appel, prompt: str, model_to_use):
     if prompt.strip() != str():
-        ai_response, _timing = ask_to_ai(
+        ai_response, _timing = await ask_to_ai(
             agent_appel=agent_appel,
             prompt=make_resume(prompt),
             model_to_use=model_to_use,
@@ -700,7 +799,9 @@ def ask_to_resume(agent_appel, prompt: str, model_to_use):
             p_history=str(),
         )
 
-    return str(ai_response)
+        return str(ai_response)
+    else:
+        return str()
 
 
 def letters_to_number(letters: str, lang: str = "fr") -> int | bool:
@@ -744,7 +845,9 @@ def websearching(term: str):
     return goodlist
 
 
-def check_content(content: str, client, model_to_use, ok_persistance=False) -> tuple:
+async def check_content(
+    content: str, client, model_to_use, ok_persistance=False
+) -> tuple:
     """
     content (str) : content to check
 
@@ -762,7 +865,7 @@ def check_content(content: str, client, model_to_use, ok_persistance=False) -> t
             goodlist = websearching(line)
 
             # PAS SUR DE l'UTILITE
-            super_result, _ = ask_to_ai(
+            super_result, _ = await ask_to_ai(
                 client, goodlist, model_to_use, motcle=str(), p_history=str()
             )
 
@@ -955,14 +1058,14 @@ async def generate_response(client, prompt, min: str = "3", max: str = "5"):
     return steps, total_thinking_time
 
 
-def ask_to_ai(
+async def ask_to_ai(
     agent_appel: Groq | ollama.Client | Ola.__class__,
     prompt: str,
     model_to_use,
     motcle,
     p_history,
 ) -> tuple:
-    letexte, is_ask_to_debride, timing, ok_persistance = check_content(
+    letexte, is_ask_to_debride, timing, ok_persistance = await check_content(
         content=prompt, client=agent_appel, model_to_use=model_to_use
     )
     time0 = time.perf_counter_ns()
@@ -1007,9 +1110,10 @@ def ask_to_ai(
             {
                 "role": "assistant",
                 "content": TODAY_WE_ARE
+                + "Use the supplied function_call to assist the user if necessary"
                 + (
                     # prend tout l'historique des prompts
-                    ask_to_resume(agent_appel, str(p_history), model_to_use)
+                    await ask_to_resume(agent_appel, str(p_history), model_to_use)
                     if len(str(p_history)) and ok_persistance
                     else ""
                 ),
@@ -1074,7 +1178,45 @@ def ask_to_ai(
 
 
 def delais_to_re_ask(agent_appel, model_to_use, this_message):
-    llm=False
+    llm = False
+    mytool = [
+        {
+            "name": "open_website",
+            "description": "Open a website and return the HTML as a string",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "A URL",
+                        "example_value": "https://x.ai/",
+                    },
+                },
+                "required": ["url"],
+                "optional": [],
+            },
+        },
+        # {
+        #     "name": "click",
+        #     "description": "Click any button on a website and returns the new HTML",
+        #     "parameters": {
+        #         "type": "object",
+        #         "properties": {
+        #             "html": {
+        #                 "type": "string",
+        #                 "description": "A HTML",
+        #             },
+        #             "button": {
+        #                 "type": "string",
+        #                 "description": "A text description of a button on the html page",
+        #             },
+        #         },
+        #         "required": ["html", "button"],
+        #         "optional": [],
+        #     },
+        # },
+    ]
+
     try:
         llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
             messages=this_message,

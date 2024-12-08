@@ -3,13 +3,41 @@ import fpdf
 
 
 class PDF(fpdf.FPDF):
-    iamodel:str
+    iamodel: str
 
-    def __init__(self, orientation: Literal[''] | Literal['portrait'] | Literal['p'] | Literal['P'] | Literal['landscape'] | Literal['l'] | Literal['L'] = "portrait", unit: float | Literal['pt'] | Literal['mm'] | Literal['cm'] | Literal['in'] = "mm", format: tuple[float, float] | Literal[''] | Literal['a3'] | Literal['A3'] | Literal['a4'] | Literal['A4'] | Literal['a5'] | Literal['A5'] | Literal['letter'] | Literal['Letter'] | Literal['legal'] | Literal['Legal'] = "A4") -> None:
+    def __init__(
+        self,
+        orientation: (
+            Literal[""]
+            | Literal["portrait"]
+            | Literal["p"]
+            | Literal["P"]
+            | Literal["landscape"]
+            | Literal["l"]
+            | Literal["L"]
+        ) = "portrait",
+        unit: (
+            float | Literal["pt"] | Literal["mm"] | Literal["cm"] | Literal["in"]
+        ) = "mm",
+        format: (
+            tuple[float, float]
+            | Literal[""]
+            | Literal["a3"]
+            | Literal["A3"]
+            | Literal["a4"]
+            | Literal["A4"]
+            | Literal["a5"]
+            | Literal["A5"]
+            | Literal["letter"]
+            | Literal["Letter"]
+            | Literal["legal"]
+            | Literal["Legal"]
+        ) = "A4",
+    ) -> None:
         super().__init__(orientation, unit, format)
-    
-    def set_iamodel(self,iamodel:str):
-        self.iamodel=iamodel
+
+    def set_iamodel(self, iamodel: str):
+        self.iamodel = iamodel
 
     def header(self):
         # Logo
@@ -39,7 +67,7 @@ def _transformer(text_list: list, n: int) -> list:
     return [text_list[i : i + n] for i in range(0, len(text_list), n)]
 
 
-def makePdfFromTtext(text_list: list, filename: str):
+def make_pdf_from_text(text_list: list, filename: str):
     pdf: PDF = PDF("portrait", "mm", "A4")
     pdf.set_iamodel(filename)
     # Add a Unicode font (uses UTF-8)

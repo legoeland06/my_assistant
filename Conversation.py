@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import simpledialog
 
 from GrandeFenetre import GrandeFenetre
-from PdfMaker import makePdfFromTtext
+from PdfMaker import make_pdf_from_text
 from outils import (
     from_rgb_to_tkcolors,
     lire,
@@ -245,7 +245,7 @@ class Conversation(tk.Frame):
         self.fontConversation.configure(size=(self.fontConversation.cget("size") - 2))
 
     def create_pdf(self):
-        makePdfFromTtext(
+        make_pdf_from_text(
             filename=(
                 simpledialog.askstring(
                     parent=self.master,
