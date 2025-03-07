@@ -1,6 +1,17 @@
 import subprocess
 import time
 
+class bcolors:
+    GREY = '\033[90m'
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 WIZARDLM2 = "wizardlm2:latest"
 DEEPSEEK_CODER = "deepseek-coder:6.7b"
@@ -178,10 +189,10 @@ en mode recherche newsAPI
 ### Accéder au web:
 **faire une recherche web sur**
 
-**ouvrir une application web**
+**lancer une application web**
 donner le texte à rechercher sur google-chrome
 
-**ouvrir une application **
+**lancer une application **
 Via google-chrome
 netflix, gmail, messages,...
 

@@ -8,7 +8,7 @@ from tkinter import ALL, filedialog, messagebox, simpledialog
 from typing import Any, Tuple
 from groq import Groq
 import ollama
-from openai import ChatCompletion  # type: ignore
+from openai import ChatCompletion, OpenAI  # type: ignore
 import pyaudio
 from Article import Article
 from Constants import (
@@ -86,6 +86,7 @@ from outils import (
     traitement_du_texte,
     translate_it,
 )
+import secret
 
 type History = list[Conversation]
 
@@ -177,9 +178,9 @@ class FenetrePrincipale(tk.Frame):
 
     def bypass(self):
         """by pass les sélections dIa et de client"""
-        groq_client = Groq(api_key=GROQ_API_KEY)
-        self.set_client(groq_client)
-        self.set_model(LLAMA370B)
+        deepseek_client=OpenAI(api_key=secret.DEEPSEEK_API, base_url="https://api.deepseek.com")
+        self.set_client(deepseek_client)
+        self.set_model("deepseek-chat")
         self.lance_thread_ecoute()
 
     def set_debride(self, status: bool):
@@ -706,89 +707,76 @@ class FenetrePrincipale(tk.Frame):
         return True
 
     async def mode_veille(self):
-
         content_commandes_vocales = str()
         self.set_mode_prompt_off()
         while True:
-
             if get_stream().is_stopped():
                 get_stream().start_stream()
 
-            # Reste en suspend tant qu'on ne parle pas vraiment dans le micro
             check_ecoute: str = attentif()
-            # ne revient pas tant qu'on ne parle pas vraiment dans le micro
+            print("\n" + "*" * 40 + "\n" + "==> " + check_ecoute + "\n" + "*" * 40 + "\n")
 
-            print(
-                "\n" + "*" * 40 + "\n" + "==> " + check_ecoute + "\n" + "*" * 40 + "\n"
-            )
-
-            if "afficher de l'aide" in check_ecoute:
-                _ = self.display_help()
-
-            elif "quel est le mode actuel" in check_ecoute:
-                self.witch_mode("veille")
-
-            elif any(keyword in check_ecoute for keyword in ["fermer", "ferme"]):
-                if "l'application" in check_ecoute:
-                    get_stream().stop_stream()
-                    self.bouton_commencer_diction.configure(
-                        image=self.image_button_diction1,  # type: ignore
-                    )
-                    self.entree_prompt_principal.configure(
-                        bg=from_rgb_to_tkcolors(LIGHT0)
-                    )
-                    self.bouton_commencer_diction.update()
-                    append_saved_texte(
-                        file_to_append="saved_text",
-                        readable_ai_response=content_commandes_vocales,
-                    )
-                    lire(
-                        "ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque"
-                    )
-                    self.set_thread(None)
-                    break
-
-            elif any(keyword in check_ecoute for keyword in ["active", "passe"]):
-                if any(
-                    keyword in check_ecoute
-                    for keyword in ["mode audio", "commandes vocales"]
-                ):
-
-                    get_stream().stop_stream()
-                    self.bouton_commencer_diction.configure(
-                        image=self.image_button_diction3,  # type: ignore
-                    )
-
-                    self.entree_prompt_principal.configure(
-                        bg=from_rgb_to_tkcolors((DARK3)),
-                        fg=from_rgb_to_tkcolors((182, 78, 20)),
-                    )
-
-                    self.bouton_commencer_diction.update()
-                    lire("pour sortir, dites : fin de la session")
-                    get_stream().start_stream()
-
-                    self.open_microphone()
-
-                    # entrez dans le mode commandes vocale
-                    content_commandes_vocales += (
-                        " " + await self.mode_commandes_vocales()
-                    )
-                elif "mode débridé" in check_ecoute:
-                    self.debride_switch(True)
-                    lire("mode débridé activé")
-                elif "mode normal" in check_ecoute:
-                    self.debride_switch(False)
-                    lire("mode debridé désactivé")
+            if await self.handle_check_ecoute(check_ecoute, content_commandes_vocales):
+                break
 
             if self.get_mode_prompt():
                 content_commandes_vocales += " " + check_ecoute
 
         return content_commandes_vocales
 
-    async def mode_commandes_vocales(self):
+    async def handle_check_ecoute(self, check_ecoute, content_commandes_vocales):
+        if "afficher de l'aide" in check_ecoute:
+            _ = self.display_help()
+        elif "quel est le mode actuel" in check_ecoute:
+            self.witch_mode("veille")
+        elif any(keyword in check_ecoute for keyword in ["fermer", "ferme"]):
+            if "l'application" in check_ecoute:
+                await self.close_application(content_commandes_vocales)
+                return True
+        elif any(keyword in check_ecoute for keyword in ["active", "passe"]):
+            await self.handle_active_commands(check_ecoute, content_commandes_vocales)
+        return False
 
+    async def close_application(self, content_commandes_vocales):
+        get_stream().stop_stream()
+        self.bouton_commencer_diction.configure(image=self.image_button_diction1)  # type: ignore
+        self.entree_prompt_principal.configure(bg=from_rgb_to_tkcolors(LIGHT0))
+        self.bouton_commencer_diction.update()
+        append_saved_texte(file_to_append="saved_text", readable_ai_response=content_commandes_vocales)
+        lire("ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque")
+        self.set_thread(None)
+
+    async def handle_active_commands(self, check_ecoute, content_commandes_vocales):
+        if any(keyword in check_ecoute for keyword in ["mode audio", "commandes vocales"]):
+            await self.activate_audio_mode(content_commandes_vocales)
+        elif "mode débridé" in check_ecoute:
+            self.debride_switch(True)
+            lire("mode débridé activé")
+        elif "mode normal" in check_ecoute:
+            self.debride_switch(False)
+            lire("mode debridé désactivé")
+
+    async def activate_audio_mode(self, content_commandes_vocales):
+        get_stream().stop_stream()
+        self.bouton_commencer_diction.configure(image=self.image_button_diction3)  # type: ignore
+        self.entree_prompt_principal.configure(bg=from_rgb_to_tkcolors((DARK3)), fg=from_rgb_to_tkcolors((182, 78, 20)))
+        self.bouton_commencer_diction.update()
+        lire("pour sortir, dites : fin de la session")
+        get_stream().start_stream()
+        self.open_microphone()
+        content_commandes_vocales += " " + await self.mode_commandes_vocales()
+
+    async def mode_commandes_vocales(self):
         multi_line = str()
+        self.setup_vocal_mode_ui()
+        while not self.micro_is_cut:
+            self.set_mode_prompt_on()
+            ck_ecoute: str = attentif()
+            print(f"\n{'*' * 40}\n==> {multi_line}\n{ck_ecoute}\n{'*' * 40}\n")
+            await self.process_vocal_commands(ck_ecoute, multi_line)
+        return multi_line
+
+    def setup_vocal_mode_ui(self):
         self.button_quit_mode_vocal = tk.Button(
             master=self.canvas_diction,
             text="MODE VEILLE",
@@ -797,183 +785,100 @@ class FenetrePrincipale(tk.Frame):
             foreground=from_rgb_to_tkcolors(LIGHT3),
         )
         self.button_quit_mode_vocal.pack(side=tk.BOTTOM, fill="x", expand=True)
-        while not self.micro_is_cut:
-            self.set_mode_prompt_on()
 
-            # Reste en suspend tant qu'on ne parle pas vraiment dans le micro
-            ck_ecoute: str = attentif()
-            # ne revient pas tant qu'on ne parle pas vraiment dans le micro
+    async def process_vocal_commands(self, ck_ecoute, multi_line):
+        if "afficher" in ck_ecoute and any(keyword in ck_ecoute for keyword in ["de l'aide", "les commandes"]):
+            await self.handle_help_command()
+        elif "quel est le mode actuel" in ck_ecoute:
+            self.witch_mode("commandes vocales")
+        elif "quel jour sommes-nous" in ck_ecoute:
+            await self.handle_date_command()
+        elif "quelle heure est-il" in ck_ecoute:
+            await self.handle_time_command()
+        elif "est-ce que tu m'écoutes" in ck_ecoute:
+            await self.handle_listening_command()
+        elif "lancer une application" in ck_ecoute:
+            self.lancer_application(ck_ecoute)
+        elif any(keyword in ck_ecoute for keyword in ["effacer", "supprimer"]) and any(keyword in ck_ecoute for keyword in ["conversation", "discussion"]):
+            self.effacer_discussion(ck_ecoute)
+        elif any(keyword in ck_ecoute for keyword in ["conversation", "discussion"]):
+            self.afficher_conversations(ck_ecoute)
+        elif any(keyword in ck_ecoute for keyword in ["les actualités", "les informations"]) and "affiche" in ck_ecoute:
+            await self.affiche_actualites(ck_ecoute)
+        elif " propos d'un livre" in ck_ecoute:
+            await self.handle_book_command()
+        elif "donne-moi les infos" in ck_ecoute:
+            await self.get_informations()
+        elif "faire une recherche web sur " in ck_ecoute:
+            ck_ecoute = await self.recherche_web(ck_ecoute)
+        elif any(keyword in ck_ecoute for keyword in ["fin de", "ferme", "termine"]) and "la session" in ck_ecoute:
+            await self.handle_end_session_command(multi_line, ck_ecoute)
+        elif "lis-moi systématiquement tes réponses" in ck_ecoute:
+            self.set_ok_to_Read(True)
+            lire(C_NOTE)
+        elif "arrêtez la lecture systématique des réponses" in ck_ecoute:
+            self.set_ok_to_Read(False)
+            lire(C_NOTE)
+        elif "gérer les préférences" in ck_ecoute:
+            self.gerer_prefs()
+        elif "la validation orale" in ck_ecoute:
+            await self.handle_validation_command(ck_ecoute)
+        if self.get_mode_prompt() and len(ck_ecoute.split()) >= self.nb_mots:
+            multi_line = await self.valider_prompt(multi_line, ck_ecoute)
+        try:
+            get_stream().start_stream()
+        except NameError as nerr:
+            print(nerr)
 
-            print(
-                "\n"
-                + "*" * 40
-                + "\n"
-                + "==> "
-                + multi_line
-                + "\n"
-                + ck_ecoute
-                + "\n"
-                + "*" * 40
-                + "\n"
-            )
+    async def handle_help_command(self):
+        self.set_mode_prompt_off()
+        _ = self.display_help()
+        lire("état des lieux de la configuration du tchat intéractif")
+        lire("je vous lis systématiquement les réponses" if self.get_ok_to_Read() else "les réponses ne sont pas lues")
+        lire("à la fin de votre question ou prompt valide, je vous demande si vous avez terminé" if self.getValide() else "dès lors que votre prompte est valide, je déclenche ma réponse.")
+        lire(f"un prompt est valide dès lors qu'il contient au moins {str(self.nb_mots)} mots")
 
-            if "afficher" in ck_ecoute and any(
-                keyword in ck_ecoute for keyword in ["de l'aide", "les commandes"]
-            ):
-                self.set_mode_prompt_off()
-                _ = self.display_help()
-                lire(("état des lieux de la configuration du tchat intéractif"))
-                lire(
-                    (
-                        "je vous lis systématiquement les réponses"
-                        if self.get_ok_to_Read()
-                        else "les réponses ne sont pas lues"
-                    )
-                )
-                lire(
-                    (
-                        "à la fin de votre question ou prompt valide, je vous demande si vous avez terminé"
-                        if self.getValide()
-                        else "dès lors que votre prompte est valide, je déclenche ma réponse."
-                    )
-                )
-                lire(
-                    (
-                        f"un prompt est valide dès lors qu'il contient au moins {str(self.nb_mots)} mots"
-                    )
-                )
+    async def handle_date_command(self):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        lire(self.get_synonymsOf("Nous sommes le " + time.strftime("%Y-%m-%d")))
 
-            if "quel est le mode actuel" in ck_ecoute:
-                self.witch_mode("commandes vocales")
+    async def handle_time_command(self):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        lire(self.get_synonymsOf("il est exactement " + time.strftime("%H:%M:%S", time.localtime())))
 
-            elif "quel jour sommes-nous" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                lire(self.get_synonymsOf("Nous sommes le " + time.strftime("%Y-%m-%d")))
+    async def handle_listening_command(self):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        lire(self.get_synonymsOf(f"oui je suis toujours à l'écoute {self.get_pseudo()}"))
 
-            elif "quelle heure est-il" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                lire(
-                    self.get_synonymsOf(
-                        "il est exactement "
-                        + time.strftime("%H:%M:%S", time.localtime())
-                    )
-                )
+    async def handle_book_command(self):
+        get_stream().stop_stream()
+        self.set_mode_prompt_off()
+        lire("choisissez votre texte d'investigation")
+        book = load_txt(None)
+        question = question_ouverte("quelle est votre question ?")
+        print(f"Question:{question}")
+        _response, _timer = await about_this_book(book, question)
+        lire(_response)
 
-            elif "est-ce que tu m'écoutes" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                lire(
-                    self.get_synonymsOf(
-                        f"oui je suis toujours à l'écoute {self.get_pseudo()}"
-                    )
-                )
+    async def handle_end_session_command(self, multi_line, ck_ecoute):
+        get_stream().stop_stream()
+        self.cut_microphone()
+        return multi_line + " " + ck_ecoute
 
-            elif "lancer une application" in ck_ecoute:
-                self.lancer_application(ck_ecoute)
-
-            # elif "décrire une image" in ck_ecoute:
-            #     get_stream().stop_stream()
-            #     self.set_mode_prompt_off()
-
-            #     image_to_describe = self.get_motcles()[0]
-            #     if image_to_describe.__len__() != 0:
-            #         print(f"ImagePath::{image_to_describe}")
-            #         _response = self.send_prompt(
-            #             "Décris cette image : " + await loadimage(image_to_describe),
-            #             necessite_ai=True,
-            #             needed_groq=True,
-            #         )
-
-            elif any(
-                keyword in ck_ecoute for keyword in ["effacer", "supprimer"]
-            ) and any(
-                keyword in ck_ecoute for keyword in ["conversation", "discussion"]
-            ):
-                self.effacer_discussion(ck_ecoute)
-
-            elif any(
-                keyword in ck_ecoute for keyword in ["conversation", "discussion"]
-            ):
-                self.afficher_conversations(ck_ecoute)
-
-            elif (
-                any(
-                    keyword in ck_ecoute
-                    for keyword in ["les actualités", "les informations"]
-                )
-                and "affiche" in ck_ecoute
-            ):
-                await self.affiche_actualites(ck_ecoute)
-
-            elif " propos d'un livre" in ck_ecoute:
-                get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                lire("choisissez votre texte d'investigation")
-                book = load_txt(None)
-                question = question_ouverte("quelle est votre question ?")
-                print(f"Question:{question}")
-                _response, _timer = await about_this_book(book, question)
-                lire(_response)
-            elif "donne-moi les infos" in ck_ecoute:
-                await self.get_informations()
-
-            elif "faire une recherche web sur " in ck_ecoute:
-                ck_ecoute = await self.recherche_web(ck_ecoute)
-
-            elif any(
-                keyword in ck_ecoute for keyword in ["fin de", "ferme", "termine"]
-            ):
-                if "la session" in ck_ecoute:
-                    # sortie de la boucle des commandes vocales
-                    get_stream().stop_stream()
-
-                    self.cut_microphone()
-                    return multi_line + " " + ck_ecoute
-
-            elif "lis-moi systématiquement tes réponses" in ck_ecoute:
-                # get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                self.set_ok_to_Read(True)
-                lire(C_NOTE)
-
-            elif "arrêtez la lecture systématique des réponses" in ck_ecoute:
-                # get_stream().stop_stream()
-                self.set_mode_prompt_off()
-                self.set_ok_to_Read(False)
-                lire(C_NOTE)
-
-            elif "gérer les préférences" in ck_ecoute:
-                # get_stream().stop_stream()
-                self.gerer_prefs()
-
-            elif "la validation orale" in ck_ecoute:
-                if any(
-                    keyword in ck_ecoute for keyword in ["active", "activer", "activez"]
-                ):
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-                    self.setValide(True)
-                    lire(C_NOTE)
-
-                elif any(
-                    keyword in ck_ecoute
-                    for keyword in ["stopper", "arrêter", "arrêtez"]
-                ):
-                    get_stream().stop_stream()
-                    self.set_mode_prompt_off()
-                    self.setValide(False)
-                    lire(C_NOTE)
-            if self.get_mode_prompt() and ck_ecoute.split().__len__() >= self.nb_mots:
-                multi_line = await self.valider_prompt(multi_line, ck_ecoute)
-
-            try:
-                get_stream().start_stream()
-            except NameError as nerr:
-                print(nerr)
-
-        return multi_line
+    async def handle_validation_command(self, ck_ecoute):
+        if any(keyword in ck_ecoute for keyword in ["active", "activer", "activez"]):
+            get_stream().stop_stream()
+            self.set_mode_prompt_off()
+            self.setValide(True)
+            lire(C_NOTE)
+        elif any(keyword in ck_ecoute for keyword in ["stopper", "arrêter", "arrêtez"]):
+            get_stream().stop_stream()
+            self.set_mode_prompt_off()
+            self.setValide(False)
+            lire(C_NOTE)
 
     async def valider_prompt(self, multi_line, ck_ecoute):
         get_stream().stop_stream()
@@ -1771,15 +1676,20 @@ class FenetrePrincipale(tk.Frame):
 
     async def demander_ai(self) -> Tuple[str, float]:
         """vérifie aussi le texte pour faire des recherches web"""
+        prompt = self.get_submission()
+        if isinstance(prompt, list):
+            prompt = "\n".join(prompt)  # Convertir en liste si c'est une chaîne de caractères
+
         response, timing = await ask_to_ai(
             self.get_client(),
-            self.get_submission(),
+            prompt,
             model_to_use=self.get_model(),
             motcle=self.get_motcles(),
             p_history=self.get_prompts_history(),
         )
 
         return str(response), timing
+
 
     def go_submit(self, _evt):
         self.soumettre()

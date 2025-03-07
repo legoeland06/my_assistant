@@ -26,6 +26,7 @@ import ollama
 from llama_index.llms.ollama import Ollama as Ola
 import markdown
 import requests
+from openai import OpenAI
 from Constants import (
     ANNULE,
     BYEBYE,
@@ -180,7 +181,7 @@ def prepare_to_read(text: str):
         .replace(":", " ")
         .replace("https", " ")
         for line in text.splitlines()
-        if not (line.startswith((DO_NOT_READ, NEPASLIRE, SECRET,"// ")))
+        if not (line.startswith((DO_NOT_READ, NEPASLIRE, SECRET, "// ")))
     ]
 
     diff_lenght = text.splitlines().__len__() - strip_list.__len__()
@@ -407,6 +408,16 @@ def append_response_to_file(file_to_append, readable_ai_response):
 
 
 def append_saved_texte(file_to_append, readable_ai_response):
+    """
+    Appends the given AI response to a text file, along with a timestamp.
+
+    Args:
+        file_to_append (str): The name of the file to which the response will be appended.
+        readable_ai_response (str): The AI response to be saved in the file.
+
+    Returns:
+        None
+    """
     with open(file_to_append + ".txt", "a", encoding="utf-8") as target_file:
         markdown_content = readable_ai_response
         target_file.write(
@@ -756,7 +767,11 @@ def get_groq_ia_list(api_key):
     return sortie
 
 
-async def ask_to_resume(agent_appel, prompt: str, model_to_use):
+async def ask_to_resume(
+    agent_appel=Groq(api_key=GROQ_API_KEY),
+    prompt: str = "bonjour",
+    model_to_use=LLAMA370B,
+):
     if prompt.strip() != str():
         ai_response, _timing = await ask_to_ai(
             agent_appel=agent_appel,
@@ -1026,7 +1041,7 @@ async def generate_response(client, prompt, min: str = "3", max: str = "5"):
 
 
 async def ask_to_ai(
-    agent_appel: Groq | ollama.Client | Ola.__class__,
+    agent_appel: Groq | OpenAI | ollama.Client | Ola.__class__,
     prompt: str,
     model_to_use,
     motcle,
@@ -1041,7 +1056,26 @@ async def ask_to_ai(
         ai_response = gestion_ollama(agent_appel, model_to_use, letexte)
     elif isinstance(agent_appel, Groq):
 
-        ai_response = await gestion_groq(agent_appel, model_to_use, motcle, p_history, letexte, is_ask_to_debride, ok_persistance)
+        ai_response = await gestion_groq(
+            agent_appel,
+            model_to_use,
+            motcle,
+            p_history,
+            letexte,
+            is_ask_to_debride,
+            ok_persistance,
+        )
+
+    elif isinstance(agent_appel, OpenAI):
+        ai_response = await gestion_deepseek(
+            agent_appel,
+            model_to_use,
+            # motcle,
+            # p_history,
+            letexte,
+            # is_ask_to_debride,
+            # ok_persistance,
+        )
 
     elif isinstance(agent_appel, Ola.__class__):
         ai_response = gestion_ola(agent_appel, model_to_use, letexte)
@@ -1052,7 +1086,7 @@ async def ask_to_ai(
         print(ai_response)
         append_response_to_file(
             RESUME_WEB,
-            SEPARATION_MD + prompt + SEPARATION_MD + ai_response,
+            SEPARATION_MD + prompt + SEPARATION_MD + str(ai_response),
         )
         actualise_index_html(
             texte=str(ai_response),
@@ -1061,9 +1095,9 @@ async def ask_to_ai(
             model=model_to_use,
         )
         print(
-            f"[tokens_question:{len(letexte.split())},token_response:{len(ai_response.split())}]"
+            f"[tokens_question:{len(letexte.split())},token_response:{len(str(ai_response).split())}]"
         )
-        print(f"[tokens_total:{len(letexte.split())+len(ai_response.split())}]")
+        print(f"[tokens_total:{len(letexte.split())+len(str(ai_response).split())}]")
 
         return ai_response, timing
 
@@ -1075,18 +1109,47 @@ async def ask_to_ai(
 
         return msg, timing
 
+
+async def gestion_deepseek(
+    agent_appel,
+    model_to_use,
+    # motcle,
+    # p_history,
+    letexte,
+    # is_ask_to_debride,
+    # ok_persistance,
+):
+    response: ChatCompletion = agent_appel.chat.completions.create(
+        model=model_to_use,
+        messages=letexte,
+        # temperature=1,
+        stream=False,
+        # n=1,
+        # function_call="auto",
+        # stop=None,
+        max_tokens=8000,
+        # timeout=10,
+    )
+
+    ai_response = str(response.choices[0].message.content)
+
+    print(f"Modele::{model_to_use}\n*****************\n" + str(response))
+
+    return ai_response
+
+
 def gestion_ola(agent_appel, model_to_use, letexte):
     try:
         llm: Ola = agent_appel(
-                base_url="http://localhost:11434",
-                model=model_to_use,
-                request_timeout=REQUEST_TIMEOUT_DEFAULT,
-                additional_kwargs={
-                    "num_ctx": 2048,
-                    "num_predict": 40,
-                    "keep_alive": -1,
-                },
-            )
+            base_url="http://localhost:11434",
+            model=model_to_use,
+            request_timeout=REQUEST_TIMEOUT_DEFAULT,
+            additional_kwargs={
+                "num_ctx": 2048,
+                "num_predict": 40,
+                "keep_alive": -1,
+            },
+        )
 
         ai_response = str(llm.chat(letexte).message.content)
 
@@ -1095,57 +1158,68 @@ def gestion_ola(agent_appel, model_to_use, letexte):
         messagebox.showerror(f"{msg}")
         logger.exception(msg=msg, exc_info=e)
         logger.error(f"{msg}")
+
     return ai_response
 
-async def gestion_groq(agent_appel, model_to_use, motcle, p_history, letexte, is_ask_to_debride, ok_persistance):
+
+async def gestion_groq(
+    agent_appel,
+    model_to_use,
+    motcle,
+    p_history,
+    letexte,
+    is_ask_to_debride,
+    ok_persistance,
+):
     expertise = (
-            ("\nYou are an expert in : " + str(motcle))
-            if len(str(motcle).strip())
-            else str()
-        )
+        ("\nYou are an expert in : " + str(motcle))
+        if len(str(motcle).strip())
+        else str()
+    )
 
     this_message = [
-            {
-                "role": "system",
-                "content": (
-                    TEXTE_DEBRIDE
-                    if is_ask_to_debride
-                    else (TEXTE_PREPROMPT_GENERAL + expertise)
-                ),
-            },
-            {
-                "role": "assistant",
-                "content": TODAY_WE_ARE
-                + "Use the supplied function_call to assist the user if necessary"
-                + (
-                    # prend tout l'historique des prompts
-                    await ask_to_resume(agent_appel, str(p_history), model_to_use)
-                    if len(str(p_history)) and ok_persistance
-                    else ""
-                ),
-            },
-            {
-                "role": "user",
-                "content": letexte,
-            },
-        ]
+        {
+            "role": "system",
+            "content": (
+                TEXTE_DEBRIDE
+                if is_ask_to_debride
+                else (TEXTE_PREPROMPT_GENERAL + expertise)
+            ),
+        },
+        {
+            "role": "assistant",
+            "content": TODAY_WE_ARE
+            + "Use the supplied function_call to assist the user if necessary"
+            + (
+                # prend tout l'historique des prompts
+                await ask_to_resume(agent_appel, str(p_history), model_to_use)
+                if len(str(p_history)) and ok_persistance
+                else ""
+            ),
+        },
+        {
+            "role": "user",
+            "content": letexte,
+        },
+    ]
 
     return delais_to_re_ask(agent_appel, model_to_use, this_message) or str()
+
 
 def gestion_ollama(agent_appel, model_to_use, letexte):
     try:
         llm: ollama.Client = agent_appel.chat(  # type: ignore
-                model=model_to_use,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": str(letexte),
-                        "num_ctx": 2048,
-                        "num_predict": 40,
-                        "keep_alive": -1,
-                    },
-                ],  # type: ignore
-            )
+            model=model_to_use,
+            messages=[
+                {
+                    "role": "user",
+                    "content": str(letexte),
+                    "num_ctx": 2048,
+                    "num_predict": 40,
+                    "keep_alive": -1,
+                },
+            ],  # type: ignore
+        )
         return str(llm["message"]["content"])  # type: ignore
 
     except ollama.RequestError as requestError:
@@ -1163,7 +1237,7 @@ def delais_to_re_ask(agent_appel, model_to_use, this_message):
             messages=this_message,
             model=model_to_use,
             temperature=1,
-            max_tokens=4060,
+            max_tokens=8000 if model_to_use == "deepseek-chat" else 4060,
             n=1,
             function_call="auto",
             stream=False,
@@ -1172,14 +1246,16 @@ def delais_to_re_ask(agent_appel, model_to_use, this_message):
         )
 
     except Exception:
-        time.sleep(5)
+        time.sleep(1)
         delais_to_re_ask(agent_appel, model_to_use, this_message)
 
     if not llm:
-        time.sleep(5)
+        time.sleep(1)
         delais_to_re_ask(agent_appel, model_to_use, this_message)
     else:
-        return str(llm.choices[0].message.content)  # type: ignore
+        ai_response = str(llm.choices[0].message.content)
+        print(ai_response)
+        return ai_response
 
 
 async def loadimage(path: str) -> str:

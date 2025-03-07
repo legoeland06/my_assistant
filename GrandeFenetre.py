@@ -211,8 +211,8 @@ class GrandeFenetre(tk.Frame):
         self.default_font.configure(size=(self.fontConversation.cget("size") - 2))
         self.btn_font.configure(size=(self.fontConversation.cget("size") - 2))
     
-    def resume_it(self):
-        self.make_resume()
+    async def resume_it(self):
+        await self.make_resume()
 
     async def make_resume(self):
         _ = await ask_to_resume(
