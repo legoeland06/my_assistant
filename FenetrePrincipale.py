@@ -15,6 +15,8 @@ from Constants import (
     LLAMA3,
     CATEGORY_SEPARATOR,
     ZEFONT,
+    IMAGE_PATH,
+    FONT_PATH,
     LLAMA370B,
     DARK2,
     DARK3,
@@ -133,11 +135,11 @@ class FenetrePrincipale(tk.Frame):
         self.timer: float = 0
         self.model_to_use = model_to_use
         self.image: ImageTk.PhotoImage = ImageTk.PhotoImage(
-            Image.open("images/banniere.png").reduce(2)
+            Image.open(f"{IMAGE_PATH}/banniere.png").reduce(2)
         )  # type: ignore
-        self.image_button_diction1 = charge_image("images/oeil1.jpg", 200)
-        self.image_button_diction2 = charge_image("images/oeil2.jpg", 200)
-        self.image_button_diction3 = charge_image("images/oeil3.jpg", 200)
+        self.image_button_diction1 = charge_image(f"{IMAGE_PATH}/oeil1.jpg", 200)
+        self.image_button_diction2 = charge_image(f"{IMAGE_PATH}/oeil2.jpg", 200)
+        self.image_button_diction3 = charge_image(f"{IMAGE_PATH}/oeil3.jpg", 200)
 
         self.image_link = str()
         self.content = str()
@@ -159,7 +161,7 @@ class FenetrePrincipale(tk.Frame):
         self.streaming = get_stream()
         # Mode de développement
         # BYPASS les sélection IHM chronophages en mode dev
-        self.bypass()
+        # self.bypass()
         # après cette invocation l'application est lancée en mode audioChat directement
 
         self.pack(fill="both", expand=False)

@@ -7,6 +7,8 @@ import threading
 import time
 from tkinter import simpledialog
 from word2number import w2n
+# Use any translator you like, in this example GoogleTranslator
+from deep_translator import GoogleTranslator as _translator
 import webbrowser
 import PyPDF2
 from groq import Groq
@@ -518,9 +520,6 @@ def translate_it(
     @param text: desired text to translate, maximum de 500 caractères
     @return: str: translated text
     """
-
-    # Use any translator you like, in this example GoogleTranslator
-    from deep_translator import GoogleTranslator as _translator
 
     if text_to_translate is None:
         return ""
