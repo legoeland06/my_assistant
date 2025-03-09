@@ -5,12 +5,7 @@ import tkinter as tk
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
 from StoppableThread import StoppableThread
-from outils import (
-    create_asyncio_task,
-    lire,
-    term_response,
-)
-
+import outils as ot
 
 def main(prompt=False, min: str = "3", max: str = "3", talk=False):
     """
@@ -22,8 +17,8 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
     if prompt:
         _thread = StoppableThread(
             None,
-            lambda: create_asyncio_task(
-                async_function=term_response(
+            lambda: ot.create_asyncio_task(
+                async_function=ot.term_response(
                     str(prompt),
                     min=min,
                     max=max,
@@ -39,7 +34,7 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
     else:
 
         model_used = cst.LLAMA370B.split(":")[0]
-        lire("Ia sélectionnée :" + model_used)
+        ot.lire("Ia sélectionnée :" + model_used)
         print(
             "ZicChatbotAudio\n"
             + cst.STARS * cst.WIDTH_TERM

@@ -736,7 +736,7 @@ class FenetrePrincipale(tk.Frame):
                 await self.close_application(content_commandes_vocales)
                 return True
         elif any(keyword in check_ecoute for keyword in ["active", "passe"]):
-            await self.handle_active_commands(check_ecoute, content_commandes_vocales)
+            await self.handle_active_commands(check_ecoute, )
         return False
 
     async def close_application(self, content_commandes_vocales):
@@ -748,9 +748,9 @@ class FenetrePrincipale(tk.Frame):
         lire("ok, vous pouvez réactiver l'observeur audio en appuyant sur le bouton casque")
         self.set_thread(None)
 
-    async def handle_active_commands(self, check_ecoute, content_commandes_vocales):
+    async def handle_active_commands(self, check_ecoute):
         if any(keyword in check_ecoute for keyword in ["mode audio", "commandes vocales"]):
-            await self.activate_audio_mode(content_commandes_vocales)
+            await self.activate_audio_mode()
         elif "mode débridé" in check_ecoute:
             self.debride_switch(True)
             lire("mode débridé activé")
@@ -758,7 +758,7 @@ class FenetrePrincipale(tk.Frame):
             self.debride_switch(False)
             lire("mode debridé désactivé")
 
-    async def activate_audio_mode(self, content_commandes_vocales):
+    async def activate_audio_mode(self):
         get_stream().stop_stream()
         self.bouton_commencer_diction.configure(image=self.image_button_diction3)  # type: ignore
         self.entree_prompt_principal.configure(bg=from_rgb_to_tkcolors((DARK3)), fg=from_rgb_to_tkcolors((182, 78, 20)))
@@ -766,7 +766,7 @@ class FenetrePrincipale(tk.Frame):
         lire("pour sortir, dites : fin de la session")
         get_stream().start_stream()
         self.open_microphone()
-        content_commandes_vocales += " " + await self.mode_commandes_vocales()
+        await self.mode_commandes_vocales()
 
     async def mode_commandes_vocales(self):
         multi_line = str()
@@ -789,44 +789,34 @@ class FenetrePrincipale(tk.Frame):
         self.button_quit_mode_vocal.pack(side=tk.BOTTOM, fill="x", expand=True)
 
     async def process_vocal_commands(self, ck_ecoute, multi_line):
-        if "afficher" in ck_ecoute and any(keyword in ck_ecoute for keyword in ["de l'aide", "les commandes"]):
-            await self.handle_help_command()
-        elif "quel est le mode actuel" in ck_ecoute:
-            self.witch_mode("commandes vocales")
-        elif "quel jour sommes-nous" in ck_ecoute:
-            await self.handle_date_command()
-        elif "quelle heure est-il" in ck_ecoute:
-            await self.handle_time_command()
-        elif "est-ce que tu m'écoutes" in ck_ecoute:
-            await self.handle_listening_command()
-        elif "lancer une application" in ck_ecoute:
-            self.lancer_application(ck_ecoute)
-        elif any(keyword in ck_ecoute for keyword in ["effacer", "supprimer"]) and any(keyword in ck_ecoute for keyword in ["conversation", "discussion"]):
-            self.effacer_discussion(ck_ecoute)
-        elif any(keyword in ck_ecoute for keyword in ["conversation", "discussion"]):
-            self.afficher_conversations(ck_ecoute)
-        elif any(keyword in ck_ecoute for keyword in ["les actualités", "les informations"]) and "affiche" in ck_ecoute:
-            await self.affiche_actualites(ck_ecoute)
-        elif " propos d'un livre" in ck_ecoute:
-            await self.handle_book_command()
-        elif "donne-moi les infos" in ck_ecoute:
-            await self.get_informations()
-        elif "faire une recherche web sur " in ck_ecoute:
-            ck_ecoute = await self.recherche_web(ck_ecoute)
-        elif any(keyword in ck_ecoute for keyword in ["fin de", "ferme", "termine"]) and "la session" in ck_ecoute:
-            await self.handle_end_session_command(multi_line, ck_ecoute)
-        elif "lis-moi systématiquement tes réponses" in ck_ecoute:
-            self.set_ok_to_Read(True)
-            lire(C_NOTE)
-        elif "arrêtez la lecture systématique des réponses" in ck_ecoute:
-            self.set_ok_to_Read(False)
-            lire(C_NOTE)
-        elif "gérer les préférences" in ck_ecoute:
-            self.gerer_prefs()
-        elif "la validation orale" in ck_ecoute:
-            await self.handle_validation_command(ck_ecoute)
+        command_handlers = {
+            "afficher de l'aide": self.handle_help_command,
+            "quel est le mode actuel": lambda: self.witch_mode("commandes vocales"),
+            "quel jour sommes-nous": self.handle_date_command,
+            "quelle heure est-il": self.handle_time_command,
+            "est-ce que tu m'écoutes": self.handle_listening_command,
+            "lancer une application": lambda: self.lancer_application(ck_ecoute),
+            "effacer conversation": lambda: self.effacer_discussion(ck_ecoute),
+            "affiche conversation": lambda: self.afficher_conversations(ck_ecoute),
+            "affiche les actualités": lambda: self.affiche_actualites(ck_ecoute),
+            "propos d'un livre": self.handle_book_command,
+            "donne-moi les infos": self.get_informations,
+            "faire une recherche web sur": lambda: self.recherche_web(ck_ecoute),
+            "fin de la session": lambda: self.handle_end_session_command(multi_line, ck_ecoute),
+            "lis-moi systématiquement tes réponses": lambda: self.set_ok_to_Read(True),
+            "arrêtez la lecture systématique des réponses": lambda: self.set_ok_to_Read(False),
+            "gérer les préférences": self.gerer_prefs,
+            "la validation orale": lambda: self.handle_validation_command(ck_ecoute),
+        }
+
+        for command, handler in command_handlers.items():
+            if command in ck_ecoute:
+                handler()
+                break
+
         if self.get_mode_prompt() and len(ck_ecoute.split()) >= self.nb_mots:
             multi_line = await self.valider_prompt(multi_line, ck_ecoute)
+
         try:
             get_stream().start_stream()
         except NameError as nerr:
@@ -951,7 +941,7 @@ class FenetrePrincipale(tk.Frame):
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         ck_ecoute = ck_ecoute.replace(
-                    " faire une recherche web sur", "\nrechercher sur le web : "
+                    " faire une recherche web sur", "\n"
                 )
 
         _websearching = await self.send_prompt(
@@ -1505,6 +1495,8 @@ class FenetrePrincipale(tk.Frame):
 
     def call_display_listbox_actu(self, final_list, mode_audio: bool = False):
         _=self.display_listbox_actus(final_list, mode_audio=mode_audio)
+        return _
+
 
     async def display_listbox_actus(self, final_list, mode_audio: bool = False):
         """

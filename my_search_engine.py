@@ -11,6 +11,9 @@ project_number = sc.PROJECT_NUMBER
 def google_search(search_term, api_key, cse_id, **kwargs):
     service = build("customsearch", "v1", developerKey=api_key)
     res = service.cse().list(q=search_term, cx=cse_id, **kwargs).execute()
+    print(STARS * 10)
+    print(res)
+    print(STARS * 10)
     return res["items"]
 
 

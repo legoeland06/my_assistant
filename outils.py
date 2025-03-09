@@ -7,8 +7,6 @@ import threading
 import time
 from tkinter import simpledialog
 from word2number import w2n
-# Use any translator you like, in this example GoogleTranslator
-from deep_translator import GoogleTranslator as _translator
 import webbrowser
 import PyPDF2
 from groq import Groq
@@ -520,6 +518,9 @@ def translate_it(
     @param text: desired text to translate, maximum de 500 caractères
     @return: str: translated text
     """
+
+    # Use any translator you like, in this example GoogleTranslator
+    from deep_translator import GoogleTranslator as _translator
 
     if text_to_translate is None:
         return ""
@@ -1180,15 +1181,14 @@ async def gestion_groq(
         {
             "role": "system",
             "content": (
-                TEXTE_DEBRIDE
+                (TEXTE_DEBRIDE
                 if is_ask_to_debride
-                else (TEXTE_PREPROMPT_GENERAL + expertise)
+                else (TEXTE_PREPROMPT_GENERAL + expertise)) + "Use the supplied function_call to assist the user if necessary"
             ),
         },
         {
             "role": "assistant",
             "content": TODAY_WE_ARE
-            + "Use the supplied function_call to assist the user if necessary"
             + (
                 # prend tout l'historique des prompts
                 await ask_to_resume(agent_appel, str(p_history), model_to_use)
