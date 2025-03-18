@@ -1,91 +1,88 @@
 # YourAssistant
+Ce projet est une application Python utilisant Tkinter pour créer une interface utilisateur interactive. L'application permet de gérer des conversations, d'afficher des actualités, et d'interagir avec différents modèles d'IA.
 ![capture.png](gr01.png)
+## Structure du Projet
+Le projet est organisé comme suit :
+```
+Article.py
+Constants.py
+Conversation.py
+FenetrePrincipale.py
+FenetreScrollable.py
+GrandeFenetre.py
+my_feedparser_rss.py
+my_grep.py
+my_search_engine.py
+outils.py
+PdfMaker.py
+RechercheArticles.py
+SimpleMarkdownText.py
+StoppableThread.py
+zic_win_chat.py
+```
+
+## Fichiers Principaux
+
+- `FenetrePrincipale.py` : Contient la classe principale `FenetrePrincipale` qui gère l'interface utilisateur et les interactions.
+- `FenetreScrollable.py` : Gère une fenêtre scrollable pour afficher du contenu dynamique.
+- `Conversation.py` : Gère les conversations et les interactions avec les modèles d'IA.
+- `RechercheArticles.py` : Permet de rechercher et d'afficher des articles d'actualité.
+- `StoppableThread.py` : Implémente des threads pouvant être arrêtés proprement.
+
+## Installation
+
+1. Clonez le dépôt :
+    ```sh
+    git clone <URL_DU_DEPOT>
+    ```
+2. Accédez au répertoire du projet :
+    ```sh
+    cd <NOM_DU_REPERTOIRE>
+    ```
+3. Installez les dépendances :
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+## Utilisation
+Pour lancer l'application, exécutez le fichier `zic_win_chat.py` :
+```sh
+python zic_win_chat.py
+```
+
+## Fonctionnalités
+- **Gestion des Conversations** : Permet de gérer des conversations avec des modèles d'IA.
+- **Affichage des Actualités** : Recherche et affiche des articles d'actualité.
+![capture.png](gr03.png)
+- **Mode Audio** : Active les commandes vocales pour interagir avec l'application.
+![capture.png](getnews.png)
+- **Personnalisation** : Permet de personnaliser les préférences utilisateur, comme le pseudo et le nombre de mots minimum pour valider un prompt.
+![capture.png](gr04.png)
 ![capture.png](gr02.png)
 
-**Assistant conversationnel** 
-Gestion de l'historique des conversations sur la session en cours (en RAM)
-![capture.png](gr03.png)
-# Use your local offline AI models
-**using ollama server**
+## Contribution
+Les contributions sont les bienvenues ! Veuillez soumettre une pull request ou ouvrir une issue pour discuter des changements que vous souhaitez apporter.
+![capture.png](functionnalities.png)
 
-![capture.png](capture04.png)
-![capture.png](gr04.png)
+## Licence
+Ce projet est sous licence MIT. Voir le fichier [LICENSE](LICENSE) pour plus de détails.
 
-# Use Groq api for online Ai Models
-like llama-8b-8192, llama-70b-8192
 ![capture.png](enginegroq.png)
 ![capture.png](gr07.png)
 
-
-**Functionalities**
-![capture.png](functionnalities.png)
-![capture.png](getnews.png)
-* **listen**
-
 ![capture](help.png)
 ![capture.png](gr06.png)
-  
-    -> "salut"
-  
-    AI: "bonjour comment allez vous !"
-   
-* **speak**
 ![capture.png](gr05.png)
-
-    -> "Lis moi le contenu de ta dernière recherche"
-  
-    AI: "voici le contenu de ma dernière recherche : ...."
-  
 * **translate** (from *many* fo FR)
-  
-    -> click translate_button
-  
-    AI: texte traduit
-  
-* **_to_audio** (from txt to mp3)
-  
-    -> "transformation vers un fiohier mp3"
-  
-    AI: transformation terminée
-  
-* **loading TXT and PDF files**
-  
-    -> click importer un fichier TXT/PDF
-  
-    AI: "importation terminéee"
-  
-* **systemical prompts**
-  
-    -> click spéciality_button
-  
-  or
-  
-    -> "prépare moi un prompte sur ....."
-  
-  AI: résultat, un prompt prêt à l'emploi sur un LLM
-  
-* **web searching**
-  
-    -> "rechercher sur le web : something"
-  
-    AI : using google-search with an API-KEY
-  
+* **web searching** 
 * **news scrapping from rrs feeds**
-  
-    -> "Afficher les actualités"
-  
-    AI : showing a window with list of actuality's categories
-  
-      the corresponding feed will be got when clicking in the list
-  
+
 **TODO**
 Relier la gestion de l'historique à une base de données.
 Etat des lieux : un résumé des anciennes conversation se lance automatiquement au bout de 15 discussions.
 
-
 # Exemples
 ## DevSecOps
-
 **DevSecOps : une pratique pour sécuriser le développement de logiciels**
 
 DevSecOps est une pratique qui vise à intégrer la sécurité dans chaque étape du processus de développement de logiciels. Cela inclut des outils et des processus qui encouragent la collaboration entre les équipes de développement, de sécurité et d'opérations pour livrer des applications plus sécurisées et plus fiables.
