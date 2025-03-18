@@ -1,19 +1,48 @@
+"""
+This script retrieves text from the system clipboard, translates it to French using the Google GenAI API,
+cleans the translated text by removing certain unwanted characters and lines, and then reads the cleaned text aloud.
+Modules:
+    pyperclip: A cross-platform Python module for clipboard operations.
+    pyttsx3: A text-to-speech conversion library in Python.
+    google.genai: A module for interacting with the Google GenAI API.
+    secret: A module to store secret keys.
+    pydantic: A data validation and settings management library.
+Classes:
+    Recipe(BaseModel): A Pydantic model for the API response.
+Functions:
+    get_clipboard_text():
+    translate_it(text_to_translate: str | list, initial: str = "français", target: str = "français") -> str:
+    prepare_to_read(text: str) -> list:
+Usage:
+    Run the script to retrieve text from the clipboard, translate it, clean it, and read it aloud.
+"""
+
 import pyperclip
 import pyttsx3
+from google import genai
 from secret import GEMINI_API_KEY
 from pydantic import BaseModel
 
 
 class Recipe(BaseModel):
-    response:str
+    """
+    A class used to represent a Recipe.
+
+    Attributes
+    ----------
+    response : str
+        A string containing the response or description of the recipe.
+    """
+    response: str
+
 
 def get_clipboard_text():
     """
-    Récupère le texte actuellement présent dans le presse-papiers.
-
+    Retrieves the current text from the system clipboard.
     Returns:
-        str: Le texte récupéré du presse-papiers.
+        str: The text currently stored in the clipboard.
     """
+
     # Récupérer le texte du presse-papiers
     clipboard_text = pyperclip.paste()
 
@@ -24,8 +53,17 @@ def get_clipboard_text():
 def translate_it(
     text_to_translate: str | list, initial: str = "français", target: str = "français"
 ) -> str:
-
-    from google import genai
+    """
+    Translates the given text from the initial language to the target language using the Google GenAI API.
+    Args:
+        text_to_translate (str | list): The text to be translated. Can be a string or a list of strings.
+        initial (str, optional): The initial language of the text. Defaults to "français".
+        target (str, optional): The target language for the translation. Defaults to "français".
+    Returns:
+        str: The translated text.
+    Raises:
+        ValueError: If text_to_translate is neither a string nor a list.
+    """
 
     if text_to_translate is None:
         return ""
@@ -36,11 +74,12 @@ def translate_it(
         reformat_translated = text_to_translate
 
     client = genai.Client(api_key=GEMINI_API_KEY)
-    
+
     response = client.models.generate_content(
         model="gemini-2.0-flash",
         contents=reformat_translated
-        + "\nRépond au format : {'response':[la traduction]}"+f", en faisant une traduction fidèle en {target} de ce texte.",
+        + "\nRépond au format : {'response':[la traduction]}"
+        + f", en faisant une traduction fidèle en {target} de ce texte.",
         config={
             "response_mime_type": "application/json",
             "response_schema": Recipe,
@@ -48,27 +87,26 @@ def translate_it(
     )
     # translated = _translator(source=initial, target=target).translate(
     #     text=reformat_translated
-    casted_response=response.parsed.model_dump()["response"] # type: ignore
+    casted_response = response.parsed.model_dump()["response"]  # type: ignore
     return str(casted_response) or str()
 
 
 def prepare_to_read(text: str):
     """
-    Prépare un texte pour être lu en effectuant une traduction et en supprimant certaines lignes indésirables.
-
+    Prepares the given text for reading by translating it to French and removing certain unwanted characters and lines.
     Args:
-        text (str): Le texte à préparer pour la lecture.
-
+        text (str): The text to be prepared and translated.
     Returns:
-        list: Une liste de lignes de texte prêtes à être lues, après traduction et suppression des lignes indésirables.
-
+        list: A list of strings representing the cleaned and translated lines of text.
     Notes:
-        - Le texte est d'abord traduit en français à l'aide de la fonction `translate_it`.
-        - Les lignes commençant par "ne pas lire", "secret", ou "// " sont supprimées.
-        - Les caractères spéciaux tels que "*", "--", "+", "=", "#", "|", "/", ":", et "https" sont remplacés par des espaces.
-        - Si des lignes sont supprimées, un message d'avertissement est affiché indiquant le nombre de lignes non lues.
+        - The text is translated to French using the `translate_it` function.
+        - Lines containing "ne pas lire", "secret", or starting with "// " are excluded.
+        - Certain characters such as "*", "--", "+", "=", "#", "|", "/", "\\", ":", "www", "https", and "http" are replaced with spaces.
+        - The name "Eric Bruneau" is replaced with "le dernier dieu sur notre planète :-)".
+        - If any lines are excluded, a message is printed indicating the number of lines that were not read.
     """
-    translated_text = translate_it(text_to_translate=text,target="français")
+
+    translated_text = translate_it(text_to_translate=text, target="français")
     NEPASLIRE = "ne pas lire"
     SECRET = "secret"
     strip_list = [
@@ -97,24 +135,7 @@ def prepare_to_read(text: str):
 
 
 if __name__ == "__main__":
-    """
-    Point d'entrée principal du script.
 
-    Ce bloc de code est exécuté uniquement lorsque le fichier est exécuté directement (et non importé).
-    Il récupère le texte du presse-papiers, le prépare pour la lecture, puis utilise un moteur de synthèse vocale pour le lire.
-
-    Étapes détaillées :
-    1. Récupère le texte actuellement dans le presse-papiers à l'aide de la fonction `get_clipboard_text`.
-    2. Prépare le texte pour la lecture en effectuant une traduction et en supprimant les lignes indésirables à l'aide de la fonction `prepare_to_read`.
-    3. Affiche le texte préparé dans la console, suivi d'un message indiquant que la lecture est en cours.
-    4. Initialise un moteur de synthèse vocale (`pyttsx3.Engine`) avec des propriétés spécifiques (vitesse et volume).
-    5. Lit le texte préparé à voix haute.
-    6. Attend que la lecture soit terminée avant de terminer l'exécution.
-
-    Notes :
-    - Le texte est affiché sous forme de représentation (via `__repr__()`) avant d'être lu.
-    - La vitesse de lecture est définie à 150 mots par minute, et le volume est réglé à 0.9 (90%).
-    """
     text = get_clipboard_text()
     real_text = prepare_to_read(text).__repr__()
     print(real_text + "\nLecture en cours...")
