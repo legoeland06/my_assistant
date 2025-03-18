@@ -811,7 +811,7 @@ class FenetrePrincipale(tk.Frame):
 
         for command, handler in command_handlers.items():
             if command in ck_ecoute:
-                handler()
+                await handler()
                 break
 
         if self.get_mode_prompt() and len(ck_ecoute.split()) >= self.nb_mots:
@@ -941,7 +941,7 @@ class FenetrePrincipale(tk.Frame):
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         ck_ecoute = ck_ecoute.replace(
-                    " faire une recherche web sur", "\n"
+                    " faire une recherche web sur", "\nrechercher sur le web : "
                 )
 
         _websearching = await self.send_prompt(
@@ -1494,7 +1494,7 @@ class FenetrePrincipale(tk.Frame):
         return _sortie
 
     def call_display_listbox_actu(self, final_list, mode_audio: bool = False):
-        _=self.display_listbox_actus(final_list, mode_audio=mode_audio)
+        _= self.display_listbox_actus(final_list, mode_audio=mode_audio)
         return _
 
 
