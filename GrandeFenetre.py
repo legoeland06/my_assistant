@@ -15,7 +15,6 @@ from outils import (
     lire,
     lire_text_from_object,
     load_txt,
-    prepare_to_read,
     reformat_text,
     threads_outils,
 )
@@ -218,9 +217,9 @@ class GrandeFenetre(tk.Frame):
         _ = await ask_to_resume(
             agent_appel=Groq(api_key=GROQ_API_KEY),
             model_to_use=LLAMA370B.split(":")[0],
-            prompt=str(prepare_to_read(self.area_info.get_text())),
+            prompt=self.area_info.get_text(),
         )
-        lire(str(_))
+        lire(_)
 
     def create_pdf(self):
         make_pdf_from_text(

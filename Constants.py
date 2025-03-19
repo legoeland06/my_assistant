@@ -226,10 +226,10 @@ LIENS_CHROME = {
 }
 
 URL_ACTU_GLOBAL_RSS = [
-    {
-        "title": "global_search",
-        "content": f"BRICS{CATEGORY_SEPARATOR}France{CATEGORY_SEPARATOR}AES",
-    },
+    # {
+    #     "title": "global_search",
+    #     "content": f"BRICS{CATEGORY_SEPARATOR}France{CATEGORY_SEPARATOR}AES",
+    # },
     {
         "title": "sciences",
         "content": f"sciences{CATEGORY_SEPARATOR}espace{CATEGORY_SEPARATOR}sante",

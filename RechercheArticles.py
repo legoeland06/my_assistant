@@ -22,7 +22,7 @@ class RechercheArticles:
     def get_instance(self):
         return GrandeFenetre()
 
-    async def insert_content_in_grande_fenetre(
+    def insert_content_in_grande_fenetre(
         self, motcles: str, grande_fenetre: GrandeFenetre
     ):
         """

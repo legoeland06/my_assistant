@@ -1,5 +1,6 @@
 import asyncio
 from asyncio.log import logger
+import lire_text as lt
 import io
 import random
 import subprocess
@@ -104,8 +105,6 @@ def make_resume(text: str) -> str:
         By removing redundant repetitions and events, 
     Make a detailed and organized transcription of the content below:\n"""
         + text
-        + """\n
-NB: Be careful to archive key information as you will need it to continue a smooth conversation."""
     )
 
 
@@ -164,31 +163,31 @@ def attentif(_stream=get_stream(), _engine=get_engine()) -> str:
             )
 
 
-def prepare_to_read(text: str):
-    """
-    Préparation avant lecture.
-    si la ligne commence par do_not_read, elle n'est pas lue"""
-    NEPASLIRE = "ne pas lire"
-    SECRET = "secret"
-    strip_list = [
-        line.replace("*", "")
-        .replace("--", " ")
-        .replace("+", " ")
-        .replace("=", " ")
-        .replace("#", " ")
-        .replace("|", " ")
-        .replace("/", " ")
-        .replace(":", " ")
-        .replace("https", " ")
-        for line in text.splitlines()
-        if not (line.startswith((DO_NOT_READ, NEPASLIRE, SECRET, "// ")))
-    ]
+# def prepare_to_read(text: str):
+#     """
+#     Préparation avant lecture.
+#     si la ligne commence par do_not_read, elle n'est pas lue"""
+#     NEPASLIRE = "ne pas lire"
+#     SECRET = "secret"
+#     strip_list = [
+#         line.replace("*", "")
+#         .replace("--", " ")
+#         .replace("+", " ")
+#         .replace("=", " ")
+#         .replace("#", " ")
+#         .replace("|", " ")
+#         .replace("/", " ")
+#         .replace(":", " ")
+#         .replace("https", " ")
+#         for line in text.splitlines()
+#         if not (line.startswith((DO_NOT_READ, NEPASLIRE, SECRET, "// ")))
+#     ]
 
-    diff_lenght = text.splitlines().__len__() - strip_list.__len__()
-    if strip_list.__len__() != text.splitlines().__len__():
-        print(f"Attention :  {diff_lenght} lignes n'ont pas été lues")
+#     diff_lenght = text.splitlines().__len__() - strip_list.__len__()
+#     if strip_list.__len__() != text.splitlines().__len__():
+#         print(f"Attention :  {diff_lenght} lignes n'ont pas été lues")
 
-    return strip_list
+#     return strip_list
 
 
 def random_je_vous_ecoute() -> str:
@@ -269,41 +268,43 @@ def question_ouverte(
     return question_ouverte(question=question, choix=choix, is_not_understood=True)
 
 
-async def say_txt(alire: str):
-    """
-    lit le texte passé en paramètre
-    """
+# async def say_txt(alire: str):
+#     """
+#     lit le texte passé en paramètre
+#     """
 
-    lecteur = lecteur_init()
-    if not lecteur._inLoop:
-        lecteur.say(alire)
-        lecteur.proxy.runAndWait()
+#     lecteur = lecteur_init()
+#     if not lecteur._inLoop:
+#         lecteur.say(alire)
+#         lecteur.proxy.runAndWait()
 
-    if lecteur._inLoop:
-        lecteur.proxy.stop()
+#     if lecteur._inLoop:
+#         lecteur.proxy.stop()
 
-    return True
+#     return True
 
 
-def lire(text: str):
+def lire(text: str,langue:str="français(FR)"):
 
-    if threading.current_thread().getName().__contains__("veille"):
-        lecteur = pyttsx3.Engine()
-        texte_reformate = "\n".join(prepare_to_read(text))
-        lecteur.say(text=texte_reformate)
-        lecteur.runAndWait()
-    else:
-        the_thread: StoppableThread = StoppableThread(
-            target=lambda: create_asyncio_task(
-                async_function=say_txt("\n".join(prepare_to_read(text)))
-            )
-        )
+    lt.lancer(text=text,langue=langue)
 
-        the_thread.name = "lire_haute_voix_" + str(threading.enumerate().__len__())
-        the_thread.start()
-        threads_outils.append(the_thread)
-        if the_thread.ident and not the_thread.daemon:
-            return True
+    # if threading.current_thread().getName().__contains__("veille"):
+    #     lecteur = pyttsx3.Engine()
+    #     texte_reformate = "\n".join(prepare_to_read(text))
+    #     lecteur.say(text=texte_reformate)
+    #     lecteur.runAndWait()
+    # else:
+    #     the_thread: StoppableThread = StoppableThread(
+    #         target=lambda: create_asyncio_task(
+    #             async_function=say_txt("\n".join(prepare_to_read(text)))
+    #         )
+    #     )
+
+    #     the_thread.name = "lire_haute_voix_" + str(threading.enumerate().__len__())
+    #     the_thread.start()
+    #     threads_outils.append(the_thread)
+    #     if the_thread.ident and not the_thread.daemon:
+    #         return True
 
 
 def from_rgb_to_tkcolors(rgb):
@@ -463,7 +464,7 @@ def get_news_api(subject):
         "GET",
         "https://newsapi.org/v2/everything?q="
         + subject
-        + "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemonde.fr&sortBy=publishedAt&apiKey="
+        + "&searchin=title&domains=amnesty.org,972mag.com,linforme.com,afp.com,reuters.com,thenextweb,courrierinternational.com,lemondeinformatique.fr,lemonde.fr&sortBy=publishedAt&apiKey="
         + NEWS_API_KEY,
     )
 
@@ -567,7 +568,7 @@ def call_article_link(url):
     webbrowser.open_new(url)
 
 
-async def downloadimage(url_or_path: str, taille: int) -> ImageTk.PhotoImage | None:
+def downloadimage(url_or_path: str, taille: int) -> ImageTk.PhotoImage | None:
     try:
         image_bytes = url_or_path
         if "http" in url_or_path:

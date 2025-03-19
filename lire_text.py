@@ -22,6 +22,8 @@ import pyttsx3
 from google import genai
 from secret import GEMINI_API_KEY
 from pydantic import BaseModel
+from colorama import Fore, Style
+import os
 
 
 class Recipe(BaseModel):
@@ -33,6 +35,7 @@ class Recipe(BaseModel):
     response : str
         A string containing the response or description of the recipe.
     """
+
     response: str
 
 
@@ -50,9 +53,7 @@ def get_clipboard_text():
     return clipboard_text
 
 
-def translate_it(
-    text_to_translate: str | list, initial: str = "français", target: str = "français"
-) -> str:
+def translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str:
     """
     Translates the given text from the initial language to the target language using the Google GenAI API.
     Args:
@@ -79,19 +80,17 @@ def translate_it(
         model="gemini-2.0-flash",
         contents=reformat_translated
         + "\nRépond au format : {'response':[la traduction]}"
-        + f", en faisant une traduction fidèle en {target} de ce texte.",
+        + f", en faisant une traduction fidèle [en {target} exclusivement] de ce texte.",
         config={
             "response_mime_type": "application/json",
             "response_schema": Recipe,
         },
     )
-    # translated = _translator(source=initial, target=target).translate(
-    #     text=reformat_translated
     casted_response = response.parsed.model_dump()["response"]  # type: ignore
     return str(casted_response) or str()
 
 
-def prepare_to_read(text: str):
+def prepare_to_read(text: str, target: str):
     """
     Prepares the given text for reading by translating it to French and removing certain unwanted characters and lines.
     Args:
@@ -106,7 +105,6 @@ def prepare_to_read(text: str):
         - If any lines are excluded, a message is printed indicating the number of lines that were not read.
     """
 
-    translated_text = translate_it(text_to_translate=text, target="français")
     NEPASLIRE = "ne pas lire"
     SECRET = "secret"
     strip_list = [
@@ -117,30 +115,40 @@ def prepare_to_read(text: str):
         .replace("#", " ")
         .replace("|", " ")
         .replace("/", " ")
+        .replace("\xa0", "")
         .replace("\\", " ")
         .replace(":", " ")
         .replace("www", " ")
         .replace("https", " ")
-        .replace("Eric Bruneau", "le dernier dieu sur notre planète")
+        # .replace("Eric Bruneau", "le dernier dieu sur notre planète")
         .replace("http", " ")
-        for line in translated_text.splitlines()
+        for line in text.splitlines()
         if not (line.startswith((NEPASLIRE, SECRET, "// ")))
     ]
 
-    diff_lenght = translated_text.splitlines().__len__() - strip_list.__len__()
-    if strip_list.__len__() != translated_text.splitlines().__len__():
-        print(f"Attention :  {diff_lenght} lignes n'ont pas été lues")
+    diff_lenght = text.splitlines().__len__() - strip_list.__len__()
+    if strip_list.__len__() != text.splitlines().__len__():
+        print(f"Attention :  {diff_lenght} lignes n'ont pas été traitées.")
 
-    return strip_list
+    translated_text = translate_it(text_to_translate=strip_list, target=target)
+    return translated_text.splitlines()
 
 
-if __name__ == "__main__":
+def lancer(text: str = str(), langue: str = "français(FR)"):
+    real_text = prepare_to_read(text=text, target=langue)
+    max_long = os.get_terminal_size().columns
+    print(Fore.GREEN  + "*" * max_long + Style.RESET_ALL)
+    for element in real_text:
+        print(Fore.YELLOW +element+Style.RESET_ALL)
+    print(Fore.GREEN + "*"*max_long+"\nLecture en cours..."+ Style.RESET_ALL)
 
-    text = get_clipboard_text()
-    real_text = prepare_to_read(text).__repr__()
-    print(real_text + "\nLecture en cours...")
     lecteur = pyttsx3.Engine()
     lecteur.setProperty("rate", 150)
     lecteur.setProperty("volume", 0.9)
-    lecteur.say(real_text)
+    lecteur.say("".join(real_text))
     lecteur.runAndWait()
+
+
+if __name__ == "__main__":
+    text = get_clipboard_text()
+    lancer(text=text)
