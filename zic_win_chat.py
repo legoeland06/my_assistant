@@ -1,24 +1,47 @@
-# zic_chat.py
+"""
+This script is the entry point for the ZicChatbotAudio application. It can run in two modes:
+1. Terminal mode: If the --prompt argument is provided, the application will run in the terminal,
+    process the prompt, and print the responses in the terminal before exiting.
+2. GUI mode: If the --prompt argument is not provided, the application will launch a GUI window
+    using Tkinter.
+Functions:
+     main(prompt=False, min: str = "3", max: str = "3", talk=False):
+          Entry point of the app. Depending on the prompt argument, it either runs in terminal mode
+          or launches the GUI.
+Usage:
+     Run the script with optional arguments to specify the mode and parameters:
+     -p : the prompt to ask (if provided, runs in terminal mode)
+     -m : the minimum number of steps (default is "3")
+     -x : the maximum number of steps (default is "3")
+     -t : the talker (optional)
+Example:
+     python zic_win_chat.py -p "Hello" -m "2" -x "5" -t "talker_name"
+"""
 from argparse import Namespace
 import tkinter as tk
 
 from FenetrePrincipale import FenetrePrincipale
 import Constants as cst
 from StoppableThread import StoppableThread
-import outils as ot
+from outils import create_asyncio_task, lire, term_response
 
 def main(prompt=False, min: str = "3", max: str = "3", talk=False):
     """
-    ### Entry point of the app ###
-    * **If --prompt is True**, the application work in terminal
-    and responses will be returned and printed in the terminal
-    and exit programme
+    Main function to run the ZicChatbotAudio application.
+    Args:
+        prompt (bool): If True, runs the terminal mode with the given prompt.
+        min (str): Minimum value for the term_response function. Default is "3".
+        max (str): Maximum value for the term_response function. Default is "3".
+        talk (bool): If True, enables talk mode in the term_response function.
+    If `prompt` is True, it starts a terminal mode thread and waits for it to complete.
+    Otherwise, it initializes and runs the graphical user interface for the chatbot.
     """
+
     if prompt:
         _thread = StoppableThread(
             None,
-            lambda: ot.create_asyncio_task(
-                async_function=ot.term_response(
+            lambda: create_asyncio_task(
+                async_function=term_response(
                     str(prompt),
                     min=min,
                     max=max,
@@ -34,7 +57,7 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
     else:
 
         model_used = cst.LLAMA370B.split(":")[0]
-        ot.lire("Ia sélectionnée :" + model_used)
+        lire("Bienvenue dans ZicChatbotAudio\n")
         print(
             "ZicChatbotAudio\n"
             + cst.STARS * cst.WIDTH_TERM

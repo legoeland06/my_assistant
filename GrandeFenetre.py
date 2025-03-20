@@ -124,7 +124,7 @@ class GrandeFenetre(tk.Frame):
             self.frame_of_cnv,
             font=font.Font(size=self.btn_font.cget("size") + 4),
             text="RESUMER",
-            command=self.resume_it,
+            command=lambda:create_asyncio_task(self.resume_it),
             bg=from_rgb_to_tkcolors(LIGHT1),
             fg=from_rgb_to_tkcolors(DARK3),
         )

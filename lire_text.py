@@ -1,22 +1,19 @@
 """
-This script retrieves text from the system clipboard, translates it to French using the Google GenAI API,
-cleans the translated text by removing certain unwanted characters and lines, and then reads the cleaned text aloud.
-Modules:
-    pyperclip: A cross-platform Python module for clipboard operations.
-    pyttsx3: A text-to-speech conversion library in Python.
-    google.genai: A module for interacting with the Google GenAI API.
-    secret: A module to store secret keys.
-    pydantic: A data validation and settings management library.
-Classes:
-    Recipe(BaseModel): A Pydantic model for the API response.
-Functions:
-    get_clipboard_text():
-    translate_it(text_to_translate: str | list, initial: str = "français", target: str = "français") -> str:
-    prepare_to_read(text: str) -> list:
-Usage:
-    Run the script to retrieve text from the clipboard, translate it, clean it, and read it aloud.
-"""
+This module provides functionality to read and translate text from the system clipboard using the Gemini API and text-to-speech synthesis.
 
+Classes:
+    Recipe (BaseModel): A class used to represent a Recipe with a response attribute.
+
+Functions:
+    get_clipboard_text() -> str:
+
+    translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str:
+
+    prepare_to_read(text: str, target: str) -> list:
+
+    lancer(text: str = str(), langue: str = "français(FR)"):
+        Launches the reading of the provided text using text-to-speech synthesis.
+"""
 import pyperclip
 import pyttsx3
 from google import genai
@@ -41,36 +38,32 @@ class Recipe(BaseModel):
 
 def get_clipboard_text():
     """
-    Retrieves the current text from the system clipboard.
+    Retrieves the current text content from the system clipboard.
+
     Returns:
-        str: The text currently stored in the clipboard.
+        str: The text content currently stored in the clipboard.
     """
 
-    # Récupérer le texte du presse-papiers
-    clipboard_text = pyperclip.paste()
-
-    # Retourner le texte récupéré
-    return clipboard_text
+    return pyperclip.paste()
 
 
 def translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str:
     """
-    Translates the given text from the initial language to the target language using the Google GenAI API.
+    Translates the given text to the specified target language using the Gemini API.
     Args:
-        text_to_translate (str | list): The text to be translated. Can be a string or a list of strings.
-        initial (str, optional): The initial language of the text. Defaults to "français".
-        target (str, optional): The target language for the translation. Defaults to "français".
+        text_to_translate (str | list): The text to be translated. It can be a string or a list of strings.
+        target (str): The target language for translation. Default is "FRANCAIS".
     Returns:
         str: The translated text.
     Raises:
-        ValueError: If text_to_translate is neither a string nor a list.
+        Exception: If there is an error with the translation API request.
     """
 
     if text_to_translate is None:
         return ""
 
     if not isinstance(text_to_translate, str) and isinstance(text_to_translate, list):
-        reformat_translated = " ".join(str(x) for x in text_to_translate)
+        reformat_translated = "\n".join(text_to_translate)
     else:
         reformat_translated = text_to_translate
 
@@ -87,22 +80,17 @@ def translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str
         },
     )
     casted_response = response.parsed.model_dump()["response"]  # type: ignore
-    return str(casted_response) or str()
+    return casted_response or str()
 
 
 def prepare_to_read(text: str, target: str):
     """
-    Prepares the given text for reading by translating it to French and removing certain unwanted characters and lines.
+    Prepares the text for reading by removing unwanted characters and lines, and translating it to the target language.
     Args:
-        text (str): The text to be prepared and translated.
+        text (str): The text to be prepared for reading.
+        target (str): The target language for the translation.
     Returns:
-        list: A list of strings representing the cleaned and translated lines of text.
-    Notes:
-        - The text is translated to French using the `translate_it` function.
-        - Lines containing "ne pas lire", "secret", or starting with "// " are excluded.
-        - Certain characters such as "*", "--", "+", "=", "#", "|", "/", "\\", ":", "www", "https", and "http" are replaced with spaces.
-        - The name "Eric Bruneau" is replaced with "le dernier dieu sur notre planète :-)".
-        - If any lines are excluded, a message is printed indicating the number of lines that were not read.
+        list: The cleaned and translated text.
     """
 
     NEPASLIRE = "ne pas lire"
@@ -131,22 +119,34 @@ def prepare_to_read(text: str, target: str):
         print(f"Attention :  {diff_lenght} lignes n'ont pas été traitées.")
 
     translated_text = translate_it(text_to_translate=strip_list, target=target)
-    return translated_text.splitlines()
+    return translated_text.splitlines(keepends=False)
 
 
 def lancer(text: str = str(), langue: str = "français(FR)"):
-    real_text = prepare_to_read(text=text, target=langue)
-    max_long = os.get_terminal_size().columns
-    print(Fore.GREEN  + "*" * max_long + Style.RESET_ALL)
-    for element in real_text:
-        print(Fore.YELLOW +element+Style.RESET_ALL)
-    print(Fore.GREEN + "*"*max_long+"\nLecture en cours..."+ Style.RESET_ALL)
+    """
+    Lance la lecture du texte fourni à l'aide de la synthèse vocale.
+    Args:
+        text (str): Le texte à lire. Par défaut, une chaîne vide.
+        langue (str): La langue cible pour la lecture. Par défaut, "français(FR)".
+    Returns:
+        None
+    """
 
-    lecteur = pyttsx3.Engine()
-    lecteur.setProperty("rate", 150)
-    lecteur.setProperty("volume", 0.9)
-    lecteur.say("".join(real_text))
-    lecteur.runAndWait()
+    _max_long = os.get_terminal_size().columns
+    if not text:
+        return
+
+    _sortie = prepare_to_read(text=text, target=langue)
+    print(Fore.GREEN + "*" * _max_long + Style.RESET_ALL)
+    for element in _sortie:
+        print(Fore.YELLOW + element + Style.RESET_ALL)
+    print(Fore.GREEN + "*" * _max_long + "\nLecture en cours..." + Style.RESET_ALL)
+
+    _voice = pyttsx3.Engine()
+    _voice.setProperty("rate", 150)
+    _voice.setProperty("volume", 0.9)
+    _voice.say("".join(_sortie))
+    _voice.runAndWait()
 
 
 if __name__ == "__main__":

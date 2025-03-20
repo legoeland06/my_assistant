@@ -1,23 +1,26 @@
+"""
+FenetrePrincipale is a class that represents the main window of the application.
+It inherits from tk.Frame and provides various functionalities for managing
+the user interface, handling user inputs, and interacting with AI models.
+"""
+
+import os
 from asyncio.log import logger
 from datetime import datetime
-
-import json
+from secret import GROQ_API_KEY, GEMINI_API_KEY
 import random
 import time
-from tkinter import ALL, filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 from typing import Any, Tuple
 from colorama import Fore
 from groq import Groq
 import ollama
-from openai import ChatCompletion, OpenAI  # type: ignore
-import pyaudio
+from openai import ChatCompletion  # type: ignore
 from Article import Article
 from Constants import (
-    LLAMA3,
     CATEGORY_SEPARATOR,
     ZEFONT,
     IMAGE_PATH,
-    FONT_PATH,
     LLAMA370B,
     DARK2,
     DARK3,
@@ -36,10 +39,10 @@ from Constants import (
     RESPONSE,
     TIMING_COEF,
     YOU_SELECT_VALUE,
+    ResponseList,
 )
 import tkinter.font as tkfont
 import tkinter as tk
-import vosk
 from PIL import Image, ImageTk
 import threading
 
@@ -49,8 +52,9 @@ from GrandeFenetre import GrandeFenetre
 from RechercheArticles import RechercheArticles
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
+from google import genai
+from google.genai import types
 import my_feedparser_rss
-from secret import GROQ_API_KEY
 
 from outils import (
     _traitement_du_texte,
@@ -58,7 +62,6 @@ from outils import (
     attentif,
     get_stream,
     lire_text_from_object,
-    loadimage,
     question_oui_non,
     recup_infos_rss_feed,
     reformat_text,
@@ -89,12 +92,86 @@ from outils import (
     traitement_du_texte,
     translate_it,
 )
-import secret
+
 
 type History = list[Conversation]
 
 
 class FenetrePrincipale(tk.Frame):
+    """
+    FenetrePrincipale is a class that represents the main window of the application.
+    It inherits from tk.Frame and provides various functionalities for managing
+    the user interface, handling user inputs, and interacting with AI models.
+
+    Attributes:
+        master (tk.Tk): The root window of the application.
+        model_to_use (str): The AI model to use.
+        debride (bool): A flag indicating whether the application is in debride mode.
+        history (list): A list to store the history of interactions.
+        calice (list): A list to store the calice data.
+        ai_response (str): The response from the AI.
+        nb_mots (int): The number of words required for a valid prompt.
+        threads (list): A list of threads.
+        valide (bool): A flag indicating whether the prompt validation is enabled.
+        ok_to_Read (bool): A flag indicating whether the AI responses should be read aloud.
+        responses (list): A list to store the responses.
+        submission (str): The current submission content.
+        fenetre_scrollable (FenetreScrollable): The scrollable window.
+        bouton_informations (tk.Button): The button to display information.
+        bouton_active_debride (tk.Button): The button to activate debride mode.
+        bouton_liste_actu (tk.Button): The button to display the list of news.
+        bouton_effacer_historique (tk.Button): The button to clear history.
+        bouton_historique (tk.Button): The button to display history.
+        bouton_lire1 (tk.Button): The button to read the prompt.
+        bouton_traduire_sur_place (tk.Button): The button to translate the prompt.
+        bouton_commencer_diction (tk.Button): The button to start diction.
+        bouton_soumetre (tk.Button): The button to submit the prompt.
+        bouton_save_to_mp3 (tk.Button): The button to save text to mp3.
+        bouton_load_pdf (tk.Button): The button to load a PDF file.
+        bouton_load_txt (tk.Button): The button to load a TXT file.
+        button_keywords (tk.Button): The button to display keywords.
+        grandeFenetre (GrandeFenetre): The large window for displaying information.
+        button_quit_mode_vocal (tk.Button): The button to quit vocal mode.
+    Methods:
+        * **__init__** (self, title: str, model_to_use: str, master): Initializes the FenetrePrincipale class.
+        ---------------------------------------------------------
+        * **all the getters and setters** : for self working attributes
+        ---------------------------------------------------------
+        * **save_to_submission** (self) -> bool: Saves the prompt to submission.
+        * **debride_switch** (self, status): Switches the debride mode.
+        * **delete_all_threads** (self): Deletes all threads.
+        * **soumettre** (self) -> str: Submits the prompt.
+        * **lance_thread_ecoute** (self): Launches the listening thread.
+        * **get_synonymsOf** (self, expression): Gets synonyms of the given expression.
+        * **dialog_ia** (self): Handles the AI dialog.
+        * **mode_commandes_vocales** (self): Handles the vocal commands mode.
+        * **process_vocal_commands** (self, ck_ecoute, multi_line): Processes the vocal commands.
+        * **lancer_application** (self, ck_ecoute): Launches an application.
+        * **command_quit_session** (self): Quits the session.
+        * **get_all_news** (self): Gets all the news.
+        * **display_search_list_results** (self, calice: list): Displays the search list results.
+        * **recup_informations** (self, max_article_a_recup: int = 10): Recovers the information.
+        * **extract_infos** (self, subject, max_article_a_recup: int): Extracts the information.
+        * **save_to_history** (self, fenetre_name: str, question: str, ai_response: str): Saves the conversation to history.
+        * **check_before_read** (self, response_to_read: str): Checks before reading the response.
+        * **delete_last_discussion** (self): Deletes the last discussion.
+        * **delete_history** (self): Deletes the history.
+        * **display_help** (self) -> str: Displays the help window.
+        * **display_listbox_actus** (self, final_list, mode_audio: bool = False): Displays the listbox for news.
+        * **get_audio_news** (self, final_list: list): Gets the audio news.
+        * **lancement_infos** (self, evt): Launches the information retrieval.
+        * **load_and_affiche_txt** (self): Loads and displays a text file.
+        * **load_and_affiche_pdf** (self): Loads and displays a PDF file.
+        * **creer_fenetre** (self, msg_to_write): Creates the main window.
+        * **textwidget_to_mp3** (self): Converts the text widget content to mp3.
+        * **traduit_maintenant** (self): Translates the text.
+        * **demander_actu** (self, evt: tk.Event): Asks for the news.
+        * **lire_commande** (self, evt: tk.Event): Reads the command.
+        * **affiche_ia_list** (self, list_to_check: list): Displays the list of AI models.
+        * **get_prompts_history** (self) -> list: Gets the prompts history.
+        * **supprimer_conversation** (self, evt: tk.Event): Deletes a conversation.
+        * **print_liste_des_conversations** (self): Prints the list of conversations.
+    """
 
     def __init__(
         self,
@@ -103,10 +180,50 @@ class FenetrePrincipale(tk.Frame):
         model_to_use: str,
         master,
     ):
+        """
+        Initialize the main window of the application.
+        Args:
+            title (str): The title of the window.
+            model_to_use (str): The AI model to use.
+            master: The parent widget.
+        Attributes:
+            master: The parent widget.
+            pseudo (str): A placeholder username.
+            debride (bool): A flag for some functionality (default is False).
+            history (list): A list to store history.
+            calice (list): Another list for storing data.
+            searchHystory (list): A list to store search history.
+            title (str): The title of the window.
+            ai_response (str): A string to store AI responses.
+            nb_mots (int): Number of words (default is 4).
+            thread: A placeholder for a thread.
+            threads (list): A list to store threads.
+            valide (bool): A flag for validation (default is True).
+            ok_to_Read (bool): A flag to check if it's okay to read (default is True).
+            prompts_history (list): A list to store prompt history.
+            responses (list): A list to store responses.
+            submission (str): A string to store submissions.
+            fontdict: Font settings for the application.
+            default_font: Default font settings.
+            btn_font: Button font settings.
+            timer (float): A timer (default is 0).
+            model_to_use (str): The AI model to use.
+            image (ImageTk.PhotoImage): An image for the banner.
+            image_button_diction1: An image for a button.
+            image_button_diction2: Another image for a button.
+            image_button_diction3: Another image for a button.
+            image_link (str): A string to store image links.
+            content (str): A string to store content.
+            widgetMotcles (tk.Entry | None): An entry widget for keywords.
+            my_liste (list): A list for storing data.
+            messages (list): A list of messages with roles and content.
+            actual_chat_completion (list): A list for storing chat completions.
+            streaming: A stream object.
+            fenetre_scrollable (FenetreScrollable): A scrollable window.
+        """
         super().__init__(master)
         self.master = master
         self.pseudo = "kiki"
-        self.ia = LLAMA3
         self.debride = False
         self.history = []
         self.calice = []
@@ -128,7 +245,6 @@ class FenetrePrincipale(tk.Frame):
             slant=ZEFONT[2],
             weight=ZEFONT[3],
         )
-        # self.engine_model: vosk.KaldiRecognizer
         self.default_font = tkfont.nametofont("TkDefaultFont")
         self.default_font.configure(size=14)
         self.btn_font = tkfont.nametofont("TkIconFont")
@@ -140,7 +256,7 @@ class FenetrePrincipale(tk.Frame):
         )  # type: ignore
         self.image_button_diction1 = charge_image(f"{IMAGE_PATH}/oeil1.jpg", 200)
         self.image_button_diction2 = charge_image(f"{IMAGE_PATH}/oeil2.jpg", 200)
-        self.image_button_diction3 = charge_image(f"{IMAGE_PATH}/oeil3.jpg", 200)
+        self.image_button_diction3 = charge_image(f"{IMAGE_PATH}/casque1.png", 200)
 
         self.image_link = str()
         self.content = str()
@@ -158,8 +274,8 @@ class FenetrePrincipale(tk.Frame):
             },
         ]
         self.actual_chat_completion = []
-        self.engine_model = get_engine()
         self.streaming = get_stream()
+
         # Mode de développement
         # BYPASS les sélection IHM chronophages en mode dev
         self.bypass()
@@ -181,11 +297,10 @@ class FenetrePrincipale(tk.Frame):
 
     def bypass(self):
         """by pass les sélections dIa et de client"""
-        deepseek_client = OpenAI(
-            api_key=secret.DEEPSEEK_API, base_url="https://api.deepseek.com"
-        )
-        self.set_client(deepseek_client)
-        self.set_model("deepseek-chat")
+
+        clint = Groq(api_key=GROQ_API_KEY)
+        self.set_client(client=clint)
+        self.set_model(LLAMA370B)
         self.lance_thread_ecoute()
 
     def set_debride(self, status: bool):
@@ -209,12 +324,27 @@ class FenetrePrincipale(tk.Frame):
         return self.valide
 
     def getListOfModels(self):
+        """
+        Retrieves a list of model names from the Ollama API.
+
+        Returns:
+            list: A list of model names.
+        """
         return [element["name"] for element in (ollama.list())["models"]]
 
     def get_actual_chat_completion(self) -> list:
         return self.actual_chat_completion
 
     def set_thread(self, thread: StoppableThread | None):
+        """
+        Sets the thread for the current instance.
+
+        Args:
+            thread (StoppableThread | None): The thread to be set. If None, the current thread will be removed from the list of threads.
+
+        Raises:
+            Exception: If there is no thread to remove, an exception will be caught and a message will be printed.
+        """
         self.thread = thread
         if thread is None:
             try:
@@ -241,12 +371,24 @@ class FenetrePrincipale(tk.Frame):
     # ici on pourra pointer sur un model hugginface plus rapide à répondre mais en ligne
     def set_client(self, client: Any):
         self.client = client
-        lire("changement du client : " + str(type(self.client)))
+        # lire("changement du client : " + str(type(self.client)))
 
     def get_client(self) -> Any:
         return self.client
 
     def get_motcles(self) -> list[str]:
+        """
+        Retrieves a list of keywords from the widgetMotcles entry widget.
+
+        This method checks if the widgetMotcles attribute is an instance of
+        tk.Entry and if it contains any text. If both conditions are met, it
+        splits the text into a list of keywords and returns it. Otherwise, it
+        returns an empty list.
+
+        Returns:
+            list[str]: A list of keywords if widgetMotcles is a tk.Entry and
+                   contains text, otherwise an empty list.
+        """
         if (
             isinstance(self.widgetMotcles, tk.Entry)
             and self.widgetMotcles.get().__len__()
@@ -258,10 +400,11 @@ class FenetrePrincipale(tk.Frame):
 
     def get_mode_prompt(self):
         """
-        ## ce booléen spécifie si les mots enregistrés du microphones
-        * FALSE sont une commandes vocale elle doit etre effacée du prompt
-        * TRUE sont un prompt et doivent être maintenues inchangées (initialisée comme telle par defaut)
+        Retrieve the current mode prompt.
+        Returns:
+            str: The current mode prompt.
         """
+
         return self.mode_prompt
 
     def set_mode_prompt_off(self):
@@ -305,15 +448,15 @@ class FenetrePrincipale(tk.Frame):
 
     def set_model(self, name_ia: str) -> bool:
         self.model_to_use = name_ia
-        return True if lire("changement d'ia: " + self.model_to_use) else False
+        return True
 
     def get_model(self) -> str:
         return self.model_to_use
 
-    def get_image(self) -> ImageTk.PhotoImage:  # type: ignore
+    def get_image(self) -> ImageTk.PhotoImage:
         return self.image
 
-    def set_image(self, image: ImageTk.PhotoImage) -> bool:  # type: ignore
+    def set_image(self, image: ImageTk.PhotoImage) -> bool:
         self.image = image
         return True
 
@@ -322,18 +465,33 @@ class FenetrePrincipale(tk.Frame):
     #####################################################################################
 
     # open a windows
-    def affiche_banniere(self, image_banniere: ImageTk.PhotoImage, slogan):  # type: ignore
-        """affiche l'illustration (la bannière) et les boutons de saisie système
-        * bouton quitter
-        * sélection du clien Ola ou ollama...
-        * sélection du modèle d'ia ...."""
+    def affiche_banniere(self, image_banniere: ImageTk.PhotoImage, slogan):
+        """
+        Displays a banner with an image and a slogan on the main window.
+        Args:
+            image_banniere (ImageTk.PhotoImage): The image to be displayed on the banner.
+            slogan (str): The slogan text to be displayed on the banner.
+        This method creates a banner with the following components:
+        - A main frame for the banner.
+        - A sub-frame for buttons.
+        - A canvas to display the banner image.
+        - Several buttons with different functionalities:
+            - Quit button
+            - Groq choice button
+            - Web status button
+            - Enlarge text button
+            - Decrease text button
+            - Information button
+            - Activate debride button
+            - List news button
+            - Deactivate debride button
+        - A label to display the slogan text.
+        """
         # ## PRESENTATION DU GOELAND  ####
         self.canvas_principal_banniere = tk.Frame(
             self, background=from_rgb_to_tkcolors(DARK2), name="cnvs1"
         )
-        # self.canvas_principal_banniere.configure(height=BANNIERE_HEIGHT/2)
         self.canvas_principal_banniere.pack(fill="x", expand=True)
-        # ################################
         self.canvas_buttons_banniere = tk.Frame(
             self.canvas_principal_banniere, name="cnvs2"
         )
@@ -353,7 +511,7 @@ class FenetrePrincipale(tk.Frame):
             self.canvas_buttons_banniere,
             font=self.btn_font,
             relief="flat",
-            text="📴",
+            text=" :: Quit :: ",
             border=0,
             command=self.ask_before_quit,
         )
@@ -363,7 +521,7 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_Groq = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
-            text="🚹",
+            text=" :: IA :: ",
             command=self.groq_choix_ia,
             relief="flat",
             highlightthickness=3,
@@ -372,45 +530,33 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_Groq.configure(foreground="red", background="black")
         self.bouton_Groq.pack(side=tk.LEFT)
 
-        self.info_web_status = tk.Button(
-            self.canvas_buttons_banniere,
-            font=self.btn_font,
-            text="🔘",
-            command=self.groq_choix_ia,
-            relief="flat",
-            highlightthickness=3,
-            highlightcolor="yellow",
-        )
-        self.info_web_status.configure(foreground="grey", background="black")
-        self.info_web_status.pack(side=tk.LEFT)
+        # self.bouton_LargePolice = tk.Button(
+        #     self.canvas_buttons_banniere,
+        #     font=self.btn_font,
+        #     text="+",
+        #     command=self.enlarge,
+        #     relief="flat",
+        #     highlightthickness=3,
+        #     highlightcolor="yellow",
+        # )
+        # self.bouton_LargePolice.configure(foreground="red", background="black")
+        # self.bouton_LargePolice.pack(side=tk.LEFT)
 
-        self.bouton_LargePolice = tk.Button(
-            self.canvas_buttons_banniere,
-            font=self.btn_font,
-            text="+",
-            command=self.enlarge,
-            relief="flat",
-            highlightthickness=3,
-            highlightcolor="yellow",
-        )
-        self.bouton_LargePolice.configure(foreground="red", background="black")
-        self.bouton_LargePolice.pack(side=tk.LEFT)
-
-        self.bouton_DiminuePolice = tk.Button(
-            self.canvas_buttons_banniere,
-            font=self.btn_font,
-            text="-",
-            command=self.diminue,
-            relief="flat",
-            highlightthickness=3,
-            highlightcolor="yellow",
-        )
-        self.bouton_DiminuePolice.configure(foreground="red", background="black")
+        # self.bouton_DiminuePolice = tk.Button(
+        #     self.canvas_buttons_banniere,
+        #     font=self.btn_font,
+        #     text="-",
+        #     command=self.diminue,
+        #     relief="flat",
+        #     highlightthickness=3,
+        #     highlightcolor="yellow",
+        # )
+        # self.bouton_DiminuePolice.configure(foreground="red", background="black")
 
         self.bouton_informations = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
-            text="NEWS",
+            text="  :: NEWS :: ",
             command=self.recup_inf,
             relief="flat",
             highlightthickness=3,
@@ -419,31 +565,32 @@ class FenetrePrincipale(tk.Frame):
         )
         self.bouton_informations.configure(foreground="red", background="black")
 
-        # await self.recup_informations()
         self.bouton_informations.pack(side=tk.LEFT)
 
         self.bouton_active_debride = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
-            text="☢ activate",
+            text=" :: GOD_MODE ::",
             command=lambda: self.debride_switch(True),
             relief="flat",
             highlightthickness=3,
             highlightcolor="yellow",
             activeforeground="white",
         )
-        self.bouton_active_debride.configure(foreground="red", background="black")
+        self.bouton_active_debride.configure(foreground="darkgrey", background="black")
 
         self.bouton_liste_actu = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
-            text="Liste Actu",
-            command=lambda: self.call_display_listbox_actu(
-                [
-                    f"{item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
-                    for item in RULS_RSS
-                ],
-                mode_audio=False,
+            text=" :: LIST_ACTUS ::",
+            command=lambda: create_asyncio_task(
+                self.display_listbox_actus(
+                    [
+                        f"{item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
+                        for item in RULS_RSS
+                    ],
+                    mode_audio=False,
+                )
             ),
             relief="flat",
             highlightthickness=3,
@@ -452,12 +599,10 @@ class FenetrePrincipale(tk.Frame):
         )
         self.bouton_liste_actu.configure(foreground="red", background="black")
 
-        # await self.recup_debriderbouton_activeACTU
-
         self.bouton_desactive_debride = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
-            text="☢ activated",
+            text=" :: GOD_MODE ::",
             command=lambda: self.debride_switch(False),
             relief="flat",
             highlightthickness=3,
@@ -466,13 +611,12 @@ class FenetrePrincipale(tk.Frame):
         )
         self.bouton_desactive_debride.configure(foreground="yellow", background="black")
 
-        # await self.recup_debriderbouton_active_debride()
-        self.bouton_active_debride.pack(side=tk.LEFT)
         self.bouton_liste_actu.pack(side=tk.LEFT)
+        self.bouton_active_debride.pack(side=tk.LEFT)
 
         self.label_slogan = tk.Label(
             self.canvas_buttons_banniere,
-            text=slogan,
+            text=slogan+" :: "+datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
             font=("Trebuchet Bold Italic", 8),
             bg="black",
             border=0,
@@ -489,9 +633,14 @@ class FenetrePrincipale(tk.Frame):
         self.canvas_image_banniere.pack(fill="x", expand=True)
 
     def save_to_submission(self) -> bool:
-        # si une sélection est faite dans le prompt principale,
-        # elle est enregistrée dans la variable <selection>
-        # sinon c'est tout le contenu du prompt qui est enregistré
+        """
+        Saves the current selection or the entire content of the main prompt to the submission.
+        If a selection is made in the main prompt, it is saved to the submission.
+        Otherwise, the entire content of the main prompt is saved.
+        Returns:
+            bool: True if the content was successfully saved, False otherwise.
+        """
+
         _ = self.entree_prompt_principal.get_text()
         if _.__len__():
             self.set_submission(_)
@@ -500,6 +649,17 @@ class FenetrePrincipale(tk.Frame):
         return True
 
     def debride_switch(self, status):
+        """
+        Toggles the debride status and updates the UI accordingly.
+
+        Parameters:
+        status (bool): The new status to set for debride.
+
+        This method sets the debride status using the set_debride method.
+        It then checks the current debride status using the get_debride method.
+        Depending on the debride status, it updates the UI by packing or
+        forgetting the appropriate buttons.
+        """
         self.set_debride(status=status)
         if self.get_debride():
             self.bouton_desactive_debride.pack(side=tk.LEFT)
@@ -509,13 +669,32 @@ class FenetrePrincipale(tk.Frame):
             self.bouton_desactive_debride.pack_forget()
 
     def ask_before_quit(self):
-        # Afficher une boîte de message de confirmation
+        """
+        Display a confirmation message box asking the user if they are sure they want to quit.
+
+        If the user confirms, the `quitter` method is called to quit the application.
+        If the user cancels, a message is printed to the console.
+        """
         if messagebox.askyesno("Confirmation", "Êtes-vous sûr de vouloir quitter ?"):
             self.quitter()
         else:
             print("L'utilisateur a annulé.")
 
     def quitter(self):
+        """
+        Closes the application gracefully.
+
+        This method performs the following actions in order:
+        1. Closes the current stream.
+        2. Outputs a farewell message.
+        3. Deletes all running threads.
+        4. Waits for 2 seconds.
+        5. Destroys the main window.
+        6. Waits for 2 seconds.
+        7. Quits the application.
+        8. Waits for 2 seconds.
+        9. Exits the program with status code 0.
+        """
         get_stream().close()
         lire("au revoir !")
         self.delete_all_threads()
@@ -527,6 +706,17 @@ class FenetrePrincipale(tk.Frame):
         exit(0)
 
     def delete_all_threads(self):
+        """
+        Stops all running threads except the main thread.
+        This method performs the following steps:
+        1. Saves the current state to a submission.
+        2. Iterates through all currently running threads and stops them if they are not the main thread.
+        3. Iterates through the list of threads stored in `self.threads` and stops them if they are instances of `StoppableThread`.
+        4. Iterates through the global `threads_outils` list and stops them if they are instances of `StoppableThread`.
+        5. Prints the names of all threads that are currently running.
+        Note:
+            The `stop` method is assumed to be defined for instances of `StoppableThread`.
+        """
         self.save_to_submission()
         mainthread = threading.main_thread()
         for i in threading.enumerate():
@@ -557,12 +747,42 @@ class FenetrePrincipale(tk.Frame):
         self.default_font.configure(size=(self.btn_font.cget("size") - 2))
 
     def groq_choix_ia(self):
+        """
+        Initializes the Groq client and retrieves a list of available Groq AI models.
+
+        This method performs the following steps:
+        1. Creates an instance of the Groq client using the provided API key.
+        2. Sets the created Groq client to the current instance.
+        3. Retrieves a list of available Groq AI models using the provided API key.
+        4. Displays the list of retrieved Groq AI models.
+
+        Raises:
+            Exception: If there is an error in initializing the Groq client or retrieving the models.
+
+        Returns:
+            None
+        """
         groq_client = Groq(api_key=GROQ_API_KEY)
         self.set_client(groq_client)
         models = get_groq_ia_list(api_key=GROQ_API_KEY)
         self.affiche_ia_list(models)
 
     def soumettre(self) -> str:
+        """
+        Actions:
+            Submits the current submission if it meets the required conditions.
+            This method performs the following steps:
+            1. Saves the current submission.
+            2. Creates and starts a thread to handle the submission asynchronously.
+            3. Checks the length of the submission.
+            4. If the submission is too long (>= 3000 characters), it splits the
+                submission into smaller blocks and processes each block in a separate thread.
+            5. If the submission is within the acceptable length, it processes
+                the submission in a single thread.
+            6. Displays a message if no question is posed.
+        Returns:
+            str: A confirmation message indicating the submission status.
+        """
         if self.save_to_submission():
             this_thread = StoppableThread(
                 target=lambda: create_asyncio_task(async_function=self.asking())
@@ -601,6 +821,18 @@ class FenetrePrincipale(tk.Frame):
         return "Ok c'est soummis"
 
     def lance_thread_ecoute(self):
+        """
+        Launches a new thread to listen for events if no existing thread named "mode_veille" is running.
+        This method performs the following actions:
+        1. Checks if a thread named "mode_veille" is already running. If so, it returns without doing anything.
+        2. Updates the button image to indicate that the listening mode is active.
+        3. Creates and starts a new thread named "mode_veille" that runs the `dialog_ia` asynchronous function.
+        4. Sets the new thread as a daemon thread and starts it.
+        5. Adds the new thread to the `threads_outils` list.
+        6. Prints the details of the new thread for debugging purposes.
+        Returns:
+            None
+        """
         if (
             self.get_thread() is not None
             and self.get_thread().getName() == "mode_veille"
@@ -630,68 +862,34 @@ class FenetrePrincipale(tk.Frame):
         # self.get_thread().join()
 
     def get_synonymsOf(self, expression):
-        prompt = (
-            "en français exclusivement et sous la forme d'une liste non numérotée, donne 20 façons différentes de dire : ("
-            + expression
-            + ") dans le contexte d'un échange verbal, en réponse je ne veux rien d'autre que le résultat du type: phrase_1\nphrase_2\nphrase_3\netc...]"
-        )
-        _ = self.get_client()
-        if isinstance(_, Groq):
+        prompt = f"en français exclusivement et sous la forme d'une liste sans puce, donne 20 façons différentes de dire : \
+                ({expression}) "
+        _ = genai.Client(api_key=GEMINI_API_KEY)
+        if _:
             try:
-                llm: ChatCompletion = _.chat.completions.create(
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                    model=self.get_model(),
-                    temperature=1,
-                    max_tokens=1024,
-                    n=1,
-                    stream=False,
-                    stop=None,
-                    timeout=10,
+                llm = _.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=[prompt],
+                    config={
+                        # 'response_mime_type': 'application/json',
+                        "response_schema": ResponseList,
+                    },
                 )
 
-                ai_response = llm.choices[0].message.content
+                ai_response = llm.parsed.model_dump()[ # type: ignore
+                    "response"
+                ]  # ["content"] # type: ignore
             except Exception as e:
                 messagebox.Message(f"{e}")
                 return expression
-            ai_response_list = str(ai_response).split("\n")
+            ai_response_list = str(ai_response).splitlines()
             return ai_response_list[
-                (round(random.randint(1, 19 * 10) / 10) % (len(ai_response_list) - 1))
+                (
+                    round(random.randint(1, (len(ai_response_list) - 1) * 10) / 10)
+                    % (len(ai_response_list) - 1)
+                )
                 + 1
             ]
-        return expression
-
-    def reformule(self, expression):
-        prompt = "Trouve moi une autre formulation de cette expression: " + expression
-        _ = self.get_client()
-        if isinstance(_, Groq):
-            try:
-                llm: ChatCompletion = _.chat.completions.create(
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                    model=self.get_model(),
-                    temperature=1,
-                    max_tokens=1024,
-                    n=1,
-                    stream=False,
-                    stop=None,
-                    timeout=10,
-                )
-
-                ai_response = llm.choices[0].message.content
-            except Exception as e:
-                messagebox.Message(f"{e}")
-                return expression
-            ai_response_ = str(ai_response)
-            return ai_response_
         return expression
 
     async def dialog_ia(self):
@@ -714,12 +912,19 @@ class FenetrePrincipale(tk.Frame):
     async def mode_veille(self):
         content_commandes_vocales = str()
         self.set_mode_prompt_off()
+        max_long = os.get_terminal_size().columns
         while True:
             if get_stream().is_stopped():
                 get_stream().start_stream()
 
             check_ecoute: str = attentif()
-            print(f"\n{Fore.CYAN}{'*' * 40}\n{check_ecoute}\n{'*' * 40}\n{Fore.RESET}") if check_ecoute else None
+            (
+                print(
+                    f"\n{Fore.CYAN}{'*' * max_long}\n{check_ecoute}\n{'*' * max_long}\n{Fore.RESET}"
+                )
+                if check_ecoute
+                else None
+            )
 
             if await self.handle_check_ecoute(check_ecoute, content_commandes_vocales):
                 break
@@ -776,7 +981,7 @@ class FenetrePrincipale(tk.Frame):
             bg=from_rgb_to_tkcolors((DARK3)), fg=from_rgb_to_tkcolors((182, 78, 20))
         )
         self.bouton_commencer_diction.update()
-        lire("pour sortir, dites : fin de la session")
+        lire("commande effectué, vous êtes en mode audio")
         get_stream().start_stream()
         self.open_microphone()
         await self.mode_commandes_vocales()
@@ -784,10 +989,17 @@ class FenetrePrincipale(tk.Frame):
     async def mode_commandes_vocales(self):
         multi_line = str()
         self.setup_vocal_mode_ui()
+        max_long = os.get_terminal_size().columns
         while not self.micro_is_cut:
             self.set_mode_prompt_on()
             ck_ecoute: str = attentif()
-            print(f"\n{Fore.LIGHTRED_EX}{'*' * 40}\n{ck_ecoute}\n{'*' * 40}\n{Fore.RESET}") if ck_ecoute else None
+            (
+                print(
+                    f"\n{Fore.LIGHTRED_EX}{'*' * max_long}\n{ck_ecoute}\n{'*' * max_long}\n{Fore.RESET}"
+                )
+                if ck_ecoute
+                else None
+            )
             await self.process_vocal_commands(ck_ecoute, multi_line)
         return multi_line
 
@@ -872,16 +1084,12 @@ class FenetrePrincipale(tk.Frame):
     def handle_date_command(self):
         get_stream().stop_stream()
         self.set_mode_prompt_off()
-        lire(self.get_synonymsOf("Nous sommes le " + time.strftime("%Y-%m-%d")))
+        lire("Nous sommes le " + time.strftime("%Y-%m-%d"))
 
     def handle_time_command(self):
         get_stream().stop_stream()
         self.set_mode_prompt_off()
-        lire(
-            self.get_synonymsOf(
-                "il est exactement " + time.strftime("%H:%M:%S", time.localtime())
-            )
-        )
+        lire("il est exactement " + time.strftime("%H:%M:%S", time.localtime()))
 
     def handle_listening_command(self):
         get_stream().stop_stream()
@@ -918,6 +1126,23 @@ class FenetrePrincipale(tk.Frame):
             lire(C_NOTE)
 
     async def valider_prompt(self, multi_line, ck_ecoute):
+        """
+        Validates the prompt based on user input and processes it accordingly.
+        This asynchronous method handles the validation of a prompt, interacts with the user to confirm if they have finished,
+        and processes the input based on the user's response. It also interacts with an AI engine to generate responses.
+        Args:
+            multi_line (str): The current multi-line input from the user.
+            ck_ecoute (str): The current line of input from the user.
+        Returns:
+            str: The updated multi-line input after processing the user's response.
+        Behavior:
+            - Stops the current stream.
+            - If the input is valid, asks the user if they have finished.
+                - If the user cancels, resets the engine and informs the user.
+                - If the user confirms, sends the prompt to the AI engine and processes the response.
+                - If the user continues, appends the current line to the multi-line input and prompts the user to continue.
+            - If the input is not valid, sends the current line to the AI engine and processes the response.
+        """
         get_stream().stop_stream()
 
         if self.getValide():
@@ -954,11 +1179,26 @@ class FenetrePrincipale(tk.Frame):
         return multi_line
 
     def gerer_prefs(self):
+        """
+        Manages user preferences for the application.
+        This method performs the following actions:
+        1. Asks the user for the minimum number of words required to trigger a response.
+           If the user input is invalid, it defaults to 4 words.
+        2. Sets the user's pseudo (username) based on their input.
+        3. Asks the user if they want an oral validation of their prompts.
+        4. Asks the user if they want an oral response to their prompts.
+        5. Sets the validation and oral response preferences based on user input.
+        6. Sets the prompt mode to off.
+        7. Provides a summary of the user's preferences.
+        Returns:
+            None
+        """
         nbmot: int | bool = letters_to_number(
             question_ouverte(
                 "à partir de combien de mots dois je déclencher ma réponse ?",
             )
         )
+
         if not nbmot:
             self.nb_mots = 4
         elif isinstance(nbmot, int):
@@ -983,6 +1223,17 @@ class FenetrePrincipale(tk.Frame):
         )
 
     async def recherche_web(self, ck_ecoute):
+        """
+        Performs a web search based on the provided input.
+        This asynchronous method stops the current stream, disables prompt mode,
+        modifies the input string to indicate a web search, sends the modified
+        input to a prompt handler, and checks the response before returning the
+        modified input.
+        Args:
+            ck_ecoute (str): The input string containing the search query.
+        Returns:
+            str: The modified input string indicating a web search.
+        """
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         ck_ecoute = ck_ecoute.replace(
@@ -996,6 +1247,20 @@ class FenetrePrincipale(tk.Frame):
         return ck_ecoute
 
     async def get_informations(self):
+        """
+        Asynchronously retrieves and processes information based on user input.
+        This method performs the following steps:
+        1. Stops the current stream.
+        2. Sets the mode prompt off.
+        3. Prompts the user to input the number of articles to retrieve.
+        4. Retrieves the articles based on the user's input.
+        5. Asks the user if they want to hear the retrieved information.
+        6. If the user agrees and articles are retrieved, prepares the articles for reading.
+        7. Reads the prepared articles.
+        8. Inserts the article information (title, description, content) into the main prompt.
+        Returns:
+            None
+        """
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         _motcle, articles = await self.recup_informations(
@@ -1013,15 +1278,14 @@ class FenetrePrincipale(tk.Frame):
             and articles.__len__()
         ):
             _prepared: list = [
-                f"Titre:{item.title}\nDescription:{item.description}\nContent:{item.content}" for item in articles
+                f"Titre:{item.title}\nDescription:{item.description}\nContent:{item.content}"
+                for item in articles
             ]
-            _my_prepared = await ask_to_resume(prompt="\n".join(_prepared))
-            lire(_my_prepared)
-            for article in articles:
-                # print(article.title)
-                # print(article.description)
-                # print(article.content)
+            _my_prepared = ask_to_resume(prompt="\n".join(_prepared))
+            if _my_prepared:
+                lire(str(_my_prepared))
 
+            for article in articles:
                 self.entree_prompt_principal.insert_markdown("# " + article.title)
                 self.entree_prompt_principal.insert_markdown(
                     "## " + article.description
@@ -1029,22 +1293,40 @@ class FenetrePrincipale(tk.Frame):
                 self.entree_prompt_principal.insert_markdown(article.content)
 
     async def affiche_actualites(self, ck_ecoute):
+        """
+        Asynchronously displays news based on the provided categories.
+        This method stops the current stream and checks the provided categories
+        to determine which news to display. If "africaines" is in the provided
+        categories, it fetches all African news. Otherwise, it formats and displays
+        a list of news items.
+        Args:
+            ck_ecoute (list): A list of categories to check for news.
+        Returns:
+            None
+        """
         get_stream().stop_stream()
 
-        # if "toutes" in ck_ecoute:
-        #     self.get_all_news()
-        # elif "africaines" in ck_ecoute:
-        #     self.get_all_africa_news()
-        # else:
-        final_list = [
-            f"{n}. {item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
-            for n, item in enumerate(RULS_RSS)
-        ]
-        _c, _t = await self.display_listbox_actus(final_list, mode_audio=True)
+        if "africaines" in ck_ecoute:
+            self.get_all_africa_news()
+        else:
+            final_list = [
+                f"{n}. {item['title']} :: {item['content'].replace(CATEGORY_SEPARATOR,", ")}"
+                for n, item in enumerate(RULS_RSS)
+            ]
+            _c, _t = await self.display_listbox_actus(final_list, mode_audio=True)
 
-        self.set_mode_prompt_off()
+            self.set_mode_prompt_off()
 
     def afficher_conversations(self, ck_ecoute):
+        """
+        Affiche les conversations en fonction du mot-clé fourni.
+        Args:
+            ck_ecoute (str): Le mot-clé pour déterminer quelle conversation afficher.
+        Actions:
+            - Si le mot-clé contient "la liste des" ou "historique", affiche la liste des conversations.
+            - Si le mot-clé contient "la dernière", affiche la dernière conversation.
+            - Si le mot-clé contient "une", affiche une conversation spécifique.
+        """
         if any(keyword in ck_ecoute for keyword in ["la liste des", "historique"]):
             self.affiche_liste()
 
@@ -1055,12 +1337,35 @@ class FenetrePrincipale(tk.Frame):
             self.affiche_une(ck_ecoute)
 
     def affiche_liste(self):
+        """
+        Stops the current stream, sets the mode prompt off, reads a message,
+        and displays the history.
+
+        This method performs the following actions:
+        1. Stops the current audio stream.
+        2. Disables the mode prompt.
+        3. Reads the message "Voici".
+        4. Displays the history.
+
+        Returns:
+            None
+        """
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         lire("Voici")
         self.display_history()
 
     def affiche_derniere(self, ck_ecoute):
+        """
+        Handles the display and actions for the last conversation based on the given command.
+        This method stops the current stream, sets the prompt mode off, and retrieves the last conversation.
+        Depending on the command provided in `ck_ecoute`, it performs different actions:
+        - If "affiche" is in `ck_ecoute`, it displays the conversation in an enlarged window.
+        - If "archive" is in `ck_ecoute`, it creates a PDF of the conversation.
+        - If "lis-moi" or "lis moi" is in `ck_ecoute`, it reads out the content of the last conversation.
+        Args:
+            ck_ecoute (str): The command indicating the action to be performed on the last conversation.
+        """
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         _discussion: Conversation
@@ -1078,6 +1383,17 @@ class FenetrePrincipale(tk.Frame):
             )
 
     def affiche_une(self, ck_ecoute):
+        """
+        Handles the display, archiving, or reading of a specific conversation based on user input.
+        Parameters:
+        ck_ecoute (str): A string containing the command to execute. It can be one of the following:
+                         - "affiche": To display the conversation in an enlarged window.
+                         - "archive": To create a PDF of the conversation.
+                         - "lis-moi", "lis moi", "dis-moi", "dis moi": To read the conversation aloud.
+        The method prompts the user to specify which conversation to act upon, converts the input to a number,
+        and performs the corresponding action if the conversation exists. If the specified conversation number
+        exceeds the number of available conversations, it informs the user and exits the prompt mode.
+        """
         zenumber: int = letters_to_number(
             question_ouverte(
                 "laquelle ?",
@@ -1108,6 +1424,17 @@ class FenetrePrincipale(tk.Frame):
             )
 
     def effacer_discussion(self, ck_ecoute):
+        """
+        Efface les discussions en fonction de l'option spécifiée dans ck_ecoute.
+        Args:
+            ck_ecoute (str): Une chaîne de caractères indiquant quelle discussion effacer.
+                             Les valeurs possibles sont "historique", "la dernière", et "les dernières".
+        Actions:
+            - Si ck_ecoute contient "historique", arrête le flux, désactive le mode prompt et supprime tout l'historique.
+            - Si ck_ecoute contient "la dernière", arrête le flux, désactive le mode prompt et supprime la dernière discussion.
+            - Si ck_ecoute contient "les dernières", arrête le flux, désactive le mode prompt et demande combien de discussions
+              doivent être supprimées, puis supprime ce nombre de dernières discussions.
+        """
         if "historique" in ck_ecoute:
             get_stream().stop_stream()
             self.set_mode_prompt_off()
@@ -1125,6 +1452,22 @@ class FenetrePrincipale(tk.Frame):
                 self.delete_last_discussion()
 
     def lancer_application(self, ck_ecoute):
+        """
+        Launches the application based on the provided keyword.
+
+        This method stops the current stream, sets the prompt mode off, and then
+        checks if any of the specified keywords ("internet", "chrome", "google")
+        are present in the `ck_ecoute` parameter. If a keyword is found, it prompts
+        the user for a search query and launches a Chrome search with the query.
+        Otherwise, it prompts the user for an application name and launches Chrome
+        with the specified application.
+
+        Args:
+            ck_ecoute (str): The keyword to determine the action to be taken.
+
+        Returns:
+            None
+        """
         get_stream().stop_stream()
         self.set_mode_prompt_off()
         if any(keyw in ck_ecoute for keyw in ["internet", "chrome", "google"]):
@@ -1178,6 +1521,7 @@ class FenetrePrincipale(tk.Frame):
             "https://feeds.feedburner.com/LaLettre-fr",
             "https://feeds.feedburner.com/IntelligenceOnline/",
         ]
+        max_long = os.get_terminal_size().columns
         for item in feeds:
             resultat = str()
             feed = my_feedparser_rss.feedparser.parse(item)
@@ -1186,7 +1530,7 @@ class FenetrePrincipale(tk.Frame):
                 resultat += translate_it(str(entry.title)) + "\n"
                 resultat += translate_it(str(entry.description)) + "\n"
 
-            print("\n" + "*" * 40 + "\n" + resultat + "\n" + "*" * 40)
+            print("\n" + "*" * max_long + "\n" + resultat + "\n" + "*" * max_long)
             rubrique.append(resultat)
 
         return rubrique
@@ -1237,6 +1581,20 @@ class FenetrePrincipale(tk.Frame):
         self.display_search_list_results(self.calice)
 
     def display_search_list_results(self, calice: list):
+        """
+        Displays the search list results and allows the user to interact with the list.
+        Args:
+            calice (list): A list of news items to be displayed.
+        Returns:
+            None
+        Behavior:
+            - If the list is empty, the function returns immediately.
+            - Asks the user if they want to see the archived news.
+            - If the user agrees, displays the list of news items in a Listbox.
+            - Allows the user to select an item from the Listbox to read.
+            - Provides an option for the user to read all news items.
+            - If the user declines to see the news, a message is displayed indicating silence.
+        """
         if calice == []:
             return
         if question_oui_non(
@@ -1247,12 +1605,11 @@ class FenetrePrincipale(tk.Frame):
                 w: tk.Listbox = evt.widget
                 idx = w.curselection()
                 print(f"idx={str(idx)}")
-                index = idx[0]
-                value: str = w.get(index)
+                value: str = w.get(idx[0])
 
                 print('You selected item : "%s"' % value)
 
-                lire(calice[index])
+                lire(str(calice[idx[0]]))
 
             _list = [f"{n}:: {element}" for n, element in enumerate(calice)]
             _list_good = [
@@ -1269,26 +1626,47 @@ class FenetrePrincipale(tk.Frame):
                 lire(str(calice[ze_choix]))
             else:
                 if question_oui_non("Voulez vous que je lise tout ? "):
+                    lire("d'accord, je vous lis tout rubrique par rubrique")
                     for element in calice:
                         lire(element)
 
                 else:
                     lire(f"d'accord {self.pseudo}")
-
-                _listbox.master.destroy()
+        else:
+            lire(f"ok, je garde le silence {self.pseudo}")
 
     async def recup_infos(self):
         await self.recup_informations(20)
 
     async def recup_informations(self, max_article_a_recup: int = 10):
         """
-        * récupère les motclés écrits dans motcle_widget sinon,
-        * demande oralement à l'utilisateur de donner un motcle pour la recherche
-        d'actualités
-
+        Asynchronously retrieves information based on specified keywords and inserts articles into the main window.
+        Args:
+            max_article_a_recup (int, optional): The maximum number of articles to retrieve. Defaults to 10.
+        Returns:
+            list or tuple: If keywords are provided, returns a list of articles. If no keywords are provided, returns a tuple containing the keyword and a list of articles.
+        Raises:
+            ValueError: If the keyword format is incorrect.
+        Notes:
+            - If keywords are provided, the function will split each keyword and its associated number of articles to retrieve.
+            - If no keywords are provided, the function will prompt the user for a keyword and retrieve articles based on that keyword.
+            - The retrieved articles are inserted into the main window using a separate thread.
         """
 
         def insert_article_to_grande_fenetre(motcle: str):
+            """
+            Inserts an article into the main window based on the given keyword.
+
+            Args:
+                motcle (str): The keyword to search for articles.
+
+            Raises:
+                TypeError: If `recherche_articles` is not an instance of `RechercheArticles`.
+
+            Side Effects:
+                - Appends `recherche_articles` to `self.searchHystory`.
+                - Creates and starts a new thread to insert content into the main window.
+            """
             if isinstance(recherche_articles, RechercheArticles):
                 self.searchHystory.append(recherche_articles)
                 t = StoppableThread(
@@ -1342,12 +1720,17 @@ class FenetrePrincipale(tk.Frame):
 
     def extract_infos(self, subject, max_article_a_recup: int):
         """
-        * Transforme le texte récupéré en un **objet JSON**
-        * instancie un objet rechercheArticles contenant tous les résultats
-        de l'objet json
-        * Pour chacun des résultats de recherche Valide, instancie un objet article et l'ajoute
-        à la liste des articles de l'objet rechercheArticles
-        * retourne l'objet rechercheArticle actualisé
+        Extracts information from news articles based on the given subject and maximum number of articles to retrieve.
+        Args:
+            subject (str): The subject or topic to search for in the news articles.
+            max_article_a_recup (int): The maximum number of articles to retrieve.
+        Returns:
+            RechercheArticles: An object containing the status, total results, and a list of articles that match the search criteria.
+        Raises:
+            ValueError: If the response status is not 'ok' or if there is an issue with the API response.
+        Notes:
+            - The function filters out articles with titles containing the word "removed".
+            - The function downloads the image associated with each article and resizes it to a width of 600 pixels.
         """
         _responses = get_news_api(subject)
         recherche_articles = RechercheArticles(
@@ -1378,14 +1761,16 @@ class FenetrePrincipale(tk.Frame):
 
     async def save_to_history(self, fenetre_name: str, question: str, ai_response: str):
         """
-        #### crée une sauvegarde des anciens échanges:
-        Lorsque les conversations sont effacées de la fenêtre scrollable,
-        la conversation correspondande est effacée aussi de la liste.
-        ### A partir de (MAX_HISTORY=15) conversations,
-        ### on fait un résumé des anciennes conversations
-        cela permet de gerer la continuite de la conversation avec
-        une certaine profondeur (à la discrétions de l'utilisateur) tout
-        en évitant d'engorger la mémoire et les tokens utilisé
+        Saves the current conversation to the history and manages the history size.
+        This method saves the current conversation (question and AI response) to the history.
+        If the history exceeds a predefined maximum number of conversations (MAX_HISTORY),
+        it summarizes the oldest conversations, clears them from the history, and saves the summary.
+        Args:
+            fenetre_name (str): The name of the window where the conversation took place.
+            question (str): The user's question.
+            ai_response (str): The AI's response to the user's question.
+        Returns:
+            None
         """
         prompt = question[:499] if len(question) >= 500 else question
         _response = ai_response[:499] if len(ai_response) >= 500 else ai_response
@@ -1440,6 +1825,15 @@ class FenetrePrincipale(tk.Frame):
     # bubble aitable make workflow
 
     def recup_inf(self):
+        """
+        Starts a new thread to asynchronously retrieve information.
+        This method creates a new `StoppableThread` that runs an asynchronous task
+        to retrieve information by calling `self.recup_informations(20)`. The thread
+        is named "recup_infos" and is added to the global `threads_outils` list.
+        Note:
+            The `StoppableThread` and `create_asyncio_task` functions, as well as
+            the `threads_outils` list, must be defined elsewhere in the codebase.
+        """
 
         this_thread = StoppableThread(
             target=lambda: create_asyncio_task(
@@ -1449,32 +1843,6 @@ class FenetrePrincipale(tk.Frame):
         this_thread.name = "recup_infos"
         this_thread.start()
         threads_outils.append(this_thread)
-
-    # def attentif(self) -> str:
-    #     """
-    #     ### Méthode d'écoute attentive de ce qu'il se passe dans le micro
-    #     * récupération du resultat et encapsulation dans un objet JSON
-    #     * retourne la partie text de l'objet JSON pour traitement ou un texte VIDE
-    #     """
-    #     while True:
-    #         try:
-    #             data_real_pre_vocal_command = get_stream().read(
-    #                 num_frames=8192, exception_on_overflow=False
-    #             )
-
-    #             if self.get_engine().AcceptWaveform(data_real_pre_vocal_command):
-
-    #                 # récupération du resultat et encapsulation dans un objet JSON
-    #                 # on renvoi la partie text de l'objet JSON
-    #                 return json.loads(self.get_engine().Result())["text"].lower()
-    #         except Exception as e:
-    #             print(f"{e}")
-    #             return (
-    #                 simpledialog.askstring(
-    #                     title="pas de micro", prompt="entrez votre commande"
-    #                 )
-    #                 or str()
-    #             )
 
     def delete_last_discussion(self):
         """
@@ -1497,7 +1865,6 @@ class FenetrePrincipale(tk.Frame):
         affiche une fenetre d'aide
         """
         frame = tk.Toplevel(name="fenetre_aide")
-
         self.help_infos = SimpleMarkdownText(
             master=frame,
             width=len(max(LIST_COMMANDS, key=len)),
@@ -1525,15 +1892,16 @@ class FenetrePrincipale(tk.Frame):
         _sortie = self.help_infos.bind(CLICK_LIST, func=self.lire_commande)
         return _sortie
 
-    def call_display_listbox_actu(self, final_list, mode_audio: bool = False):
-        _ = self.display_listbox_actus(final_list, mode_audio=mode_audio)
-        return _
-
     async def display_listbox_actus(self, final_list, mode_audio: bool = False):
         """
-        ouvre une listbox avec toute les catégories d'informations disponibles à la recherche
-        chaque clic appelle une focntion de recherche de la catégorie en question : demander_actu(),
-        retourn self.get_submission() initialisée auparavant dans demander_actu()
+        Asynchronously displays a list of news items in a Tkinter Listbox widget.
+        Args:
+            final_list (list): A list of news items to display.
+            mode_audio (bool, optional): If True, fetches and plays audio news. Defaults to False.
+        Returns:
+            tuple: A tuple containing the submission result and a text vocal command.
+        Raises:
+            Exception: If there is an issue displaying the list or fetching audio news.
         """
         try:
             frame = tk.Toplevel(name="list_actu")
@@ -1591,6 +1959,30 @@ class FenetrePrincipale(tk.Frame):
         return self.get_submission(), text_vocal_command
 
     async def get_audio_news(self, final_list: list):
+        """
+        Asynchronously retrieves and processes audio news based on user-selected categories.
+        Args:
+            final_list (list): A list of categories to choose from.
+        Returns:
+            None
+        Workflow:
+            1. Appends a cancellation option to the final_list.
+            2. Prompts the user to select a category and converts the response to a number.
+            3. If a valid category is selected:
+                a. Retrieves RSS feed information for the selected category.
+                b. Translates the feed items.
+                c. Announces the number of items to be processed.
+                d. Clears the current list of processed items.
+                e. Iterates through the translated feed items:
+                    i. Sends each item to an AI service for summarization.
+                    ii. Appends the summarized item to the list of processed items.
+                    iii. Pauses briefly between requests.
+                f. Displays the results of the search.
+            4. If no valid category is selected, prompts the user to continue.
+        Note:
+            - Utilizes various helper functions such as `letters_to_number`, `question_ouverte`, `recup_infos_rss_feed`, `translate_it`, `make_resume`, and `lire`.
+            - Uses asynchronous operations and may involve network requests.
+        """
         final_list.append(ANNULE)
         response_rubrique = letters_to_number(
             question_ouverte(
@@ -1631,6 +2023,16 @@ class FenetrePrincipale(tk.Frame):
             return False
 
     def lancement_infos(self, evt):
+        """
+        Handles the event to launch information retrieval in a separate thread.
+
+        This method creates a new `StoppableThread` to run the `demander_actu`
+        coroutine asynchronously. The thread is named "demande_actu" and started
+        immediately. The thread is then appended to the `threads_outils` list.
+
+        Args:
+            evt: The event that triggers the information retrieval.
+        """
         _thread = StoppableThread(
             target=lambda: create_asyncio_task(self.demander_actu(evt))
         )
@@ -1658,8 +2060,13 @@ class FenetrePrincipale(tk.Frame):
         self, content_discussion, necessite_ai: bool, needed_groq: bool
     ) -> str:
         """
-        cette méthode re-travaille le texte entrant selon qu'il doit être requestionné ou non
-        voir le booléen **necessite_ai**
+        Sends a prompt to the AI and processes the response.
+        Args:
+            content_discussion (str): The content of the discussion to be sent.
+            necessite_ai (bool): Flag indicating whether AI response is needed.
+            needed_groq (bool): Flag indicating whether to use Groq AI.
+        Returns:
+            str: The AI response if `necessite_ai` is True, otherwise the original content_discussion.
         """
         self.set_submission(content=content_discussion)
         self.entree_prompt_principal.clear_text()
@@ -1741,6 +2148,15 @@ class FenetrePrincipale(tk.Frame):
         return sortie
 
     async def asking(self) -> str:
+        """
+        Asynchronously sends a prompt to an AI model and processes the response.
+        If the instance is in "debride" mode, it modifies the submission text before sending it to the AI.
+        Sends the prompt to the AI model using the `ask_to_ai` function and processes the response.
+        Args:
+            None
+        Returns:
+            str: The readable response from the AI model.
+        """
         if self.get_debride():
             self.set_submission(" \n en mode débridé \n" + self.get_submission())
 
@@ -1766,6 +2182,18 @@ class FenetrePrincipale(tk.Frame):
         return readable_ai_response
 
     def load_txt(self):
+        """
+        Opens a file dialog to select a text file, reads its content, and inserts the content
+        into the main prompt area in markdown format.
+        This method performs the following steps:
+        1. Opens a file dialog to allow the user to select a text file.
+        2. Reads the content of the selected file.
+        3. Converts the content into a format suitable for markdown insertion.
+        4. Inserts the formatted content into the main prompt area.
+        If an error occurs during any of these steps, an error message is displayed.
+        Raises:
+            Exception: If there is an issue with reading the file or inserting the content.
+        """
         try:
             file_to_read = filedialog.askopenfile(
                 parent=self,
@@ -1802,6 +2230,14 @@ class FenetrePrincipale(tk.Frame):
         self.entree_prompt_principal.clear_text()
 
     def traite_listbox(self, list_to_check: list, name: str = "list_ia") -> tk.Listbox:
+        """
+        Creates a new Toplevel window containing a Listbox widget populated with the provided list.
+        Args:
+            list_to_check (list): The list of items to populate the Listbox with.
+            name (str, optional): The name of the Toplevel window. Defaults to "list_ia".
+        Returns:
+            tk.Listbox: The Listbox widget containing the items from the provided list.
+        """
         frame = tk.Toplevel(name=name)
         frame.grid_location(self.winfo_x() + 150, self.winfo_y() + 130)
         _list_box = tk.Listbox(
@@ -1863,11 +2299,17 @@ class FenetrePrincipale(tk.Frame):
             lecteur.stop()
 
     def affiche_prepromts(self, list_to_check: list):
-        """Diplays premprompts
-        * asking for keywords about this subject
-        * enregistre ces mot-cles dans l'attribut motcle de la classe app.
-        * puis les insère dans <motcles_widget> de la fenetre principal
-        * affiche la listebox avec la liste donnée en paramètre list_to_check
+        """
+        Affiche une boîte de dialogue pour entrer un mot-clé, met à jour les mots-clés de la classe,
+        et affiche une liste d'éléments à vérifier.
+        Args:
+            list_to_check (list): Liste des éléments à afficher dans la Listbox.
+        Fonctionnement:
+        1. Ouvre une boîte de dialogue pour entrer un mot-clé.
+        2. Met à jour l'attribut 'motcles' de la classe avec le mot-clé entré.
+        3. Met à jour le widget tk.Entry avec le mot-clé entré.
+        4. Crée et affiche une Listbox remplie avec les éléments de 'list_to_check'.
+        5. Lie l'événement de sélection d'un item de la Listbox à la fonction 'charge_preprompt'.
         """
         # ouvre une boite dialog et récupère la sortie
         mots_cle = (
@@ -1899,7 +2341,18 @@ class FenetrePrincipale(tk.Frame):
 
     def creer_fenetre(self, msg_to_write):  # type: ignore
         """
-        Méthode de création de la fenetre principale"""
+        Méthode de création de la fenêtre principale.
+        Cette méthode configure et affiche la fenêtre principale de l'application avec divers widgets et boutons.
+        Args:
+            msg_to_write (str): Le message à écrire dans le widget de texte principal.
+        Widgets créés:
+            - Canvas pour l'espace de saisie des prompts.
+            - Frame pour les boutons principaux.
+            - Frame pour le prompt actuel.
+            - SimpleMarkdownText pour l'entrée du prompt principal.
+            - Boutons pour coller depuis le presse-papiers, effacer l'historique, afficher l'historique, lire le texte, traduire, dicter, soumettre, sauvegarder en MP3, charger un PDF, et charger un fichier TXT.
+            - Entry pour les mots-clés.
+        """
 
         # préparation de l'espace de saisie des prompts
 
@@ -2159,6 +2612,26 @@ class FenetrePrincipale(tk.Frame):
         self.entree_prompt_principal.replace(chars=texte, index1=index1, index2=index2)
 
     def traduit_maintenant(self):
+        """
+        Translates the selected text or the entire text from the main prompt entry widget.
+        This method performs the following steps:
+        1. Sets a timer to measure the translation time.
+        2. Retrieves the selected text from the main prompt entry widget.
+        3. If there is selected text:
+            a. Gets the start and end indices of the selected text.
+            b. Processes the selected text.
+            c. If the processed text is a list, translates each element and replaces the selected text with the translated text.
+            d. If the processed text is not a list, translates the text and replaces the selected text with the translated text.
+        4. If there is no selected text:
+            a. Processes the entire text from the main prompt entry widget.
+            b. If the processed text is a list, translates each element and concatenates the results.
+            c. Calculates the translation time.
+            d. Adds the translation result and timing information to the system.
+            e. If the processed text is not a list, translates the text.
+            f. Calculates the translation time.
+            g. Adds the translation result and timing information to the system.
+        5. Announces the end of the translation process.
+        """
         self.set_timer(float(time.perf_counter_ns()))
         translated_text = self.entree_prompt_principal.get_selected()
 
@@ -2220,6 +2693,24 @@ class FenetrePrincipale(tk.Frame):
         lire("fin de la traduction")
 
     def load_selected_model(self, evt: tk.Event):
+        """
+        Handles the event when a model is selected from the Listbox.
+
+        Args:
+            evt (tk.Event): The event object passed by Tkinter when an item is selected.
+
+        Functionality:
+            - Retrieves the selected index and value from the Listbox.
+            - Prints the selected index and value.
+            - Sets the model using the selected value.
+            - Updates the text of a specific Button widget with the selected value.
+            - Calls the `lire` function with the argument "ok".
+            - If an exception occurs, prints an error message indicating no model was selected.
+            - Finally, destroys the widget that currently has focus.
+
+        Raises:
+            Exception: If there is an error in retrieving the selected item or updating the widget.
+        """
         # Note here that Tkinter passes an event object to onselect()
         w: tk.Listbox = evt.widget
         try:
@@ -2237,12 +2728,20 @@ class FenetrePrincipale(tk.Frame):
 
     async def demander_actu(self, evt: tk.Event):
         """
-        **Flux-rss** : Méthode appelée par la listbox des catégories d'actualités.
-        elle va récupérer les flux rss conrrespondants pour les envoyer en questionnement à l'AI
-        via send_prompt()
-
+        Handles the event when an item is selected from the Tkinter Listbox.
+        This asynchronous method retrieves and processes RSS feed information based on the selected item in the Listbox.
+        Args:
+            evt (tk.Event): The event object passed by Tkinter, containing information about the Listbox selection event.
+        Raises:
+            Exception: If there is an issue retrieving or processing the RSS feed information, an error message is displayed, and the exception is logged and re-raised.
+        Workflow:
+            1. Retrieves the selected item's index and value from the Listbox.
+            2. Finds the corresponding RSS feed content based on the selected value.
+            3. Fetches the RSS feed information and processes each item.
+            4. Uses an AI prompt to generate a summary for each RSS feed item.
+            5. Updates the submission with the generated summaries.
+            6. Displays the search results in the UI.
         """
-
         # Note here that Tkinter passes an event object to onselect()
         w: tk.Listbox = evt.widget
         feed_rss = []
@@ -2340,7 +2839,18 @@ class FenetrePrincipale(tk.Frame):
         model,
         submit_func,
     ):
-        """ajouter une conversation"""
+        """
+        Adds a conversation to the UI and history.
+        Args:
+            _timing (float): The timing information for the conversation.
+            agent_appel (Any): The agent making the call.
+            simple_text (str): The simple text input from the user.
+            ai_response (str): The AI's response to the user's input.
+            model (Any): The model to be used for the conversation.
+            submit_func (Callable): The function to be called on submission.
+        Returns:
+            None
+        """
         self.model = model
         fenetre_response: Conversation = Conversation(
             ai_response=ai_response,
@@ -2386,6 +2896,19 @@ class FenetrePrincipale(tk.Frame):
         fenetre_response.affiche_fenetre_agrandie()
 
     def print_liste_des_conversations(self):
+        """
+        Prints a formatted list of conversations.
+
+        This method prints out the conversation history in a formatted manner.
+        It first prints the conversation history obtained from `get_prompts_history()`,
+        displaying the prompt and response for each item. If the prompt or response
+        is too long, it truncates them and adds ellipses.
+
+        It then prints the current responses stored in `self.responses`,
+        retrieving the prompt and response text from each `Conversation` widget.
+
+        The output is divided into sections with asterisks and dashes for readability.
+        """
         print("liste des conversations\n************************************")
         for item in self.get_prompts_history():
             print(

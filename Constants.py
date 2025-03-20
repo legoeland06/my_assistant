@@ -1,6 +1,8 @@
 import subprocess
 import time
 
+from anthropic import BaseModel
+
 class bcolors:
     GREY = '\033[90m'
     HEADER = '\033[95m'
@@ -12,6 +14,18 @@ class bcolors:
     ENDC = '\033[0m'
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
+
+class ResponseList(BaseModel):
+    """
+    A class used to represent a list of responses.
+
+    Attributes
+    ----------
+    responses : List[str]
+        A list of strings containing the responses.
+    """
+
+    responses: list[str]
 
 WIZARDLM2 = "wizardlm2:latest"
 DEEPSEEK_CODER = "deepseek-coder:6.7b"

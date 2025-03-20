@@ -1,10 +1,11 @@
 import asyncio
 from asyncio.log import logger
+
+from colorama import Fore
 import lire_text as lt
 import io
 import random
 import subprocess
-import threading
 import time
 from tkinter import simpledialog
 from word2number import w2n
@@ -32,7 +33,6 @@ from Constants import (
     ANNULE,
     BYEBYE,
     DICT_NUMBERS,
-    DO_NOT_READ,
     FINAL_ANSWER,
     GOOGLECHROME_APP,
     INFOS_PROMPTS,
@@ -54,7 +54,6 @@ from Constants import (
     TODAY_WE_ARE,
     WIDTH_TERM,
 )
-from StoppableThread import StoppableThread
 import my_feedparser_rss
 import my_grep
 import my_search_engine
@@ -65,6 +64,13 @@ threads_outils = []
 
 def charge_vosk_kaldi():
     return vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
+
+
+def lire(text: str, langue: str = "français(FR)"):
+    if text:
+        lt.lancer(text=text, langue=langue)
+    else :
+        return
 
 
 def charge_pyaudio():
@@ -117,9 +123,9 @@ def get_engine() -> vosk.KaldiRecognizer:
         return init_engine
     else:
         # initialise a voice recognizer
-        lire("initialisation du micro")
+        lire("charge du moteur de reconnaissance vocale...")
         rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
-        lire("micro initialisé")
+        lire("moteur initialisé")
         # set verbosity of vosk to NO-VERBOSE
         vosk.SetLogLevel(-1)
         # Initialize the model and return an instance
@@ -161,33 +167,6 @@ def attentif(_stream=get_stream(), _engine=get_engine()) -> str:
                 )
                 or str()
             )
-
-
-# def prepare_to_read(text: str):
-#     """
-#     Préparation avant lecture.
-#     si la ligne commence par do_not_read, elle n'est pas lue"""
-#     NEPASLIRE = "ne pas lire"
-#     SECRET = "secret"
-#     strip_list = [
-#         line.replace("*", "")
-#         .replace("--", " ")
-#         .replace("+", " ")
-#         .replace("=", " ")
-#         .replace("#", " ")
-#         .replace("|", " ")
-#         .replace("/", " ")
-#         .replace(":", " ")
-#         .replace("https", " ")
-#         for line in text.splitlines()
-#         if not (line.startswith((DO_NOT_READ, NEPASLIRE, SECRET, "// ")))
-#     ]
-
-#     diff_lenght = text.splitlines().__len__() - strip_list.__len__()
-#     if strip_list.__len__() != text.splitlines().__len__():
-#         print(f"Attention :  {diff_lenght} lignes n'ont pas été lues")
-
-#     return strip_list
 
 
 def random_je_vous_ecoute() -> str:
@@ -232,7 +211,7 @@ def question_oui_non_annule(question: str) -> bool | str:
 
 def question_oui_non(question: str) -> bool:
     result = question_ouverte(question=question, choix=[OUI, NON])
-    return True if result == OUI else False
+    return True if OUI in result else False
 
 
 def question_ouverte(
@@ -266,45 +245,6 @@ def question_ouverte(
                 lire("je n'ai pas compris votre réponse, ma question était: ")
                 break
     return question_ouverte(question=question, choix=choix, is_not_understood=True)
-
-
-# async def say_txt(alire: str):
-#     """
-#     lit le texte passé en paramètre
-#     """
-
-#     lecteur = lecteur_init()
-#     if not lecteur._inLoop:
-#         lecteur.say(alire)
-#         lecteur.proxy.runAndWait()
-
-#     if lecteur._inLoop:
-#         lecteur.proxy.stop()
-
-#     return True
-
-
-def lire(text: str,langue:str="français(FR)"):
-
-    lt.lancer(text=text,langue=langue)
-
-    # if threading.current_thread().getName().__contains__("veille"):
-    #     lecteur = pyttsx3.Engine()
-    #     texte_reformate = "\n".join(prepare_to_read(text))
-    #     lecteur.say(text=texte_reformate)
-    #     lecteur.runAndWait()
-    # else:
-    #     the_thread: StoppableThread = StoppableThread(
-    #         target=lambda: create_asyncio_task(
-    #             async_function=say_txt("\n".join(prepare_to_read(text)))
-    #         )
-    #     )
-
-    #     the_thread.name = "lire_haute_voix_" + str(threading.enumerate().__len__())
-    #     the_thread.start()
-    #     threads_outils.append(the_thread)
-    #     if the_thread.ident and not the_thread.daemon:
-    #         return True
 
 
 def from_rgb_to_tkcolors(rgb):
@@ -341,7 +281,7 @@ def load_txt(parent) -> str:
             print(file_to_read.name)
 
             resultat_txt = read_text_file(file_to_read.name)
-            # lire_haute_voix("Fin de l'extraction")
+            lire("Fin de l'extraction")
 
             # on prepare le text pour le présenter à la méthode insert_markdown
             # qui demande un texte fait de lignes séparées par des \n
@@ -510,9 +450,7 @@ def reformat_text(text: str, n: int) -> list[str]:
     return reservoir
 
 
-def translate_it(
-    text_to_translate: str | list, initial: str = "auto", target: str = "fr"
-) -> str:
+def translate_it(text_to_translate: str | list, target: str = "fr") -> str:
     """
     traduit le text reçu par maximum de 500 caractères. Si le text est une liste,
     on la traduit une à une str
@@ -520,22 +458,7 @@ def translate_it(
     @return: str: translated text
     """
 
-    # Use any translator you like, in this example GoogleTranslator
-    from deep_translator import GoogleTranslator as _translator
-
-    if text_to_translate is None:
-        return ""
-
-    if not isinstance(text_to_translate, str) and isinstance(text_to_translate, list):
-        reformat_translated = " ".join(str(x) for x in text_to_translate)
-    else:
-        reformat_translated = text_to_translate
-
-    translated = _translator(source=initial, target=target).translate(
-        text=reformat_translated
-    )  # output -> Weiter so, du bist großartig
-
-    return translated
+    return lt.translate_it(text_to_translate=text_to_translate, target=target)
 
 
 def actualise_index_html(texte: str, question: str, timing: float, model: str):
@@ -789,7 +712,7 @@ async def ask_to_resume(
 
 def letters_to_number(letters: str, lang: str = "fr") -> int | bool:
     try:
-        result = w2n.word_to_num(translate_it(letters, initial=lang, target="en"))
+        result = w2n.word_to_num(translate_it(letters, target="en"))
         return int(result)
     except Exception as _e:
         return False
@@ -1182,9 +1105,12 @@ async def gestion_groq(
         {
             "role": "system",
             "content": (
-                (TEXTE_DEBRIDE
-                if is_ask_to_debride
-                else (TEXTE_PREPROMPT_GENERAL + expertise)) + "Use the supplied function_call to assist the user if necessary"
+                (
+                    TEXTE_DEBRIDE
+                    if is_ask_to_debride
+                    else (TEXTE_PREPROMPT_GENERAL + expertise)
+                )
+                + "Use the supplied function_call to assist the user if necessary"
             ),
         },
         {
@@ -1246,11 +1172,11 @@ def delais_to_re_ask(agent_appel, model_to_use, this_message):
         )
 
     except Exception:
-        time.sleep(1)
-        delais_to_re_ask(agent_appel, model_to_use, this_message)
+        # time.sleep(1)
+        print("retrying...")
 
     if not llm:
-        time.sleep(1)
+        time.sleep(2)
         delais_to_re_ask(agent_appel, model_to_use, this_message)
     else:
         ai_response = str(llm.choices[0].message.content)

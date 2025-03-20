@@ -2,9 +2,9 @@ from Article import Article
 from Constants import DO_NOT_READ, LIGHT2
 from GrandeFenetre import GrandeFenetre
 import tkinter as tk
-from PIL import Image, ImageTk
+from PIL import  ImageTk
 
-from outils import call_article_link, from_rgb_to_tkcolors, reformat_text, translate_it
+from outils import call_article_link, from_rgb_to_tkcolors,  translate_it
 
 
 class RechercheArticles:
@@ -33,7 +33,7 @@ class RechercheArticles:
         _a.insert_markdown(mkd_text=(f"# Actus: {motcles}"))
         for n, article in enumerate(self.articles):
             _a.tag_bind(
-                "hyperlink", "<Button-1>", lambda e: call_article_link(article.url)
+                "hyperlink", "<Button-1>", lambda e, article=article: call_article_link(article.url)
             )
             _a.insert(tk.END, f"{DO_NOT_READ} Visitez :: {article.url[:30]}...", "hyperlink")
             _a.insert_markdown(f"\n## :: {n+1} :: {translate_it(article.title)}\n")
