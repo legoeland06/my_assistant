@@ -7,13 +7,14 @@ Classes:
 Functions:
     get_clipboard_text() -> str:
 
-    translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str:
+    translate_it(text_to_translate: str | list, target: str = "français(FR)") -> str:
 
     prepare_to_read(text: str, target: str) -> list:
 
     lancer(text: str = str(), langue: str = "français(FR)"):
         Launches the reading of the provided text using text-to-speech synthesis.
 """
+
 import pyperclip
 import pyttsx3
 from google import genai
@@ -47,30 +48,35 @@ def get_clipboard_text():
     return pyperclip.paste()
 
 
-def translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str:
+def translate_it(
+    text_to_translate: str | list[str], target: str = "français(FR)"
+) -> str:
     """
     Translates the given text to the specified target language using the Gemini API.
     Args:
         text_to_translate (str | list): The text to be translated. It can be a string or a list of strings.
-        target (str): The target language for translation. Default is "FRANCAIS".
+        target (str): The target language for translation. Default is "français(FR)".
     Returns:
         str: The translated text.
     Raises:
         Exception: If there is an error with the translation API request.
     """
+    if isinstance(text_to_translate,list) and text_to_translate.__len__() == 0:
+        return str()
 
-    if text_to_translate is None:
-        return ""
+    if isinstance(text_to_translate,str) and text_to_translate.strip().__len__() == 0:
+        return str()
 
-    if not isinstance(text_to_translate, str) and isinstance(text_to_translate, list):
-        reformat_translated = "\n".join(text_to_translate)
-    else:
-        reformat_translated = text_to_translate
+    reformat_translated = (
+        nettoyer_texte(text_to_translate)
+        if isinstance(text_to_translate, str)
+        else nettoyer_texte("\n".join(text_to_translate))
+    )
 
     client = genai.Client(api_key=GEMINI_API_KEY)
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model="gemini-1.5-flash",
         contents=reformat_translated
         + "\nRépond au format : {'response':[la traduction]}"
         + f", en faisant une traduction fidèle [en {target} exclusivement] de ce texte.",
@@ -82,6 +88,16 @@ def translate_it(text_to_translate: str | list, target: str = "FRANCAIS") -> str
     casted_response = response.parsed.model_dump()["response"]  # type: ignore
     return casted_response or str()
 
+def nettoyer_texte(text: str):
+    """
+    Nettoie le texte en supprimant les caractères indésirables et les lignes vides.
+    Args:
+        text (str): Le texte à nettoyer.
+    Returns:
+        list: Le texte nettoyé.
+    """
+    _ =text.replace("*", " ").replace("--", " ").replace("+", " ").replace("=", " ").replace("#", " ").replace("|", " ").replace("/", " ").replace("\xa0", "").replace("\\", " ").replace(":", " ").replace("www", " ").replace("https", " ").replace("http", " ")
+    return _
 
 def prepare_to_read(text: str, target: str):
     """
@@ -96,21 +112,7 @@ def prepare_to_read(text: str, target: str):
     NEPASLIRE = "ne pas lire"
     SECRET = "secret"
     strip_list = [
-        line.replace("*", " ")
-        .replace("--", " ")
-        .replace("+", " ")
-        .replace("=", " ")
-        .replace("#", " ")
-        .replace("|", " ")
-        .replace("/", " ")
-        .replace("\xa0", "")
-        .replace("\\", " ")
-        .replace(":", " ")
-        .replace("www", " ")
-        .replace("https", " ")
-        # .replace("Eric Bruneau", "le dernier dieu sur notre planète")
-        .replace("http", " ")
-        for line in text.splitlines()
+        line for line in text.splitlines()
         if not (line.startswith((NEPASLIRE, SECRET, "// ")))
     ]
 
@@ -118,8 +120,13 @@ def prepare_to_read(text: str, target: str):
     if strip_list.__len__() != text.splitlines().__len__():
         print(f"Attention :  {diff_lenght} lignes n'ont pas été traitées.")
 
+    # on supprime les lignes vides
+    strip_list = [line for line in strip_list if line.strip()]
     translated_text = translate_it(text_to_translate=strip_list, target=target)
-    return translated_text.splitlines(keepends=False)
+    if translated_text == str():
+        return translated_text
+    else:
+        return translated_text.splitlines(keepends=False)
 
 
 def lancer(text: str = str(), langue: str = "français(FR)"):
@@ -131,16 +138,20 @@ def lancer(text: str = str(), langue: str = "français(FR)"):
     Returns:
         None
     """
-
     _max_long = os.get_terminal_size().columns
+
     if not text:
         return
-
     _sortie = prepare_to_read(text=text, target=langue)
-    print(Fore.GREEN + "*" * _max_long + Style.RESET_ALL)
+    if _sortie.__len__() == 0:
+        print(Fore.RED + "prepare_to_read() : pas de texte à lire" + Style.RESET_ALL)
+        return
+
+    # illustration du texte à lire
+    print(Fore.GREEN +"Lecture en cours...\n"+ "*" * _max_long + Style.RESET_ALL)
     for element in _sortie:
         print(Fore.YELLOW + element + Style.RESET_ALL)
-    print(Fore.GREEN + "*" * _max_long + "\nLecture en cours..." + Style.RESET_ALL)
+    print(Fore.GREEN + "*" * _max_long + "\n" + Style.RESET_ALL)
 
     _voice = pyttsx3.Engine()
     _voice.setProperty("rate", 150)

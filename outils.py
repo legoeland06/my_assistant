@@ -69,7 +69,7 @@ def charge_vosk_kaldi():
 def lire(text: str, langue: str = "français(FR)"):
     if text:
         lt.lancer(text=text, langue=langue)
-    else :
+    else:
         return
 
 
@@ -718,7 +718,7 @@ def letters_to_number(letters: str, lang: str = "fr") -> int | bool:
         return False
 
 
-def websearching(term: str):
+async def websearching(term: str):
     """
     ### make a litle web-search
 
@@ -740,7 +740,7 @@ def websearching(term: str):
     # on execute cette recherche sur le web
     # avec l'agent de recherche search.main()
     lire("recherche web " + term.split(" : ")[1])
-    search_results: list = my_search_engine.main(expression_found)
+    search_results: list = await my_search_engine.main(expression_found)
 
     goodlist = "\n".join(
         [
@@ -768,7 +768,7 @@ async def check_content(
     for line in [line for line in content.splitlines() if line.strip()]:
         # si on a trouvé la phrase << rechercher sur le web : >>
         if "rechercher sur le web : " in line:
-            goodlist = websearching(line)
+            goodlist = await websearching(line)
 
             # PAS SUR DE l'UTILITE
             super_result, _ = await ask_to_ai(
@@ -994,11 +994,7 @@ async def ask_to_ai(
         ai_response = await gestion_deepseek(
             agent_appel,
             model_to_use,
-            # motcle,
-            # p_history,
             letexte,
-            # is_ask_to_debride,
-            # ok_persistance,
         )
 
     elif isinstance(agent_appel, Ola.__class__):
@@ -1037,22 +1033,13 @@ async def ask_to_ai(
 async def gestion_deepseek(
     agent_appel,
     model_to_use,
-    # motcle,
-    # p_history,
     letexte,
-    # is_ask_to_debride,
-    # ok_persistance,
 ):
     response: ChatCompletion = agent_appel.chat.completions.create(
         model=model_to_use,
         messages=letexte,
-        # temperature=1,
         stream=False,
-        # n=1,
-        # function_call="auto",
-        # stop=None,
         max_tokens=8000,
-        # timeout=10,
     )
 
     ai_response = str(response.choices[0].message.content)
@@ -1172,7 +1159,6 @@ def delais_to_re_ask(agent_appel, model_to_use, this_message):
         )
 
     except Exception:
-        # time.sleep(1)
         print("retrying...")
 
     if not llm:

@@ -18,6 +18,7 @@ Example:
      python zic_win_chat.py -p "Hello" -m "2" -x "5" -t "talker_name"
 """
 from argparse import Namespace
+import os
 import tkinter as tk
 
 from FenetrePrincipale import FenetrePrincipale
@@ -36,7 +37,7 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
     If `prompt` is True, it starts a terminal mode thread and waits for it to complete.
     Otherwise, it initializes and runs the graphical user interface for the chatbot.
     """
-
+    max_largeur = os.get_terminal_size().columns
     if prompt:
         _thread = StoppableThread(
             None,
@@ -60,9 +61,9 @@ def main(prompt=False, min: str = "3", max: str = "3", talk=False):
         lire("Bienvenue dans ZicChatbotAudio\n")
         print(
             "ZicChatbotAudio\n"
-            + cst.STARS * cst.WIDTH_TERM
+            + cst.STARS * max_largeur
             + "\nChargement... Veuillez patienter\n"
-            + cst.STARS * cst.WIDTH_TERM
+            + cst.STARS * max_largeur
         )
 
         root = tk.Tk(className="YourAssistant")

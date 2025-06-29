@@ -15,7 +15,6 @@ from typing import Any, Tuple
 from colorama import Fore
 from groq import Groq
 import ollama
-from openai import ChatCompletion  # type: ignore
 from Article import Article
 from Constants import (
     CATEGORY_SEPARATOR,
@@ -53,7 +52,6 @@ from RechercheArticles import RechercheArticles
 from SimpleMarkdownText import SimpleMarkdownText
 from StoppableThread import StoppableThread
 from google import genai
-from google.genai import types
 import my_feedparser_rss
 
 from outils import (
@@ -530,29 +528,6 @@ class FenetrePrincipale(tk.Frame):
         self.bouton_Groq.configure(foreground="red", background="black")
         self.bouton_Groq.pack(side=tk.LEFT)
 
-        # self.bouton_LargePolice = tk.Button(
-        #     self.canvas_buttons_banniere,
-        #     font=self.btn_font,
-        #     text="+",
-        #     command=self.enlarge,
-        #     relief="flat",
-        #     highlightthickness=3,
-        #     highlightcolor="yellow",
-        # )
-        # self.bouton_LargePolice.configure(foreground="red", background="black")
-        # self.bouton_LargePolice.pack(side=tk.LEFT)
-
-        # self.bouton_DiminuePolice = tk.Button(
-        #     self.canvas_buttons_banniere,
-        #     font=self.btn_font,
-        #     text="-",
-        #     command=self.diminue,
-        #     relief="flat",
-        #     highlightthickness=3,
-        #     highlightcolor="yellow",
-        # )
-        # self.bouton_DiminuePolice.configure(foreground="red", background="black")
-
         self.bouton_informations = tk.Button(
             self.canvas_buttons_banniere,
             font=self.btn_font,
@@ -696,13 +671,19 @@ class FenetrePrincipale(tk.Frame):
         9. Exits the program with status code 0.
         """
         get_stream().close()
-        lire("au revoir !")
+
+        print("*"*os.get_terminal_size().columns)
+        print(Fore.CYAN + "Arrêt des threads en cours..."+Fore.RESET)
         self.delete_all_threads()
         time.sleep(2)
+        print(Fore.YELLOW + "Fermeture des fenêtres..."+Fore.RESET)
         self.master.destroy()
         time.sleep(2)
         self.quit()
         time.sleep(2)
+        print(Fore.RED + "Fermeture de l'application..."+Fore.RESET)
+
+        lire("au revoir !")
         exit(0)
 
     def delete_all_threads(self):
@@ -721,20 +702,20 @@ class FenetrePrincipale(tk.Frame):
         mainthread = threading.main_thread()
         for i in threading.enumerate():
             if i != mainthread:
-                print(f"ThreadThreading::{i.getName()}")
+                print(f"{Fore.CYAN}ThreadThreading::{i.getName()}{Fore.RESET}")
                 i.stop()  # type: ignore
 
         for j in self.threads:
             if isinstance(j, StoppableThread):
-                print(f"ThreadThreads::{j.getName()}")
+                print(f"{Fore.CYAN}ThreadThreads::{j.getName()}{Fore.RESET}")
                 j.stop()
 
         for t in threads_outils:
-            print(f"ThreadThreading::{t.getName()}")
+            print(f"{Fore.CYAN}ThreadOutils::{t.getName()}{Fore.RESET}")
             t.stop() if isinstance(t, StoppableThread) else None
 
         for element in threading.enumerate():
-            print(f"threading_enumerated {element}")
+            print(f"{Fore.CYAN}threading_enumerated {element}{Fore.RESET}")
 
     def enlarge(self):
         self.btn_font.configure(size=(self.btn_font.cget("size") + 2))
@@ -791,7 +772,6 @@ class FenetrePrincipale(tk.Frame):
             threads_outils.append(this_thread)
             lire("un instant s'il vous plait")
             _nb_chars = len(self.get_submission())
-            print("nombre de charactères:: " + str(_nb_chars))
             if _nb_chars >= 3000:
                 new_prompt_list = _traitement_du_texte(self.get_submission(), 200)
                 lire(
@@ -833,6 +813,7 @@ class FenetrePrincipale(tk.Frame):
         Returns:
             None
         """
+        max_largeur= os.get_terminal_size().columns
         if (
             self.get_thread() is not None
             and self.get_thread().getName() == "mode_veille"
@@ -855,11 +836,9 @@ class FenetrePrincipale(tk.Frame):
         self.get_thread().start()
         threads_outils.append(self.get_thread())
 
-        print("Infos Threads:\n***************************************")
+        print(Fore.LIGHTGREEN_EX+"*"*max_largeur+"\nInfos Threads:\n")
         for element in self.get_thread().__dict__:
-            print(element + "::" + str(self.get_thread().__dict__[element]))
-
-        # self.get_thread().join()
+            print(Fore.GREEN+element + "::" + str(self.get_thread().__dict__[element])+Fore.RESET)
 
     def get_synonymsOf(self, expression):
         prompt = f"en français exclusivement et sous la forme d'une liste sans puce, donne 20 façons différentes de dire : \
@@ -905,15 +884,15 @@ class FenetrePrincipale(tk.Frame):
 
         _content = _content + await self.mode_veille()
 
-        print("Sortie de mode interactif")
+        print(Fore.RED+"Sortie de mode interactif"+Fore.RESET)
 
         return True
 
     async def mode_veille(self):
         content_commandes_vocales = str()
         self.set_mode_prompt_off()
-        max_long = os.get_terminal_size().columns
         while True:
+            max_long = os.get_terminal_size().columns
             if get_stream().is_stopped():
                 get_stream().start_stream()
 
@@ -1514,6 +1493,7 @@ class FenetrePrincipale(tk.Frame):
         time.sleep(1)
 
     def about_africa(self):
+        max_long = os.get_terminal_size().columns
         rubrique = []
         feeds = [
             "https://www.africanews.com/feed/rss?themes=news,"
@@ -1521,7 +1501,6 @@ class FenetrePrincipale(tk.Frame):
             "https://feeds.feedburner.com/LaLettre-fr",
             "https://feeds.feedburner.com/IntelligenceOnline/",
         ]
-        max_long = os.get_terminal_size().columns
         for item in feeds:
             resultat = str()
             feed = my_feedparser_rss.feedparser.parse(item)
@@ -1530,18 +1509,19 @@ class FenetrePrincipale(tk.Frame):
                 resultat += translate_it(str(entry.title)) + "\n"
                 resultat += translate_it(str(entry.description)) + "\n"
 
-            print("\n" + "*" * max_long + "\n" + resultat + "\n" + "*" * max_long)
+            print(Fore.BLUE+"\n" + "*" * max_long + "\n" + resultat + "\n" + "*" * max_long+Fore.RESET)
             rubrique.append(resultat)
 
         return rubrique
 
     def get_all_africa_news(self):
+        max_long = os.get_terminal_size().columns
         self.calice = []
         lire("récupérations des actualités africaines en cours...")
         self.set_mode_prompt_off()
         recup = self.about_africa()
         print(f"longueur du resultat : {recup.__len__()}")
-        print(recup[0])
+        print(Fore.BLUE+"\n" + "*" * max_long + "\n" + recup[0] + "\n" + "*" * max_long+Fore.RESET)
 
     async def get_all_news(self):
         self.calice = []
@@ -2825,7 +2805,7 @@ class FenetrePrincipale(tk.Frame):
         try:
             self.responses.remove(conversation.id)
         except Exception as e:
-            print(f"{e} ==> la fentre {conversation.id} est déjà effacée")
+            print(f"{e} ==> la fenetre {conversation.id} est déjà effacée")
         conversation.destroy()
         conversation.canvas_edition.destroy()
         self.fenetre_scrollable.update()
@@ -2909,11 +2889,13 @@ class FenetrePrincipale(tk.Frame):
 
         The output is divided into sections with asterisks and dashes for readability.
         """
+        max_long = os.get_terminal_size().columns
+
         print("liste des conversations\n************************************")
         for item in self.get_prompts_history():
             print(
                 item["fenetre_name"]
-                + ":: \n-----------------------"
+                + ":: \n"+"-"*max_long
                 + "\nPrompt:: "
                 + str(
                     item["prompt"][:60] + "... "
@@ -2927,17 +2909,17 @@ class FenetrePrincipale(tk.Frame):
                     else item["response"] + "\n"
                 )
             )
-        print("************************************")
+        print("="*max_long)
         for item in self.responses:
             suzi: Conversation = self.nametowidget(item)
             audrey = suzi.get_entree_question().get_text()
             julia = suzi.get_entree_response().get_text()
             print(
                 suzi.widgetName
-                + ":: \n-----------------------"
+                + ":: \n"+"-"*max_long
                 + "\nPrompt:: "
                 + str(audrey[:60] + "... " if len(audrey) >= 59 else audrey)
                 + RESPONSE
                 + str(julia[:59] + "...\n" if len(julia) >= 60 else julia + "\n")
             )
-        print("************************************")
+        print("="*max_long)
