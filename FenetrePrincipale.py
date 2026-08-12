@@ -9,6 +9,7 @@ from asyncio.log import logger
 from datetime import datetime
 from secret import GROQ_API_KEY, GEMINI_API_KEY
 import random
+import subprocess
 import time
 from tkinter import filedialog, messagebox, simpledialog
 from typing import Any, Tuple
@@ -73,7 +74,7 @@ from outils import (
     create_asyncio_task,
     lancer_chrome,
     lancer_search_chrome,
-    lecteur_init,
+    synthese_piper,
     from_rgb_to_tkcolors,
     get_groq_ia_list,
     get_pre_prompt,
@@ -847,7 +848,7 @@ class FenetrePrincipale(tk.Frame):
         if _:
             try:
                 llm = _.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-flash-latest",
                     contents=[prompt],
                     config={
                         # 'response_mime_type': 'application/json',
@@ -1260,7 +1261,7 @@ class FenetrePrincipale(tk.Frame):
                 f"Titre:{item.title}\nDescription:{item.description}\nContent:{item.content}"
                 for item in articles
             ]
-            _my_prepared = ask_to_resume(prompt="\n".join(_prepared))
+            _my_prepared = await ask_to_resume(prompt="\n".join(_prepared))
             if _my_prepared:
                 lire(str(_my_prepared))
 
@@ -1786,8 +1787,10 @@ class FenetrePrincipale(tk.Frame):
         self.get_prompts_history().append(
             {
                 "fenetre_name": fenetre_name,
-                "prompt": ask_to_resume(self.get_client(), prompt, self.get_model()),
-                "response": ask_to_resume(
+                "prompt": await ask_to_resume(
+                    self.get_client(), prompt, self.get_model()
+                ),
+                "response": await ask_to_resume(
                     self.get_client(), ai_response, self.get_model()
                 ),
             },
@@ -2273,10 +2276,8 @@ class FenetrePrincipale(tk.Frame):
                 w.focus_get().destroy()  # type: ignore
 
     def stoppeur(self):
-        lecteur = lecteur_init()
-        if lecteur._inLoop:
-            lecteur.endLoop()
-            lecteur.stop()
+        """Coupe la lecture vocale en cours (aplay)."""
+        subprocess.run(["pkill", "-x", "aplay"], check=False)
 
     def affiche_prepromts(self, list_to_check: list):
         """
@@ -2580,9 +2581,20 @@ class FenetrePrincipale(tk.Frame):
                     )
                     or "my_texte"
                 )
-                lecteur_init().save_to_file(
-                    texte_to_save_to_mp3, file_name_mp3.lower() + ".mp3"
-                )
+                wav = synthese_piper(str(texte_to_save_to_mp3))
+                if wav:
+                    subprocess.run(
+                        [
+                            "ffmpeg",
+                            "-y",
+                            "-loglevel",
+                            "error",
+                            "-i",
+                            wav,
+                            file_name_mp3.lower() + ".mp3",
+                        ],
+                        check=True,
+                    )
                 lire("terminé")
         else:
             print("rien à transformer")

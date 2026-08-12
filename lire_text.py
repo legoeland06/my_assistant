@@ -16,8 +16,7 @@ Functions:
 """
 
 import pyperclip
-import pyttsx3
-from google import genai
+import google.genai as genai
 from secret import GEMINI_API_KEY
 from pydantic import BaseModel
 from colorama import Fore, Style
@@ -73,20 +72,24 @@ def translate_it(
         else nettoyer_texte("\n".join(text_to_translate))
     )
 
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
 
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=reformat_translated
-        + "\nRépond au format : {'response':[la traduction]}"
-        + f", en faisant une traduction fidèle [en {target} exclusivement] de ce texte.",
-        config={
-            "response_mime_type": "application/json",
-            "response_schema": Recipe,
-        },
-    )
-    casted_response = response.parsed.model_dump()["response"]  # type: ignore
-    return casted_response or str()
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=reformat_translated
+            + "\nRépond au format : {'response':[la traduction]}"
+            + f", en faisant une traduction fidèle [en {target} exclusivement] de ce texte.",
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": Recipe,
+            },
+        )
+        casted_response = response.parsed.model_dump()["response"]  # type: ignore
+        return casted_response or str()
+    except Exception as e:
+        print(f"translate_it : erreur Gemini ({e}) — texte brut renvoyé")
+        return reformat_translated or str()
 
 def nettoyer_texte(text: str):
     """
@@ -138,28 +141,40 @@ def lancer(text: str = str(), langue: str = "français(FR)"):
     Returns:
         None
     """
-    _max_long = os.get_terminal_size().columns
-
     if not text:
         return
+    _max_long = os.get_terminal_size().columns
     _sortie = prepare_to_read(text=text, target=langue)
     if _sortie.__len__() == 0:
         print(Fore.RED + "prepare_to_read() : pas de texte à lire" + Style.RESET_ALL)
         return
 
     # illustration du texte à lire
-    print(Fore.GREEN +"Lecture en cours...\n"+ "*" * _max_long + Style.RESET_ALL)
+    print(Fore.GREEN + "Lecture en cours...\n" + "*" * _max_long + Style.RESET_ALL)
     for element in _sortie:
         print(Fore.YELLOW + element + Style.RESET_ALL)
     print(Fore.GREEN + "*" * _max_long + "\n" + Style.RESET_ALL)
 
-    _voice = pyttsx3.Engine()
-    _voice.setProperty("rate", 150)
-    _voice.setProperty("volume", 0.9)
-    _voice.say("".join(_sortie))
-    _voice.runAndWait()
+    # Synthèse via le serveur piper local (:5000) puis lecture aplay
+    try:
+        import requests
+
+        response = requests.post(
+            "http://localhost:5000/",
+            json={"text": " ".join(_sortie)},
+            timeout=120,
+        )
+        response.raise_for_status()
+        wav_path = "/tmp/kiki_lecture.wav"
+        with open(wav_path, "wb") as f:
+            f.write(response.content)
+        subprocess.run(["aplay", "-q", wav_path], check=True)
+    except Exception as e:
+        print(Fore.RED + f"piper :5000 indisponible ({e})" + Style.RESET_ALL)
 
 
 if __name__ == "__main__":
-    text = get_clipboard_text()
-    lancer(text=text)
+    import sys
+
+    # usage : python lire_text.py "texte à lire"
+    lancer(text=" ".join(sys.argv[1:]))

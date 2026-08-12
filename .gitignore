@@ -1,0 +1,34 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# ── Environnement virtuel du projet (370 Mo, ne PAS commiter) ──
+assistant/
+
+# ── Secrets & clés API ─────────────────────────────────
+secret.py
+.env
+*.env
+
+# ── Artefacts générés par l'application ────────────────
+ai.resume_web.*
+ai_response.*
+ai_resume.*
+ai.resume_image.*
+recognized_text.*
+saved_text.*
+index.html
+
+# ── Exports utilisateur ────────────────────────────────
+*.mp3
+
+# ── Fichiers système / éditeurs ────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

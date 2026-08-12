@@ -60,7 +60,6 @@ RESUME_WEB = "ai.resume_web"
 RESUME_IMAGE = "ai.resume_image"
 FINAL_ANSWER = "Final Answer"
 WIDTH_TERM = 80
-RAPIDITE_VOIX = 150
 STOP_TALKING: bool = False
 
 ROLE_TYPES = [
@@ -106,10 +105,8 @@ BACK_TO_MAIN_MENU = "retour au menu principal"
 LANGFR = "Lang=FR-fr, UTF-8"
 QUIT_MENU_COMMAND = "/quit"
 EXIT_APPLICATION_COMMAND = "/exit"
-IMAGE_PATH = "C:\\Users\\e_bru\\NEW_APP_PYTHON\\Lib\\images"
-FONT_PATH = "C:\\Users\\e_bru\\NEW_APP_PYTHON\\Lib\\fonts"
-MODEL_PATH = "C:\\Users\\e_bru\\NEW_APP_PYTHON\\Lib\\site-packages\\vosk\\vosk-model"
-MODEL_PATH_BIS = "vosk-model-fr-0.6-linto-2.2.0"
+IMAGE_PATH = "."
+FONT_PATH = "/fonts"
 TRAITEMENT_EN_COURS = "Merci, un instant... Traitement en cours"
 TERMINAL_CLEAR = "Terminal effacé"
 REPONSE_TROUVEE = "Réponse trouvée..."

@@ -7,43 +7,37 @@ import io
 import random
 import subprocess
 import time
-from tkinter import simpledialog
-from word2number import w2n
 import webbrowser
 import PyPDF2
 from groq import Groq
 from openai import ChatCompletion  # type: ignore
 from PIL import Image, ImageTk
+from word2number import w2n
 
-import pyaudio
-import pyttsx3
 import datetime
 import json
+import os
 import tkinter as tk
 from tkinter import filedialog
 from tkinter import messagebox
 from typing import Any, List, Tuple
-import vosk
 import ollama
 from llama_index.llms.ollama import Ollama as Ola
 import markdown
 import requests
-from openai import OpenAI
+# from openai import OpenAI
 from Constants import (
     ANNULE,
-    BYEBYE,
     DICT_NUMBERS,
     FINAL_ANSWER,
     GOOGLECHROME_APP,
     INFOS_PROMPTS,
     LIENS_CHROME,
     LLAMA370B,
-    MODEL_PATH,
     NON,
     OUI,
     PREPROMPTS,
     PROMPTS_SYSTEMIQUES,
-    RAPIDITE_VOIX,
     REQUEST_TIMEOUT_DEFAULT,
     RESUME_WEB,
     SEPARATION_MD,
@@ -62,25 +56,11 @@ from secret import GROQ_API_KEY, NEWS_API_KEY
 threads_outils = []
 
 
-def charge_vosk_kaldi():
-    return vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
-
-
 def lire(text: str, langue: str = "français(FR)"):
     if text:
         lt.lancer(text=text, langue=langue)
     else:
         return
-
-
-def charge_pyaudio():
-    return pyaudio.PyAudio().open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16_000,
-        input=True,
-        frames_per_buffer=8_192,
-    )
 
 
 def create_asyncio_task(async_function):
@@ -93,8 +73,82 @@ def create_asyncio_task(async_function):
     loop.close()
 
 
-init_engine = charge_vosk_kaldi()
-init_stream = charge_pyaudio()
+# ── Reconnaissance vocale : faster-whisper via l'environnement vocal du poste
+# ── (remplace Vosk — modèle introuvable ; même écosystème que parle.sh)
+VOCAL_ENV_PY = "/home/legoeland/piper/piper_env/bin/python3"
+VOCAL_STT_SCRIPT = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "vocal_stt.py"
+)
+MIC_DEVICE = "plughw:CARD=U20,DEV=0"
+
+
+class PseudoStream:
+    """API compatible avec l'ancien pyaudio.Stream (start/stop/is_stopped/close)."""
+
+    def __init__(self):
+        self._stopped = False
+
+    def start_stream(self):
+        self._stopped = False
+
+    def stop_stream(self):
+        self._stopped = True
+
+    def is_stopped(self) -> bool:
+        return self._stopped
+
+    def close(self):
+        self._stopped = True
+
+
+class PseudoEngine:
+    """API minimale compatible (Reset no-op — plus de streaming Vosk)."""
+
+    def Reset(self):
+        pass
+
+
+_stream_singleton = PseudoStream()
+
+
+def get_stream() -> PseudoStream:
+    return _stream_singleton
+
+
+def get_engine() -> PseudoEngine:
+    return PseudoEngine()
+
+
+def transcrire_vocal(max_sec: float = 6.0) -> str:
+    """
+    Écoute le micro (VAD) et transcrit via faster-whisper (env piper).
+    Retourne le texte en minuscules, ou '' si rien d'intelligible.
+    """
+    if get_stream().is_stopped():
+        return ""
+    try:
+        result = subprocess.run(
+            [VOCAL_ENV_PY, VOCAL_STT_SCRIPT, str(max_sec), MIC_DEVICE],
+            capture_output=True,
+            text=True,
+            timeout=max_sec + 60,
+        )
+        return result.stdout.strip().lower()
+    except Exception as e:
+        print(f"transcrire_vocal : {e}")
+        return ""
+
+
+def attentif() -> str:
+    """
+    Écoute jusqu'à une phrase complète (VAD) et retourne le texte reconnu.
+    Retourne '' si le micro est coupé.
+    """
+    while not get_stream().is_stopped():
+        texte = transcrire_vocal(max_sec=6.0)
+        if texte:
+            return texte
+    return ""
 
 
 def initialise_conversation_audio() -> Tuple[bool, bool, str, str]:
@@ -112,61 +166,6 @@ def make_resume(text: str) -> str:
     Make a detailed and organized transcription of the content below:\n"""
         + text
     )
-
-
-def get_engine() -> vosk.KaldiRecognizer:
-    """
-    initialise le reconnaisseur vocal
-    et retourne son instance
-    """
-    if isinstance(init_engine, vosk.KaldiRecognizer):
-        return init_engine
-    else:
-        # initialise a voice recognizer
-        lire("charge du moteur de reconnaissance vocale...")
-        rec = vosk.KaldiRecognizer(vosk.Model(MODEL_PATH, lang="fr-fr"), 16000)
-        lire("moteur initialisé")
-        # set verbosity of vosk to NO-VERBOSE
-        vosk.SetLogLevel(-1)
-        # Initialize the model and return an instance
-        return rec
-
-
-def get_stream() -> pyaudio.Stream:
-    return pyaudio.PyAudio().open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=16_000,
-        input=True,
-        frames_per_buffer=8_192,
-    )
-
-
-def attentif(_stream=get_stream(), _engine=get_engine()) -> str:
-    """
-    ### Méthode d'écoute attentive de ce qu'il se passe dans le micro
-    * récupération du resultat et encapsulation dans un objet JSON
-    * retourne la partie text de l'objet JSON pour traitement ou un texte VIDE
-    """
-    while True:
-        try:
-            data_real_pre_vocal_command = _stream.read(
-                num_frames=8192, exception_on_overflow=False
-            )
-
-            if _engine.AcceptWaveform(data_real_pre_vocal_command):
-
-                # récupération du resultat et encapsulation dans un objet JSON
-                # on renvoi la partie text de l'objet JSON
-                return json.loads(_engine.Result())["text"].lower()
-        except Exception as e:
-            print(f"{e}")
-            return (
-                simpledialog.askstring(
-                    title="pas de micro", prompt="entrez votre commande"
-                )
-                or str()
-            )
 
 
 def random_je_vous_ecoute() -> str:
@@ -223,28 +222,17 @@ def question_ouverte(
             f"Les choix possibles sont : {str([chx.split(" :: ")[0] for chx in choix])}"
         )
 
-    now = time.perf_counter()
+    get_stream().start_stream()
     while True:
-        get_stream().start_stream() if get_stream().is_stopped() else None
-
-        data_real_pre_vocal_command = get_stream().read(
-            num_frames=8192, exception_on_overflow=False
-        )
-
-        if get_engine().AcceptWaveform(data_real_pre_vocal_command):
-
-            response = str(json.loads(get_engine().Result())["text"]).lower()
-            print(time.perf_counter() - now)
-            if (
-                response.__len__() >= 2
-                or choix.__len__()
-                and any(keywords in response for keywords in choix)
-            ):
-                return response
-            if time.perf_counter() - now >= 5.0:
-                lire("je n'ai pas compris votre réponse, ma question était: ")
-                break
-    return question_ouverte(question=question, choix=choix, is_not_understood=True)
+        response = attentif()
+        if response and (
+            response.__len__() >= 2
+            or choix.__len__()
+            and any(keywords in response for keywords in choix)
+        ):
+            return response
+        lire("je n'ai pas compris votre réponse, ma question était: ")
+        lire(question)
 
 
 def from_rgb_to_tkcolors(rgb):
@@ -546,18 +534,24 @@ def text_to_number(text: str) -> int:
     return 10
 
 
-def lecteur_init():
+def synthese_piper(texte: str, out_file: str = "/tmp/kiki_synthese.wav") -> str:
     """
-    ## initialise le Lecteur de l'application
-    * initialise pyttsx3 avec la langue française
-    * set la rapidité de locution.
-    #### RETURN : lecteur de type Any|Engine
+    Synthèse vocale via le serveur piper local (http://localhost:5000).
+    Retourne le chemin du WAV généré, ou '' en cas d'échec.
     """
-    lecteur = pyttsx3.init()
-    lecteur.setProperty("lang", "french")
-    lecteur.setProperty("rate", RAPIDITE_VOIX)
-
-    return lecteur
+    try:
+        response = requests.post(
+            "http://localhost:5000/",
+            json={"text": texte},
+            timeout=120,
+        )
+        response.raise_for_status()
+        with open(out_file, "wb") as target:
+            target.write(response.content)
+        return out_file
+    except Exception as e:
+        print(f"synthese_piper : {e}")
+        return ""
 
 
 def affiche_preprompts():
@@ -610,15 +604,10 @@ def lire_url(url: str) -> str:
     return url
 
 
-def merci_au_revoir(
-    lecteur: pyttsx3.Engine,
-    stream_to_stop: pyaudio.Stream,
-):
-    # Stop and close the stream_to_stop
-    lecteur.say(BYEBYE, False)
-    lecteur.stop()
-    stream_to_stop.stop_stream()
-    stream_to_stop.close()
+def merci_au_revoir(lecteur=None, stream_to_stop=None):
+    if stream_to_stop is not None:
+        stream_to_stop.stop_stream()
+        stream_to_stop.close()
     au_revoir()
 
 
@@ -790,7 +779,7 @@ async def check_content(
                 bonne_liste += recherche + "\n\n"
 
             content += "\nRésultat des recherches : \n" + str(
-                bonne_liste if len(str(recherche)) else ""
+                bonne_liste if result_recherche else ""
             )
 
         # si on a trouvé la phrase << en mode débridé >>
@@ -846,7 +835,7 @@ async def make_api_call(client, messages, max_tokens, is_final_answer=False):
     for attempt in range(5):
         try:
             response = client.chat.completions.create(
-                model="llama-3.1-70b-versatile",
+                model="llama-3.3-70b-versatile",
                 messages=messages,
                 max_tokens=max_tokens,
                 temperature=0.2,
@@ -965,7 +954,7 @@ async def generate_response(client, prompt, min: str = "3", max: str = "5"):
 
 
 async def ask_to_ai(
-    agent_appel: Groq | OpenAI | ollama.Client | Ola.__class__,
+    agent_appel: Groq | ollama.Client | Ola.__class__,
     prompt: str,
     model_to_use,
     motcle,
@@ -990,12 +979,7 @@ async def ask_to_ai(
             ok_persistance,
         )
 
-    elif isinstance(agent_appel, OpenAI):
-        ai_response = await gestion_deepseek(
-            agent_appel,
-            model_to_use,
-            letexte,
-        )
+   
 
     elif isinstance(agent_appel, Ola.__class__):
         ai_response = gestion_ola(agent_appel, model_to_use, letexte)
@@ -1143,31 +1127,35 @@ def gestion_ollama(agent_appel, model_to_use, letexte):
         return str(responseError)
 
 
-def delais_to_re_ask(agent_appel, model_to_use, this_message):
+def delais_to_re_ask(agent_appel, model_to_use, this_message, max_attempts: int = 3):
+    """
+    Envoie la requête à l'IA avec tentatives bornées (plus de récursion infinie).
+    Retourne la réponse textuelle, ou une chaîne vide si toutes les tentatives échouent.
+    """
     llm = False
-    try:
-        llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
-            messages=this_message,
-            model=model_to_use,
-            temperature=1,
-            max_tokens=8000 if model_to_use == "deepseek-chat" else 4060,
-            n=1,
-            function_call="auto",
-            stream=False,
-            stop=None,
-            timeout=10,
-        )
+    for attempt in range(1, max_attempts + 1):
+        try:
+            llm: ChatCompletion = agent_appel.chat.completions.create(  # type: ignore
+                messages=this_message,
+                model=model_to_use,
+                temperature=1,
+                max_tokens=8000 if model_to_use == "deepseek-chat" else 4060,
+                n=1,
+                function_call="auto",
+                stream=False,
+                stop=None,
+                timeout=60,
+            )
+            break
+        except Exception as e:
+            print(f"tentative {attempt}/{max_attempts} échouée : {e}")
+            time.sleep(2)
 
-    except Exception:
-        print("retrying...")
-
-    if not llm:
-        time.sleep(2)
-        delais_to_re_ask(agent_appel, model_to_use, this_message)
-    else:
+    if llm:
         ai_response = str(llm.choices[0].message.content)
         print(ai_response)
         return ai_response
+    return str()
 
 
 async def loadimage(path: str) -> str:
